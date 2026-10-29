@@ -1,6 +1,6 @@
 # AGENTS.md
 
-GNOME Shell 扩展（Top Bar / 菜单 / Dash / GTK 主题）。纯 GJS，**无**构建、打包、lint、测试工具链：没有 `package.json` / `Makefile` / CI。
+GNOME Shell 扩展（Top Bar / 菜单 / Dash / GTK 主题）。纯 GJS，无构建系统、无 lint/测试框架（没有 `package.json` / `Makefile`）。CI 只有一个打包 workflow（`.github/workflows/package.yml`）。
 
 ## 目录与分支
 - `openbar@neuromorph/` 是唯一的安装单元，目录名必须等于 `metadata.json` 的 `uuid`。
@@ -44,6 +44,30 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
   `GetExtensionErrors` 返回 `@as []`、`$XDG_RUNTIME_DIR/io.github.neuromorph.openbar/stylesheet.css`
   已生成、`journalctl --user` 无 `JS ERROR` / `Gjs-CRITICAL`、shell pid 未变。
 
+## 发版
+
+发布走 GitHub Releases，不再提交到 extensions.gnome.org。
+
+1. 改 `openbar@neuromorph/metadata.json` 的 `version`，从当前值 +1（这是发布序号，不是语义化版本；历史 38→39→41→42→43）。
+2. 提交并推送 `main`。
+3. 打 tag 并推送，tag 名必须等于新版本号（允许 `v` 前缀）：
+   ```bash
+   git tag -a v43 -m "Open Bar 43: <摘要>" && git push origin v43
+   ```
+
+CI（`.github/workflows/package.yml`）行为：
+- `push` 到 `main` 或 `PR` → 只构建并上传 artifact `openbar-extension-zip`，不动 Release。
+- `push` tag → 额外把 zip 附到该 tag 的 Release，并用「Verify tag matches metadata version」校验 tag 名与 `version` 一致，不一致直接 fail。
+- Job 需要 `permissions: contents: write`，否则第 9 步 `Attach zip to release` 会因默认只读 token 失败。
+
+打包必须用 `zip -r`，**不要**用 `gnome-extensions pack`：后者只收集入口文件和 schema，会静默漏掉 `stylesheets.js` / `autothemes.js` / `quantize.js` / `utils.js` / `prefs.css` / `media/`，打出来的包装上就是坏的；而且它依赖 gnome-shell 环境，GitHub runner 上默认没有。workflow 里有显式清单校验（9 个必需条目 + uuid 匹配）防止回归。
+
+已在 Release 上的 tag 若要重发，需先删远端 tag 再重建指向修复后的 commit：
+```bash
+git push origin :refs/tags/v43
+git tag -a v43 -m "..." <commit> && git push origin v43
+```
+
 ## 数据流（改样式前先读这条）
 - `extension.js`：`enable()` 读 GSettings → 给 panel / panelBox 等加 CSS class（如 `openbar`）→ 调用样式生成；负责所有信号与窗口事件。
 - `stylesheets.js`：`getStylesheet()` 把 280+ 个设置项拼成**整份 CSS 字符串**，写入 `$XDG_RUNTIME_DIR/io.github.neuromorph.openbar/stylesheet.css`，再由 `St.ThemeContext` load；同一流程还会生成 GTK 主题和 Flatpak override。
@@ -57,7 +81,7 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
 - 设置键全按字符串访问，无类型检查：新增/改名设置要同时改 gschema XML、`prefs.js`（控件）、`stylesheets.js` / `extension.js`（读取处）。漏改不报错，只静默取默认值。
 - CSS 中的图标 `url()` 指向运行时目录的 `assets/`（启动时从 `media/assets` 复制），新增图标放 `media/assets`。
 - CSS 选择器与 `extension.js` 添加的 class 强耦合，改一边要同步另一边。
-- `metadata.json` 由 extensions.gnome.org 生成（`_generated` 字段）：`version` 由 EGO 分配，不要手改。
+- `metadata.json` 的 `_generated` 字段来自 extensions.gnome.org，不要动。但 `version` 现在**由本仓库手动维护**（改走 GitHub Releases 发布后不再由 EGO 分配），见下方「发版」。
 - 导入/导出设置走 `dconf dump|load /org/gnome/shell/extensions/openbar/`（键值文本），不是 JSON。
 - 生命周期必须对称：`enable()` 里 `connect` 的信号/定时器，`disable()` 必须断开/清除。历史上
   `_settings.connect('changed')` 未断开，导致 disable 后 `_settings = null` 仍被回调解引用报错。
