@@ -1,5 +1,5 @@
 
-# Open Bar (GNOME 4X Extension)  
+# Open Bar (GNOME 45–50 Extension)  
 
 
 A GNOME Shell extension for theming Gnome Top Bar / Top Panel, Menus, Dash/Dock, Gnome Shell and Gtk/Flatpak Apps.  
