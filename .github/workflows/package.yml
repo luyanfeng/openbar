@@ -1,0 +1,67 @@
+name: Package GNOME Shell Extension
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build extension zip
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Syntax check
+        run: |
+          for f in openbar@neuromorph/*.js; do
+            node --input-type=module --check < "$f" || exit 1
+          done
+
+      - name: Compile GSettings schema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-bin
+          glib-compile-schemas openbar@neuromorph/schemas/
+
+      - name: Build zip
+        run: |
+          mkdir -p dist
+          cd openbar@neuromorph
+          zip -r "../dist/openbar@neuromorph.shell-extension.zip" . -x '*.git*' -x '*.DS_Store'
+
+      - name: Verify package contents
+        run: |
+          ZIP=$(ls dist/*.zip)
+          echo "Built: $ZIP"
+          unzip -l "$ZIP"
+          NAMES=$(unzip -Z1 "$ZIP" | sed 's#/$##')
+          for required in metadata.json extension.js prefs.js stylesheets.js \
+                           autothemes.js quantize.js utils.js prefs.css media; do
+            if ! echo "$NAMES" | grep -qx "$required"; then
+              echo "::error::Missing required entry: $required"
+              exit 1
+            fi
+          done
+          UUID=$(python3 -c "import json;print(json.load(open('openbar@neuromorph/metadata.json'))['uuid'])")
+          if [ "$UUID" != "openbar@neuromorph" ]; then
+            echo "::error::uuid mismatch: $UUID"
+            exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openbar-extension-zip
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach zip to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
