@@ -14,8 +14,35 @@ GNOME Shell 扩展（Top Bar / 菜单 / Dash / GTK 主题）。纯 GJS，**无**
   对每个改动过的 `.js` 各跑一次。
 - 改了 schema XML 必须重编，否则设置键不生效：
   `glib-compile-schemas openbar@neuromorph/schemas/`（`gschemas.compiled` 已入库，需一并提交）
-- 运行时只能手动验证：软链/克隆到 `~/.local/share/gnome-shell/extensions/openbar@neuromorph` → Wayland 重新登录、Xorg `alt+f2` 输入 `r` → 跟踪日志
-  `journalctl -f -o cat /usr/bin/gnome-shell`（排错用 `SHELL_DEBUG=all`）。偏好窗口可用 `gnome-extensions prefs openbar@neuromorph`。
+
+### 隔离沙箱（首选运行时验证方式）
+在**完全不碰用户真实会话**的前提下加载扩展。全程产物落在临时目录：
+```bash
+H=/tmp/sb; mkdir -p $H/{config/glib-2.0/settings,data,cache,runtime}; chmod 700 $H/runtime
+GSETTINGS_BACKEND=keyfile XDG_CONFIG_HOME=$H/config XDG_DATA_HOME=$H/data \
+XDG_CACHE_HOME=$H/cache XDG_RUNTIME_DIR=$H/runtime gnome-extensions install --force --print-uuid ext.zip
+printf "[org/gnome/shell]\nenabled-extensions=['openbar@neuromorph']\n" > $H/config/glib-2.0/settings/keyfile
+dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
+  --wayland-display sbdisp --no-x11 --automation-script drive.js
+```
+- 必须 `dbus-run-session`：否则会连到真实会话的 `org.gnome.Shell` 并报 `already exists on bus`。
+- 必须 `GSETTINGS_BACKEND=keyfile`：否则读写用户真实 dconf。
+- `--automation-script` 是 **ES module**，导出 `export async function run()`；脚本内用
+  `Main.extensionManager.lookup('openbar@neuromorph')` 拿 `{state, error, stateObj}`，
+  `stateObj` 即扩展实例，可直接调 `updatePanelStyle` / `applyMenuStyles` / `setWindowMaxBar`
+  等方法覆盖真实会话才走的分支。
+- shell 退出时会打印 `mainloop.h ... assertion failed` 并以 134 退出，这是 perf harness
+  收尾行为，**不是崩溃**。
+- `--headless` 无法复现真实硬件合成器与其它扩展共存的情况；最终仍需用户在真机手动启用确认。
+
+### 真机验证纪律
+- **绝不** 向运行中的 `gnome-shell` 发 `SIGTERM` / `SIGHUP` / `kill` 来强制它重扫扩展目录。
+  Wayland 会话会失去合成器输出直接黑屏（已发生过）。新装扩展要么经 Extensions 应用启用，
+  要么让用户自己重启/注销。
+- 安装用 `cp -r` 或 `gnome-extensions install`，不要用符号链接指向工作区。
+- 启用后核查：`gnome-extensions info <uuid>`（状态 ACTIVE）、
+  `GetExtensionErrors` 返回 `@as []`、`$XDG_RUNTIME_DIR/io.github.neuromorph.openbar/stylesheet.css`
+  已生成、`journalctl --user` 无 `JS ERROR` / `Gjs-CRITICAL`、shell pid 未变。
 
 ## 数据流（改样式前先读这条）
 - `extension.js`：`enable()` 读 GSettings → 给 panel / panelBox 等加 CSS class（如 `openbar`）→ 调用样式生成；负责所有信号与窗口事件。
@@ -32,4 +59,8 @@ GNOME Shell 扩展（Top Bar / 菜单 / Dash / GTK 主题）。纯 GJS，**无**
 - CSS 选择器与 `extension.js` 添加的 class 强耦合，改一边要同步另一边。
 - `metadata.json` 由 extensions.gnome.org 生成（`_generated` 字段）：`version` 由 EGO 分配，不要手改。
 - 导入/导出设置走 `dconf dump|load /org/gnome/shell/extensions/openbar/`（键值文本），不是 JSON。
+- 生命周期必须对称：`enable()` 里 `connect` 的信号/定时器，`disable()` 必须断开/清除。历史上
+  `_settings.connect('changed')` 未断开，导致 disable 后 `_settings = null` 仍被回调解引用报错。
+- `applyMenuStyles()` 的 DateMenu 分支里 `clearBtn` 靠 `let` 在 if/else 外声明；曾经误用
+  `const` 声明在分支块内，使 GNOME 49/50 直接 `ReferenceError` 无法启用。
 - 代码风格沿用现状：4 空格缩进、分号、注释英文、UI 文案用 `_()` 包裹。

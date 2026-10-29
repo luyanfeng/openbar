@@ -75,6 +75,8 @@ Please download from following GitHub branch as per your Gnome version:
 - For Gnome 42-44: branch 'g42-44'
 - For Gnome 45+: branch 'main'
 
+Supported GNOME Shell versions (branch 'main'): 45, 46, 47, 48, 49, 50
+
 You will need to restart the Gnome Shell (for manual install):
 
 - Wayland: logout and login again 
@@ -101,6 +103,7 @@ If the panel/menu isn't looking right, you need to tweak some settings. There ar
 
 
 ## What's New (recent first)
+- GNOME Shell 50 support. Fixes the extension failing to enable on GNOME 49/50 and a settings handler left connected after disable.
 - Open Bar 2.0: New Auto-theming, Apply Styles to Dash/Dock, Shell and Gtk/Flatpak apps
 - Automatic FG color, Panel Box color, Light-gradient for menus and creative tweaks for border width and radius
 - Auto-theming options 
