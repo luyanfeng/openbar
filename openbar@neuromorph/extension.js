@@ -92,6 +92,7 @@ export default class Openbar extends Extension {
     constructor(metadata) {
         super(metadata);
         this._settings = null;
+        this._settingsSignalId = null;
         this._bgSettings = null;
         this._intSettings = null;
         this._hcSettings = null;
@@ -383,15 +384,16 @@ export default class Openbar extends Extension {
                         this.applySectionStyles(sectionList, add);
 
                         const msgHbox = msgbox.get_child_at_index(1); // hbox at botton for dnd and clear buttons
+                        let clearBtn;
                         if(this.gnomeVersion < 49) {
                             const dndBtn = msgHbox.get_child_at_index(1);
                             this.applyMenuClass(dndBtn, add);
                             const toggleSwitch = dndBtn.get_child_at_index(0);
                             this.applyMenuClass(toggleSwitch, add);
-                            const clearBtn = msgHbox.get_child_at_index(2);
+                            clearBtn = msgHbox.get_child_at_index(2);
                         }
                         else {
-                            const clearBtn = msgHbox.get_child_at_index(1);
+                            clearBtn = msgHbox.get_child_at_index(1);
                         }
                         this.applyMenuClass(clearBtn, add);
 
@@ -1414,7 +1416,7 @@ export default class Openbar extends Extension {
         this._settings.set_int('monitor-width', panelMonitor.width);
 
         // Connect to the settings changes
-        this._settings.connect('changed', (settings, key) => {
+        this._settingsSignalId = this._settings.connect('changed', (settings, key) => {
             this.updatePanelStyle(settings, key);
         });
 
@@ -1653,12 +1655,19 @@ export default class Openbar extends Extension {
         StyleSheets.saveGtkCss(this, 'disable');
         StyleSheets.saveFlatpakOverrides(this, 'disable');
 
+        // Disconnect settings handler before dropping the reference
+        if(this._settingsSignalId > 0) {
+            this._settings.disconnect(this._settingsSignalId);
+            this._settingsSignalId = null;
+        }
+
         this.main = null;
         this._settings = null;
         this._bgSettings = null;
         this._intSettings = null;
         this._hcSettings = null;
         this._shellSettings = null;
+        this._settingsSignalId = null;
     }
 }
 
