@@ -694,9 +694,14 @@ export class DedicatedWorkspaceGuard {
         }
         this._unwatchWindows();
         try {
-            if (this._originalBeginWindowDrag)
-                Main.overview.beginWindowDrag = this._originalBeginWindowDrag;
+            if (this._overviewProto && this._originalBeginWindowDrag)
+                this._overviewProto.beginWindowDrag = this._originalBeginWindowDrag;
+            if (this._overviewProto) {
+                delete this._overviewProto._isDedicatedFor;
+                delete this._overviewProto._hintBlockedMove;
+            }
         } catch (e) {}
+        this._overviewProto = null;
         this._originalBeginWindowDrag = null;
         this._injectionManager = null;
         this._owners = new Map();
@@ -776,20 +781,30 @@ export class DedicatedWorkspaceGuard {
         // Main.overview.beginWindowDrag(metaWindow) on drag start, which
         // survives recreation and is the reliable seam.
         try {
-            const overview = Main.overview;
-            this._originalBeginWindowDrag = overview.beginWindowDrag;
-            overview.beginWindowDrag = metaWindow => {
+            const proto = Object.getPrototypeOf(Main.overview);
+            this._overviewProto = proto;
+            this._originalBeginWindowDrag = proto.beginWindowDrag;
+            console.log(`Open Bar[drag]: patching beginWindowDrag on ` +
+                `${proto?.constructor?.name ?? '?'} ` +
+                `(own=${Object.prototype.hasOwnProperty.call(Main.overview, 'beginWindowDrag')}) ` +
+                `type=${typeof this._originalBeginWindowDrag}`);
+            proto.beginWindowDrag = function (metaWindow) {
                 try {
                     const ws = metaWindow?.get_workspace?.();
-                    if (ws && this.isDedicated(ws) && this._ownerOf(ws) === metaWindow) {
-                        this.showMessage(
-                            _('A fullscreen window cannot be moved to another workspace. ' +
-                              'Leave fullscreen first.'));
+                    if (ws && this._isDedicatedFor(ws, metaWindow)) {
+                        this._hintBlockedMove();
                         return;
                     }
                 } catch (e) {}
-                return this._originalBeginWindowDrag.call(overview, metaWindow);
+                return this._originalBeginWindowDrag?.call(this, metaWindow);
             };
+            // Bind helpers the patched method needs.
+            proto._isDedicatedFor = (ws, win) =>
+                this.isDedicated(ws) && this._ownerOf(ws) === win;
+            proto._hintBlockedMove = () =>
+                this.showMessage(
+                    _('A fullscreen window cannot be moved to another workspace. ' +
+                      'Leave fullscreen first.'));
         } catch (e) {
             console.warn('Open Bar: could not patch beginWindowDrag: ' + e.message);
         }
