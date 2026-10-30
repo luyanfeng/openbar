@@ -3098,6 +3098,33 @@ class OpenbarPrefs {
 
     // ---- Extension / shell log viewer ----
 
+    // Adw.PreferencesPage wraps its content in an Adw.Clamp with maximum-size
+    // 600, so pages stay in a narrow column no matter how wide the window is.
+    // Raising the clamp is the only way to let content use the full width; the
+    // property is a plain int (0 clamps to the child's minimum, not to nothing).
+    _widenPage(page) {
+        const findClamp = (w, depth) => {
+            if (!w || depth > 12)
+                return null;
+            if (w instanceof Adw.Clamp)
+                return w;
+            let child = w.get_first_child?.();
+            while (child) {
+                const found = findClamp(child, depth + 1);
+                if (found)
+                    return found;
+                child = child.get_next_sibling();
+            }
+            return null;
+        };
+
+        const clamp = findClamp(page, 0);
+        if (!clamp)
+            return;
+        clamp.maximum_size = 4096;
+        clamp.tightening_threshold = 2048;
+    }
+
     buildLogsPage(window) {
         const page = new Adw.PreferencesPage({
             name: 'logs',
@@ -3105,6 +3132,7 @@ class OpenbarPrefs {
             icon_name: 'utilities-terminal-symbolic',
         });
         window.add(page);
+        this._widenPage(page);
 
         // --- Extension errors (live, from the shell's extension system) ---
         const errGroup = new Adw.PreferencesGroup({
@@ -3114,16 +3142,21 @@ class OpenbarPrefs {
         });
         page.add(errGroup);
 
+        // TextView reports a natural width of 0 and does not expand on its own,
+        // so both it and its scroller need hexpand or the text stays in a narrow
+        // column no matter how wide the window gets.
         const errTextView = new Gtk.TextView({
             editable: false,
             monospace: true,
             wrap_mode: Gtk.WrapMode.WORD_CHAR,
             top_margin: 8, bottom_margin: 8, left_margin: 8, right_margin: 8,
+            hexpand: true,
         });
         const errScroll = new Gtk.ScrolledWindow({
             min_content_height: 180,
             child: errTextView,
             has_frame: true,
+            hexpand: true,
         });
         errGroup.add(errScroll);
 
@@ -3169,11 +3202,13 @@ class OpenbarPrefs {
             monospace: true,
             wrap_mode: Gtk.WrapMode.WORD_CHAR,
             top_margin: 8, bottom_margin: 8, left_margin: 8, right_margin: 8,
+            hexpand: true,
         });
         const logScroll = new Gtk.ScrolledWindow({
             min_content_height: 320,
             child: logView,
             has_frame: true,
+            hexpand: true,
         });
         logGroup.add(logScroll);
 
