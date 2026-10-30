@@ -30,6 +30,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as Calendar from 'resource:///org/gnome/shell/ui/calendar.js';
 import * as LayoutManager from 'resource:///org/gnome/shell/ui/layout.js';
+import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Quantize from './quantize.js';
@@ -38,6 +39,7 @@ import * as StyleSheets from './stylesheets.js';
 import { WallhubManager } from './wallhub.js';
 import { IntegrationsManager } from './integrations.js';
 import { ClipboardManager } from './clipboard.js';
+import { activeWholeConflicts } from './conflicts.js';
 
 Gio._promisify(Gio.File.prototype, "copy_async", "copy_finish");
 
@@ -1439,6 +1441,38 @@ export default class Openbar extends Extension {
         this.addRemoveFittsWidgets(false);
     }
 
+    // Tell the user that another extension is driving the same files. Shown once
+    // per enable through the message tray, since a silent log line is easy to
+    // miss and the symptom (one stylesheet overriding the other) looks like a
+    // bug in this extension.
+    showConflictWarning(conflicts) {
+        try {
+            if (!this._conflictSource) {
+                this._conflictSource = new MessageTray.Source({
+                    title: 'Open Gnome Box',
+                    'icon-name': 'dialog-warning-symbolic',
+                });
+                this._conflictSource.connect('destroy', () => {
+                    this._conflictSource = null;
+                });
+                Main.messageTray.add(this._conflictSource);
+            }
+
+            const names = conflicts.map(c => c.label).join('、');
+            const notification = new MessageTray.Notification({
+                source: this._conflictSource,
+                title: _('Conflicting extension enabled'),
+                body: _('%s is also enabled. Both extensions style the top bar and ' +
+                    'rewrite the GTK theme files, so only one of them can take effect. ' +
+                    'Please disable one.').format(names),
+                'is-transient': false,
+            });
+            this._conflictSource.addNotification(notification);
+        } catch (e) {
+            console.warn('Open Gnome Box: could not show the conflict warning: ' + e.message);
+        }
+    }
+
     postStartup() {
         this.postStartupId = setTimeout(() => {
             this.setPanelStyle(null, 'post-startup');
@@ -1618,6 +1652,26 @@ export default class Openbar extends Extension {
         StyleSheets.reloadStyle(this, this);
         // Add Open Gnome Box Flatpak Overrides
         StyleSheets.saveFlatpakOverrides(this, 'enable');
+
+        // Open Bar is the extension this one forked from: both generate a panel
+        // stylesheet and both rewrite the user's GTK css and flatpak overrides.
+        // If it is enabled as well, warn instead of silently fighting over the
+        // same files. The check is async because the shell serves its own
+        // extension list, and blocking on that call from inside the shell
+        // deadlocks it.
+        activeWholeConflicts()
+            .then(conflicts => {
+                if (this.disabling || conflicts.length === 0)
+                    return;
+                for (const c of conflicts) {
+                    console.warn(`Open Gnome Box: ${c.label} is also enabled and owns ` +
+                        'the same stylesheet and GTK theme files. Disable one of them.');
+                }
+                this.showConflictWarning(conflicts);
+            })
+            .catch(e => {
+                console.warn('Open Gnome Box: could not check for conflicting extensions: ' + e.message);
+            });
 
         // Apply the initial style
         this.updatePanelStyle(null, 'enabled');
@@ -1849,6 +1903,14 @@ export default class Openbar extends Extension {
                 this.clipboardManager = null;
             }
             this.clipboard = null;
+        }
+        catch(e) {}
+
+        try {
+            if(this._conflictSource) {
+                this._conflictSource.destroy();
+                this._conflictSource = null;
+            }
         }
         catch(e) {}
 

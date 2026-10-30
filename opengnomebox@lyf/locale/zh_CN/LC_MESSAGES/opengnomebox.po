@@ -904,3 +904,19 @@ msgstr "仅将已置顶条目保存到磁盘"
 
 msgid "Open Bar"
 msgstr "Open Bar"
+
+msgid "%s is also enabled"
+msgstr "%s 也已启用"
+
+msgid "%s is also enabled. Both extensions style the top bar and rewrite the GTK theme files, so only one of them can take effect. Please disable one."
+msgstr "%s 也已启用。两个扩展都会样式化顶栏并改写 GTK 主题文件，因此只有一个能生效。请停用其中一个。"
+
+msgid "Both extensions style the top bar and rewrite the GTK theme files, so only one can take effect."
+msgstr "两个扩展都会样式化顶栏并改写 GTK 主题文件，因此只有一个能生效。"
+
+msgid "Conflicting extension enabled"
+msgstr "存在冲突的扩展已启用"
+
+msgid "Disable %s"
+msgstr "停用 %s"
+

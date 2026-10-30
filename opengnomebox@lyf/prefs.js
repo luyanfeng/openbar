@@ -29,6 +29,8 @@ import {
     CONFLICTING_EXTENSIONS,
     conflictingExtensionEnabled,
     disableConflictingExtension,
+    activeWholeConflicts,
+    disableWholeConflict,
 } from './conflicts.js';
 import { buildClipboardPrefsPage } from './clipboardPrefs.js';
 
@@ -488,6 +490,11 @@ class OpenbarPrefs {
             icon_name: 'emblem-system-symbolic',
         });
         window.add(settingsPage);
+
+        // Open Bar itself, if still installed, drives the same stylesheet and
+        // GTK theme files as this extension. Surface that here, next to the
+        // settings it would silently override.
+        this._addWholeConflictBanner(settingsPage);
 
         const settingsGroup = new Adw.PreferencesGroup();
         settingsPage.add(settingsGroup);
@@ -3430,6 +3437,52 @@ class OpenbarPrefs {
         });
         dialog.add_response('close', _('Close'));
         dialog.present();
+    }
+
+    // Banner warning that a whole-extension conflict is active, with a button to
+    // disable the other extension. Only added when one is actually enabled.
+    async _addWholeConflictBanner(page) {
+        let conflicts;
+        try {
+            conflicts = await activeWholeConflicts();
+        } catch (e) {
+            return;
+        }
+        if (!conflicts || conflicts.length === 0)
+            return;
+
+        const group = new Adw.PreferencesGroup();
+        page.add(group);
+
+        for (const entry of conflicts) {
+            const row = new Adw.ActionRow({
+                title: _('%s is also enabled').format(entry.label),
+                subtitle: _('Both extensions style the top bar and rewrite the GTK ' +
+                    'theme files, so only one can take effect.'),
+            });
+            row.add_css_class('warning');
+
+            const button = new Gtk.Button({
+                label: _('Disable %s').format(entry.label),
+                valign: Gtk.Align.CENTER,
+            });
+            button.connect('clicked', () => {
+                disableWholeConflict(entry.uuid)
+                    .then(ok => {
+                        if (ok) {
+                            row.set_visible(false);
+                            return;
+                        }
+                        this._reportConflictFailure(entry.label);
+                    })
+                    .catch(e => {
+                        console.warn(`Open Gnome Box: ${e.message}`);
+                        this._reportConflictFailure(entry.label);
+                    });
+            });
+            row.add_suffix(button);
+            group.add(row);
+        }
     }
 
     buildClipboardPage(window) {

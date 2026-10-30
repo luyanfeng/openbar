@@ -48,6 +48,43 @@ export const CONFLICTING_EXTENSIONS = {
     },
 };
 
+// Extensions that conflict with Open Gnome Box as a whole rather than with one
+// optional feature. Open Bar is the extension this one was forked from: both
+// generate a stylesheet for the panel, both write ~/.config/gtk-{3,4}.0/gtk.css
+// and the flatpak overrides, so whichever loads last silently wins.
+export const CONFLICTING_WHOLE_EXTENSIONS = [
+    {
+        uuid: 'openbar@neuromorph',
+        label: 'Open Bar',
+    },
+];
+
+// Standalone extensions from CONFLICTING_EXTENSIONS that are currently enabled.
+// Unknown state counts as "not conflicting" so a missing shell does not block
+// the feature.
+export async function activeWholeConflicts() {
+    const found = [];
+    for (const entry of CONFLICTING_WHOLE_EXTENSIONS) {
+        const info = await foreignExtensionInfo(entry.uuid);
+        if (info?.enabled)
+            found.push(entry);
+    }
+    return found;
+}
+
+// Disable one of those extensions by uuid. Resolves true only when the shell
+// confirms it is no longer enabled.
+export async function disableWholeConflict(uuid) {
+    try {
+        await callRemote('DisableExtension', new GLib.Variant('(s)', [uuid]));
+        const info = await foreignExtensionInfo(uuid);
+        return !info?.enabled;
+    } catch (e) {
+        console.warn(`Open Gnome Box: could not disable ${uuid}: ${e.message}`);
+        return false;
+    }
+}
+
 function unpack(value) {
     return value && typeof value.deep_unpack === 'function'
         ? value.deep_unpack()
