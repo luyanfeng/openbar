@@ -742,16 +742,21 @@ export class FullscreenEmptyWorkspace {
         return this._maximizedToo() ? win.is_maximized() : win.fullscreen;
     }
 
-    // First workspace with no windows on this monitor, or -1.
-    _firstFree(manager, monitor) {
+    // Nearest workspace with no windows on this monitor. Prefers the closest
+    // index to `fromIndex` so the window does not jump further than necessary.
+    _firstFree(manager, monitor, fromIndex = 0) {
         const n = manager.get_n_workspaces();
+        const free = [];
         for (let i = 0; i < n; i++) {
             const count = manager.get_workspace_by_index(i).list_windows()
                 .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
             if (count < 1)
-                return i;
+                free.push(i);
         }
-        return -1;
+        if (free.length === 0)
+            return -1;
+        free.sort((a, b) => Math.abs(a - fromIndex) - Math.abs(b - fromIndex));
+        return free[0];
     }
 
     // Last occupied workspace before/after the current one, or -1.
@@ -791,7 +796,7 @@ export class FullscreenEmptyWorkspace {
             const manager = win.get_display().get_workspace_manager();
             const current = manager.get_active_workspace_index();
             const primaryOnly = this._primaryOnly();
-            let free = this._firstFree(manager, monitor);
+            let free = this._firstFree(manager, monitor, current);
 
             // With dynamic workspaces there may be no empty workspace yet: the
             // last one is only created on demand. Create one instead of giving
