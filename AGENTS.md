@@ -88,3 +88,49 @@ git tag -a v43 -m "..." <commit> && git push origin v43
 - `applyMenuStyles()` 的 DateMenu 分支里 `clearBtn` 靠 `let` 在 if/else 外声明；曾经误用
   `const` 声明在分支块内，使 GNOME 49/50 直接 `ReferenceError` 无法启用。
 - 代码风格沿用现状：4 空格缩进、分号、注释英文、UI 文案用 `_()` 包裹。
+
+## 全屏专用工作区（`integrations.js` → `FullscreenEmptyWorkspace`）
+macOS 式「全屏窗口独占一个 Space」的移植。改这块之前先读这条，里面有若干
+GNOME 无法实现、已反复试错确认的边界。
+
+**能工作**
+- 全屏/最大化 → 用 `append_new_workspace` + `reorder_workspace` 在相邻位置建
+  一个专用工作区，窗口移入并激活视图。
+- 退出 → 窗口回原工作区，**显式** `remove_workspace` 删除专用工作区。
+- 键盘移动跳过专用工作区；概览拖入被拒（`NO_DROP` + 红边框）；拖出被弹回并提示。
+- 缩略图置灰必须用 `_contents.opacity`，`set_style('opacity: …')` 无效。
+
+**必须遵守**
+- **不要依赖 mutter 自动清理空工作区**。`_checkWorkspaces` 把当前 active 工作区
+  视作非空、且只保证末尾有一个空工作区，中间的空工作区不会被可靠删掉。
+  只删「本功能创建 + 已空 + 非 active + 总数 > 2」的工作区。
+- 删除顺序必须是：移窗口 → 切回原工作区 → 再删除。反了会删不掉或删到用户
+  正在看的工作区。
+- 防循环靠三层：`_lock()` 的 250ms 定时释放锁（**不能用 finally 立即释放**，
+  后续信号可能在下个主循环才到）、`_place` 的幂等检查、`_restore` 的状态表优先。
+  另外**绝不监听 `window-workspace-changed`**，那是最容易成环的信号。
+- 自己的移动必须走 `_guard.runInternal(...)`，否则会被自己的守卫拦下。
+- AutoMove 会 hook `_checkWorkspaces` 保留尾部空工作区，与删除冲突；**创建**
+  不受影响，不要再用「AutoMove 开启就整体 return」这种互斥（曾经这么写导致
+  全屏功能完全失效）。
+
+**已确认做不到（不要再试）**
+- **专用工作区里的窗口在概览中仍可发起拖拽**，松手才弹回并提示。纯视觉问题，
+  操作本身无法成功。试过三种方案都无效，根因是 `Workspace._addWindowClone`
+  每次打开概览都 `new WindowPreview(...)`，禁用到的永远是上一个实例；
+  而 patch `Main.overview.beginWindowDrag`（实例与原型都试过）在此版本 shell
+  没有被走到。除非找到新的稳定入口，否则接受现状。
+- 真正的「白名单」（任何窗口/任何途径都无法进入）没有对应 API：GNOME 没有任何
+  工作区级访问控制，只能事后用 `Meta.Window` 的 `workspace-changed` 纠正。
+
+**API 陷阱（这几个都踩过）**
+- `workspace-changed` 是 `Meta.Window` 的信号，**不是** `Meta.Display` 的。
+- `Meta.Workspace` 没有 `equal()`/`equals()`，比较用 `===` 或 `index()`。
+- `St.Label` 没有 `text_align`；`ClutterText` 没有 `set_font_size`（只有
+  `font-name`，如 `'Sans 20'`）。
+- `St.Bin.child` 只接受 ClutterActor；`St.ImageContent` 要挂在 `St.Widget.content`。
+- `Gio.Settings.bind()` 对 int 键与 `Adw.SpinRow.value`（double）类型不匹配时
+  **静默失败**，必须用 `notify::value` 手工写回。
+- `Meta.Window.prototype` 是 GI 原型，赋值不可靠；ES module 的导出函数
+  （如 `Main.moveWindowToMonitorAndWorkspace`）是只读绑定，也改不了。
+
