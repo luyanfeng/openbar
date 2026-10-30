@@ -902,3 +902,5 @@ msgstr "缓存文件上限（MB）"
 msgid "Only save pinned (favorite) entries to disk"
 msgstr "仅将已置顶条目保存到磁盘"
 
+msgid "Open Bar"
+msgstr "Open Bar"

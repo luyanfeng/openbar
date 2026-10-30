@@ -484,7 +484,7 @@ class OpenbarPrefs {
         // Create the Settings page
         const settingsPage = new Adw.PreferencesPage({
             name: 'settings',
-            title: _('Settings'),
+            title: _('Open Bar'),
             icon_name: 'emblem-system-symbolic',
         });
         window.add(settingsPage);
