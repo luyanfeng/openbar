@@ -3,3 +3,4 @@
 
 # pwf planning artifacts
 .planning/
+__pycache__/
