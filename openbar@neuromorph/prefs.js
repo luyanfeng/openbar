@@ -3344,8 +3344,12 @@ class OpenbarPrefs {
                 value: this._settings.get_int('battery-hide-on'),
             }),
         });
-        this._settings.bind('battery-hide-on', batteryLevel, 'value',
-            Gio.SettingsBindFlags.DEFAULT);
+        // Same int/double mismatch as status-spacing: bind would fail silently.
+        batteryLevel.connect('notify::value', () => {
+            const v = Math.round(batteryLevel.value);
+            if (this._settings.get_int('battery-hide-on') !== v)
+                this._settings.set_int('battery-hide-on', v);
+        });
         batteryExp.add_row(batteryLevel);
 
         const batteryAlways = new Adw.SwitchRow({
@@ -3370,8 +3374,14 @@ class OpenbarPrefs {
                 value: this._settings.get_int('status-spacing'),
             }),
         });
-        this._settings.bind('status-spacing', spacingValue, 'value',
-            Gio.SettingsBindFlags.DEFAULT);
+        // Settings.bind cannot target SpinRow.value: the key is an int while the
+        // row property is a double, and the mismatch makes the binding fail
+        // silently. Write the int explicitly so changes apply immediately.
+        spacingValue.connect('notify::value', () => {
+            const v = Math.round(spacingValue.value);
+            if (this._settings.get_int('status-spacing') !== v)
+                this._settings.set_int('status-spacing', v);
+        });
         spacingExp.add_row(spacingValue);
 
         // --- Finger gestures ---
@@ -3415,27 +3425,13 @@ class OpenbarPrefs {
             Gio.SettingsBindFlags.DEFAULT);
         fsExp.add_row(fsMaxSwitch);
 
-        // --- Auto move windows ---
-        const autoMoveGroup = new Adw.PreferencesGroup({
+        // --- Auto move windows (same framed expander style as the others) ---
+        const autoMoveExp = this._makeFeatureExpander(group, {
             title: _('Auto Move Windows'),
-            description: _('Send an application to a workspace whenever it opens a window.'),
-        });
-        page.add(autoMoveGroup);
-
-        const autoMoveExp = this._makeFeatureExpander(autoMoveGroup, {
-            title: _('Enable Auto Move'),
-            subtitle: _('Applies to windows opened after this is enabled.'),
+            subtitle: _('Send an application to a workspace whenever it opens a window.'),
             enabledKey: 'auto-move-windows',
         });
         autoMoveExp.expanded = true;
-
-        // Rules live in their own group so the list and the add-form do not
-        // crowd the enable switch.
-        const rulesGroup = new Adw.PreferencesGroup({
-            title: _('Rules'),
-            description: _('Application desktop id and the workspace it should open on.'),
-        });
-        page.add(rulesGroup);
 
         this._autoMoveRows = [];
 
@@ -3464,13 +3460,13 @@ class OpenbarPrefs {
 
         const refreshRules = () => {
             try {
-                this._autoMoveRows.forEach(r => rulesGroup.remove(r));
+                this._autoMoveRows.forEach(r => autoMoveExp.remove(r));
                 this._autoMoveRows = [];
                 const rules = this._settings.get_strv('auto-move-list');
                 for (let i = 0; i < rules.length; i++) {
                     const [appId, ws] = rules[i].split(':');
                     const row = makeRuleRow(appId, ws, i);
-                    rulesGroup.add(row);
+                    autoMoveExp.add_row(row);
                     this._autoMoveRows.push(row);
                 }
                 if (rules.length === 0) {
@@ -3479,17 +3475,13 @@ class OpenbarPrefs {
                         subtitle: _('Add one below.'),
                     });
                     empty.setSensitive(false);
-                    rulesGroup.add(empty);
+                    autoMoveExp.add_row(empty);
                     this._autoMoveRows.push(empty);
                 }
             } catch (e) {
                 console.warn('Open Bar: could not render auto-move rules: ' + e.message);
             }
         };
-
-        // Add-rule form, in its own group.
-        const addGroup = new Adw.PreferencesGroup({ title: _('Add a Rule') });
-        page.add(addGroup);
 
         const appEntry = new Gtk.Entry({
             placeholder_text: _('org.gnome.Nautilus.desktop'),
@@ -3499,7 +3491,7 @@ class OpenbarPrefs {
         const appRow = new Adw.ActionRow({ title: _('Application ID') });
         appRow.add_suffix(appEntry);
         appRow.activatable = false;
-        addGroup.add(appRow);
+        autoMoveExp.add_row(appRow);
 
         const wsAdjustment = new Gtk.Adjustment({
             lower: 1, upper: 36, step_increment: 1, page_increment: 1, value: 1,
@@ -3512,19 +3504,18 @@ class OpenbarPrefs {
         const wsRow = new Adw.ActionRow({ title: _('Workspace') });
         wsRow.add_suffix(wsSpin);
         wsRow.activatable = false;
-        addGroup.add(wsRow);
+        autoMoveExp.add_row(wsRow);
 
         const addRuleBtn = new Gtk.Button({
             label: _('Add Rule'),
             css_classes: ['pill'],
-            halign: Gtk.Align.START,
-            margin_top: 4,
-            margin_bottom: 4,
+            halign: Gtk.Align.END,
+            valign: Gtk.Align.CENTER,
         });
-        const btnRow = new Adw.ActionRow();
+        const btnRow = new Adw.ActionRow({ title: _('Add a Rule') });
         btnRow.activatable = false;
         btnRow.add_suffix(addRuleBtn);
-        addGroup.add(btnRow);
+        autoMoveExp.add_row(btnRow);
 
         addRuleBtn.connect('clicked', () => {
             const appId = appEntry.get_text().trim();

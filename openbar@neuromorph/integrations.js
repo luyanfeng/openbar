@@ -217,7 +217,6 @@ export class StatusAreaSpacing {
     _apply() {
         try {
             const rightBox = this._rightBox();
-            console.log(`Open Bar[diag]: spacing apply, rightBox=${!!rightBox}`);
             if (!rightBox)
                 return;
             const padding = this._settings.get_int('status-spacing');
@@ -225,11 +224,7 @@ export class StatusAreaSpacing {
             if (padding < 6)
                 this._styleLine += `; -minimum-hpadding: ${padding}px`;
 
-            const children = rightBox.get_children();
-            console.log(`Open Bar[diag]: spacing children=${children.length}, ` +
-                `classes=[${children.map(c => c.get_style_class_name?.() ?? '?').join(' | ')}]`);
-
-            for (const child of children)
+            for (const child of rightBox.get_children())
                 this._override(child, false);
 
             this._actorAddedId = rightBox.connect('child-added', (container, actor) => {
@@ -250,7 +245,7 @@ export class StatusAreaSpacing {
             this._actorAddedId = 0;
             if (rightBox) {
                 for (const child of rightBox.get_children())
-                    this._restore(child, false);
+                    this._restore(child);
             }
         } catch (e) {
             console.warn('Open Bar: status spacing remove failed: ' + e.message);
@@ -877,12 +872,16 @@ export class FullscreenEmptyWorkspace {
 
             const manager = win.get_display().get_workspace_manager();
             const current = manager.get_active_workspace_index();
+            const primaryOnly = this._primaryOnly();
+            const free = this._firstFree(manager, monitor);
+            const primary = win.get_display().get_primary_monitor();
+            console.log(`Open Bar[diag]: _place current=${current} free=${free} ` +
+                `primaryOnly=${primaryOnly} monitor=${monitor} primary=${primary} ` +
+                `nWorkspaces=${manager.get_n_workspaces()}`);
 
-            if (this._primaryOnly()) {
-                const primary = win.get_display().get_primary_monitor();
+            if (primaryOnly) {
                 if (monitor !== primary)
                     return;
-                const free = this._firstFree(manager, monitor);
                 if (free === -1)
                     return;
                 if (current < free) {
@@ -896,7 +895,6 @@ export class FullscreenEmptyWorkspace {
                     this._maximized.set(win.get_id(), 'reorder');
                 }
             } else {
-                const free = this._firstFree(manager, monitor);
                 if (free === -1)
                     return;
                 const currentList = win.get_workspace().list_windows()
