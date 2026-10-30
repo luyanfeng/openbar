@@ -795,23 +795,6 @@ export class FullscreenEmptyWorkspace {
 
     // ---- workspace helpers -------------------------------------------------
 
-    // Nearest workspace with no windows on `monitor`, or -1.
-    _firstFree(manager, monitor, fromIndex) {
-        const free = [];
-        for (let i = 0; i < manager.get_n_workspaces(); i++) {
-            const ws = manager.get_workspace_by_index(i);
-            if (!ws)
-                continue;
-            const count = ws.list_windows()
-                .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
-            if (count < 1)
-                free.push(i);
-        }
-        if (free.length === 0)
-            return -1;
-        free.sort((a, b) => Math.abs(a - fromIndex) - Math.abs(b - fromIndex));
-        return free[0];
-    }
 
     // ---- event handlers ----------------------------------------------------
 
@@ -928,29 +911,26 @@ export class FullscreenEmptyWorkspace {
             let dedicatedWs = null;
             let created = false;
 
-            const free = this._firstFree(manager, monitor, current);
-            if (free !== -1) {
-                dedicatedWs = manager.get_workspace_by_index(free);
-            } else {
-                // All workspaces busy: create one, but only when AutoMove is
-                // off (it hooks _checkWorkspaces and keeps trailing workspaces
-                // alive, which conflicts with creating/removing them here).
-                if (this._settings.get_boolean('auto-move-windows'))
-                    return;
-                try {
-                    const before = manager.get_n_workspaces();
-                    manager.append_new_workspace(false, global.get_current_time());
-                    if (manager.get_n_workspaces() > before) {
-                        const appended = manager.get_workspace_by_index(before);
-                        const desired = Math.min(current + 1, manager.get_n_workspaces() - 1);
-                        if (appended && appended.index() !== desired)
-                            manager.reorder_workspace(appended, desired);
-                        dedicatedWs = manager.get_workspace_by_index(desired);
-                        created = true;
-                    }
-                } catch (e) {
-                    console.warn('Open Bar: could not create a workspace: ' + e.message);
+            // macOS model: every fullscreen window gets its own Space. Always
+            // create a fresh workspace beside the current one instead of reusing
+            // an empty one, so two fullscreen windows never share a workspace.
+            // AutoMove hooks _checkWorkspaces and keeps trailing workspaces
+            // alive, which conflicts with creating/removing them here.
+            if (this._settings.get_boolean('auto-move-windows'))
+                return;
+            try {
+                const before = manager.get_n_workspaces();
+                manager.append_new_workspace(false, global.get_current_time());
+                if (manager.get_n_workspaces() > before) {
+                    const appended = manager.get_workspace_by_index(before);
+                    const desired = Math.min(current + 1, manager.get_n_workspaces() - 1);
+                    if (appended && appended.index() !== desired)
+                        manager.reorder_workspace(appended, desired);
+                    dedicatedWs = manager.get_workspace_by_index(desired);
+                    created = true;
                 }
+            } catch (e) {
+                console.warn('Open Bar: could not create a workspace: ' + e.message);
             }
             if (!dedicatedWs)
                 return;
@@ -1020,37 +1000,32 @@ export class FullscreenEmptyWorkspace {
             if (win.get_workspace()?.index() !== target.index())
                 win.change_workspace(target);
 
-            // Only drop the dedicated workspace when we created it, it is now
-            // empty, and we would stay above mutter's minimum of 2.
-            // In fixed-workspace mode gnome-shell's _checkWorkspaces() returns
-            // early and never manages workspaces itself, so remove_workspace()
-            // there is untested territory: skip the deletion and let the empty
-            // workspace stay, which is harmless with a fixed workspace count.
-            let dynamicWorkspaces = false;
-            try {
-                dynamicWorkspaces = this._mutterSettings?.get_boolean('dynamic-workspaces') ?? false;
-            } catch (e) {
-                dynamicWorkspaces = false;
-            }
-
-            if (st.created && dedicatedWs && dynamicWorkspaces &&
-                manager.get_n_workspaces() > 2) {
-                try {
-                    const stillAlone = this._isAloneOn(dedicatedWs, win);
-                    if (stillAlone && dedicatedWs.index() >= 0)
-                        manager.remove_workspace(dedicatedWs, global.get_current_time());
-                } catch (e) {
-                    // Keeping an empty workspace is harmless; never let cleanup
-                    // break the restore.
-                    console.warn('Open Bar: could not remove dedicated workspace: ' + e.message);
-                }
-            }
-
+            // Switch the view back BEFORE removing anything: mutter treats the
+            // active workspace as non-empty and would refuse to remove it, and
+            // removing the workspace the user is looking at is not something we
+            // want to attempt either.
             try {
                 if (target.index() >= 0 &&
                     target.index() !== manager.get_active_workspace_index())
                     target.activate(global.get_current_time());
             } catch (e) {}
+
+            // Remove the workspace we created for this window. Do not rely on
+            // mutter's automatic cleanup: it only reliably removes trailing
+            // empty workspaces and skips the active one, so a workspace in the
+            // middle would linger after the window left.
+            if (st.created && dedicatedWs && manager.get_n_workspaces() > 2) {
+                try {
+                    const stillAlone = this._isAloneOn(dedicatedWs, win);
+                    const notActive = dedicatedWs.index() !== manager.get_active_workspace_index();
+                    if (stillAlone && notActive && dedicatedWs.index() >= 0)
+                        manager.remove_workspace(dedicatedWs, global.get_current_time());
+                } catch (e) {
+                    // Leaving an empty workspace is harmless; never let cleanup
+                    // break the restore.
+                    console.warn('Open Bar: could not remove dedicated workspace: ' + e.message);
+                }
+            }
         } catch (e) {
             console.warn('Open Bar: could not restore window workspace: ' + e.message);
         } finally {
