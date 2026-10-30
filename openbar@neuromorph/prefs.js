@@ -2920,6 +2920,19 @@ class OpenbarPrefs {
         );
         generalGroup.add(intervalRow);
 
+        // Pause / resume automatic rotation (manual buttons keep working).
+        let pauseRow = new Adw.SwitchRow({
+            title: _('Pause Rotation'),
+            subtitle: _('Stop automatic wallpaper changes. Previous / next / random still work.'),
+        });
+        this._settings.bind(
+            'slideshow-paused',
+            pauseRow,
+            'active',
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        generalGroup.add(pauseRow);
+
         // --- Wallpaper paths group ---
         const pathsGroup = new Adw.PreferencesGroup({
             title: _('Wallpaper Sources'),

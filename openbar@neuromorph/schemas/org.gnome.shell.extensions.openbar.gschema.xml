@@ -1460,5 +1460,10 @@
       <summary>Slideshow interval</summary>
       <description>Number of interval units between wallpaper changes.</description>
     </key>
+    <key type="b" name="slideshow-paused">
+      <default>false</default>
+      <summary>Pause the wallpaper slideshow</summary>
+      <description>When true, the automatic wallpaper rotation is stopped. Manual previous/next/random still work.</description>
+    </key>
   </schema>
 </schemalist>

@@ -123,6 +123,7 @@ export class WallhubManager {
         this.wallpaperPathsSelected = this.settings.get_int('wallpaper-paths-selected');
         this.slideshowIntervalUnit = this.settings.get_enum('slideshow-interval-unit');
         this.slideshowInterval = this.settings.get_uint('slideshow-interval');
+        this._paused = this.settings.get_boolean('slideshow-paused');
 
         // First run with no configured sources: seed the system wallpaper
         // directory so the slideshow works out of the box and is visible in prefs.
@@ -150,6 +151,15 @@ export class WallhubManager {
             this.slideshowInterval = this.settings.get_uint('slideshow-interval');
             this.updateIntervalLabel();
             this.startLoop();
+        }));
+        // Keep the indicator in sync when the pref switch changes the value.
+        this._signalIds.push(this.settings.connect('changed::slideshow-paused', () => {
+            const paused = this.settings.get_boolean('slideshow-paused');
+            if (paused === this._paused)
+                return;
+            this._paused = paused;
+            this.startLoop();
+            this.updatePauseButton();
         }));
 
         this.buildIndicator();
@@ -355,6 +365,10 @@ export class WallhubManager {
             () => this.nextWallpaper(), () => this._peekNext());
         makeButton('media-playlist-shuffle-symbolic', _('Random'),
             () => this.randomWallpaper(), () => this._peekRandom());
+        this._pauseButton = makeButton(
+            this._paused ? 'media-playback-start-symbolic' : 'media-playback-pause-symbolic',
+            _('Pause / Resume'),
+            () => this.setPaused(!this._paused), null);
         makeButton('emblem-system-symbolic', _('Open Bar Settings'),
             () => this.ext.openPreferences(), null);
     }
@@ -568,27 +582,67 @@ export class WallhubManager {
     // ---- Timed rotation ----
 
     startLoop() {
-        if (this.loopSourceId != null)
+        if (this.loopSourceId != null) {
             GLib.source_remove(this.loopSourceId);
+            this.loopSourceId = null;
+        }
 
-        if (this.wallpaperQueue.length === 0) {
+        // Respect the paused flag: no timer is created while paused.
+        if (this._paused || this.wallpaperQueue.length === 0) {
             this.loopSourceId = null;
             return;
         }
 
         const interval = this.slideshowInterval * this.slideshowIntervalUnit;
+        // Guard against a zero/invalid interval producing a busy loop.
+        if (!Number.isFinite(interval) || interval <= 0) {
+            console.warn('Wallhub: invalid slideshow interval (' + interval + '), not starting loop');
+            this.loopSourceId = null;
+            return;
+        }
+
         this.loopSourceId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, interval, () => {
             if (this.ext.disabling) {
                 this.loopSourceId = null;
                 return GLib.SOURCE_REMOVE;
             }
-            if (this.wallpaperQueue.length === 0) {
+            if (this._paused || this.wallpaperQueue.length === 0) {
                 this.loopSourceId = null;
                 return GLib.SOURCE_REMOVE;
             }
             this.nextWallpaper();
             return GLib.SOURCE_CONTINUE;
         });
+    }
+
+    // Toggle the automatic rotation. Manual prev/next/random stay available.
+    // Writes back to GSettings so the preference switch and a restart stay in
+    // sync; the changed::slideshow-paused handler is the single place that
+    // applies the value (avoiding double work).
+    setPaused(paused) {
+        const value = Boolean(paused);
+        if (this._paused === value)
+            return;
+        this._paused = value;
+        try {
+            this.settings.set_boolean('slideshow-paused', value);
+        } catch (e) {
+            console.warn('Wallhub: could not persist slideshow-paused: ' + e.message);
+        }
+        this.startLoop();
+        this.updatePauseButton();
+    }
+
+    updatePauseButton() {
+        if (!this._pauseButton)
+            return;
+        try {
+            this._pauseButton.child.icon_name = this._paused
+                ? 'media-playback-start-symbolic'
+                : 'media-playback-pause-symbolic';
+        } catch (e) {
+            // icon updates must never break the menu
+        }
     }
 
     // ---- Source scanning ----
