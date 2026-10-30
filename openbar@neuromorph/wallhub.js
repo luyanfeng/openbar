@@ -13,6 +13,13 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+
+// Promisify the async GIO methods used for directory enumeration so they can be
+// awaited. Without these, the calls throw "At least 5 arguments required" because
+// GJS falls back to the callback form, which aborts updateQueue and the slideshow
+// never starts.
+Gio._promisify(Gio.File.prototype, 'enumerate_children_async', 'enumerate_children_finish');
+Gio._promisify(Gio.FileEnumerator.prototype, 'next_files_async', 'next_files_finish');
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 // ---- Bit flag helpers (wallpaper-paths-selected is an int bitmask) ----
@@ -78,6 +85,7 @@ export class WallhubManager {
         this.loopSourceId = null;
         this._signalIds = [];
         this._bgMenuInjected = false;
+        this._bgMenuMenus = new Set();
     }
 
     enable() {
@@ -186,20 +194,36 @@ export class WallhubManager {
                     // bgManager.backgroundActor._backgroundMenu is set by the original
                     const menu = bgManager.backgroundActor._backgroundMenu;
                     if (menu)
-                        this.addBackgroundMenuItem(menu);
+                        this.addBackgroundMenuHandlers(menu);
                 } catch (e) {}
             }
         );
         this._bgMenuInjected = true;
 
-        // Also add to already-existing managers
+        // Also wire already-existing managers
         try {
             Main.layoutManager._bgManagers.forEach(bgManager => {
                 const menu = bgManager.backgroundActor._backgroundMenu;
                 if (menu)
-                    this.addBackgroundMenuItem(menu);
+                    this.addBackgroundMenuHandlers(menu);
             });
         } catch (e) {}
+    }
+
+    // Attach open-state handlers so the "Next Wallpaper" item is re-added each
+    // time the menu opens. GNOME 50 rebuilds/re-lays-out the background menu on
+    // open, so a one-time add at creation is unreliable there.
+    addBackgroundMenuHandlers(menu) {
+        if (!menu || this._bgMenuMenus.has(menu))
+            return;
+        this._bgMenuMenus.add(menu);
+        menu.connect('open-state-changed', (m, isOpen) => {
+            if (isOpen && !this.ext.disabling)
+                this.ensureBackgroundMenuItem(m);
+        });
+        // In case it is already open at inject time
+        if (menu.isOpen)
+            this.ensureBackgroundMenuItem(menu);
     }
 
     removeBackgroundMenu() {
@@ -213,15 +237,15 @@ export class WallhubManager {
                 const menu = bgManager.backgroundActor._backgroundMenu;
                 if (!menu)
                     return;
-                menu._getMenuItems().forEach(item => {
-                    if (item.label_actor && item.label_actor.text === _('Next Wallpaper'))
-                        menu.box.remove_child(item.actor);
-                });
+                this.removeBackgroundMenuItem(menu);
             });
         } catch (e) {}
+        this._bgMenuMenus = new Set();
     }
 
-    addBackgroundMenuItem(menu) {
+    ensureBackgroundMenuItem(menu) {
+        // Remove any stale "Next Wallpaper" item first (idempotent on reopen)
+        this.removeBackgroundMenuItem(menu);
         const menuItem = new PopupMenu.PopupMenuItem(_('Next Wallpaper'));
         menuItem.connect('activate', () => {
             if (this.ext.disabling)
@@ -232,6 +256,15 @@ export class WallhubManager {
         });
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(null));
         menu.addMenuItem(menuItem);
+    }
+
+    removeBackgroundMenuItem(menu) {
+        try {
+            menu._getMenuItems().forEach(item => {
+                if (item.label_actor && item.label_actor.text === _('Next Wallpaper'))
+                    menu.box.remove_child(item.actor);
+            });
+        } catch (e) {}
     }
 
     startLoop() {
