@@ -957,7 +957,10 @@ export class DedicatedWorkspaceGuard {
                     this._ownerOf(thumb.metaWorkspace) !== source.metaWindow;
                 if (this.isDedicated(thumb.metaWorkspace) && isForeign) {
                     thumb.set_style('opacity: 0.35; border: 2px solid rgba(224,27,36,0.9);');
-                    return DND.DragMotionResult.CONTINUE;   // not a valid drop
+                    // NO_DROP turns the pointer into a "forbidden" cursor, so the
+                    // drag never looks like it could land here. CONTINUE would
+                    // show a normal move cursor and only fail on release.
+                    return DND.DragMotionResult.NO_DROP;
                 }
             } catch (e) {}
             return originalOver.call(thumb, source, actor, time);
@@ -996,8 +999,8 @@ export class DedicatedWorkspaceGuard {
             const label = new St.Label({
                 text,
                 style_class: 'openbar-space-hint',
-                style: 'background-color: rgba(0,0,0,0.75); color: #fff; ' +
-                    'padding: 10px 20px; border-radius: 8px; font-size: 13px;',
+                style: 'background-color: rgba(0,0,0,0.45); color: #ffffff; ' +
+                    'padding: 8px 18px; border-radius: 6px; font-size: 15px;',
                 x_align: Clutter.ActorAlign.CENTER,
             });
             // A full-stage container pinned by layout constraints is more
@@ -1097,11 +1100,16 @@ export class DedicatedWorkspaceGuard {
     // Probe the overview structure; used to debug the thumbnail lookup.
     _debugThumbnails(tag) {
         try {
-            const display = Main.overview?._overview?._controls?._workspacesDisplay;
-            const views = this._workspaceViews();
-            const counts = views.map(v => (v?._thumbnails?._thumbnails ?? []).length);
-            console.log(`Open Bar[diag] ${tag}: display=${!!display} views=${views.length} ` +
-                `thumbCounts=[${counts.join(',')}] dedicated=${this._dedicated.size} ` +
+            const thumbs = this._allThumbnails();
+            const info = thumbs.map(t => {
+                let idx = -1;
+                try {
+                    idx = t.metaWorkspace?.index?.() ?? -1;
+                } catch (e) {}
+                return `${idx}${this.isDedicated(t.metaWorkspace) ? 'D' : ''}`;
+            });
+            console.log(`Open Bar[diag] ${tag}: found=${thumbs.length} ` +
+                `[${info.join(' ')}] dedicated=${this._dedicated.size} ` +
                 `overviewVisible=${Main.overview?.visible}`);
         } catch (e) {
             console.log(`Open Bar[diag] ${tag}: error ${e.message}`);
