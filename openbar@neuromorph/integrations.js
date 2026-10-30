@@ -925,17 +925,35 @@ export class DedicatedWorkspaceGuard {
                     `(delegate=${preview?.constructor?.name ?? 'none'})`);
                 return;
             }
+
             const gesture = dnd._dndGesture;
-            const before = gesture ? gesture.enabled : null;
-            if (gesture && 'enabled' in gesture)
+            const actor = dnd.actor ?? preview;
+
+            // Belt and braces: disabling the action is the documented way, and
+            // removing it from the actor guarantees the gesture cannot fire even
+            // if something re-enables it. The action object is kept so it can be
+            // added back on restore.
+            if (gesture) {
                 gesture.enabled = draggable;
-            else
+                if (!draggable) {
+                    try {
+                        actor?.remove_action?.(gesture);
+                        dnd._openbarGestureRemoved = true;
+                    } catch (e) {}
+                } else if (dnd._openbarGestureRemoved) {
+                    try {
+                        actor?.add_action?.(gesture);
+                        dnd._openbarGestureRemoved = false;
+                    } catch (e) {}
+                }
+            } else {
                 dnd.enabled = draggable;
-            const afterGesture = gesture ? gesture.enabled : null;
+            }
+
             console.log(`Open Bar[drag]: win=${win?.get_id?.()} want=${draggable} ` +
-                `gesture=${!!gesture} before=${before} after=${afterGesture} ` +
-                `dndEnabled=${dnd.enabled} ` +
-                `gestureType=${gesture?.constructor?.name ?? '-'}`);
+                `gesture=${!!gesture} gestureEnabled=${gesture?.enabled} ` +
+                `removed=${!!dnd._openbarGestureRemoved} ` +
+                `actor=${actor?.constructor?.name ?? '-'}`);
         } catch (e) {
             console.warn('Open Bar: could not toggle window dragging: ' + e.message);
         }
