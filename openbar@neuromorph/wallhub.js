@@ -20,6 +20,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GdkPixbuf from 'gi://GdkPixbuf';
 import Cogl from 'gi://Cogl';
+import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
@@ -243,8 +244,8 @@ export class WallhubManager {
         this._previewItem.setSensitive(false);
 
         this._previewBox = new St.Bin({
-            x_align: St.Align.MIDDLE,
-            y_align: St.Align.MIDDLE,
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
             style: 'margin: 12px;',
             x_expand: true,
             y_expand: true,
@@ -288,16 +289,18 @@ export class WallhubManager {
                     return;
                 callback();
             });
-            btn.connect('enter-event', () => {
-                if (!this.ext.disabling)
-                    this._showPreviewFor(hoverPath ? hoverPath() : undefined);
-                return false;
-            });
-            btn.connect('leave-event', () => {
-                if (!this.ext.disabling)
-                    this.updatePreview();
-                return false;
-            });
+            // notify::hover is the reliable hover hook in the shell (enter/leave
+            // event handlers are not used by shell widgets).
+            if (hoverPath) {
+                btn.connect('notify::hover', () => {
+                    if (this.ext.disabling)
+                        return;
+                    if (btn.hover)
+                        this._showPreviewFor(hoverPath());
+                    else
+                        this.updatePreview();
+                });
+            }
             this._controlItem.add_child(btn);
             return btn;
         };
