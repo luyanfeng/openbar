@@ -680,7 +680,6 @@ export class DedicatedWorkspaceGuard {
         this._enabled = true;
         this._install();
         this._refreshThumbnails();
-        this._debugThumbnails('enable');
     }
 
     disable() {
@@ -1116,24 +1115,6 @@ export class DedicatedWorkspaceGuard {
     }
 
     // Probe the overview structure; used to debug the thumbnail lookup.
-    _debugThumbnails(tag) {
-        try {
-            const thumbs = this._allThumbnails();
-            const info = thumbs.map(t => {
-                let idx = -1;
-                try {
-                    idx = t.metaWorkspace?.index?.() ?? -1;
-                } catch (e) {}
-                return `${idx}${this.isDedicated(t.metaWorkspace) ? 'D' : ''}`;
-            });
-            console.log(`Open Bar[diag] ${tag}: found=${thumbs.length} ` +
-                `[${info.join(' ')}] dedicated=${this._dedicated.size} ` +
-                `overviewVisible=${Main.overview?.visible}`);
-        } catch (e) {
-            console.log(`Open Bar[diag] ${tag}: error ${e.message}`);
-        }
-    }
-
     // The overview keeps one view per monitor; both spellings exist in the
     // shell source, so try both.
     _workspaceViews() {
@@ -1159,7 +1140,6 @@ export class DedicatedWorkspaceGuard {
                 this._thumbnailsChangedId = global.workspace_manager.connect(
                     'notify::n-workspaces', () => {
                         this._refreshThumbnails();
-                        this._debugThumbnails('n-workspaces');
                     });
             }
             // Thumbnails only exist while the overview is up, so refresh every
@@ -1169,7 +1149,6 @@ export class DedicatedWorkspaceGuard {
                     this._refreshThumbnails();
                     for (const t of this._allThumbnails())
                         this._patchThumbnailDnD(t);
-                    this._debugThumbnails('showing');
                 });
             }
         } catch (e) {}
