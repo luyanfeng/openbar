@@ -818,16 +818,19 @@ export class FullscreenEmptyWorkspace {
                     return;
                 if (free === -1)
                     return;
-                // Swap the empty workspace into the active position so the window
-                // ends up on an otherwise empty workspace. The other windows are
-                // already on `current`, which after the swap is where `free` was,
-                // so they must NOT be moved again.
+                // Reorder the empty workspace into the active position, then move
+                // the other windows back to `current`. After reorder_workspace the
+                // windows that were on `current` travel with that workspace to
+                // `free`, so they must be moved back explicitly. This mirrors the
+                // upstream implementation.
                 if (current < free) {
                     manager.reorder_workspace(manager.get_workspace_by_index(free), current);
+                    others.forEach(w => w.change_workspace_by_index(current, false));
                     this._maximized.set(win.get_id(), 'reorder');
                 } else if (current > free) {
                     manager.reorder_workspace(manager.get_workspace_by_index(current), free);
                     manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
+                    others.forEach(w => w.change_workspace_by_index(current, false));
                     this._maximized.set(win.get_id(), 'reorder');
                 }
             } else {
