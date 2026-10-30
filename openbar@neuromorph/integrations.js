@@ -969,8 +969,6 @@ export class FullscreenEmptyWorkspace {
         if (!this._isNormal(win))
             return;
         const id = win.get_id();
-        console.log(`Open Bar[sc]: id=${id} change=${change} max=${win.is_maximized()} ` +
-            `fs=${win.fullscreen} tracked=${this._maximized.has(id)}`);
         if ((this._maximizedToo() && change === Meta.SizeChange.MAXIMIZE && win.is_maximized()) ||
             change === Meta.SizeChange.FULLSCREEN) {
             this._sizeChange.set(id, 'place');
@@ -981,7 +979,6 @@ export class FullscreenEmptyWorkspace {
         if ((this._maximizedToo() && change === Meta.SizeChange.UNMAXIMIZE && wasFullMax) ||
             (change === Meta.SizeChange.UNFULLSCREEN && (this._maximizedToo() ? !win.is_maximized() : true))) {
             this._sizeChange.set(id, 'back');
-            console.log(`Open Bar[sc]: id=${id} -> back`);
         }
     }
 
