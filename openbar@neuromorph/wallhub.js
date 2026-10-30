@@ -24,6 +24,7 @@ import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // Promisify the async GIO methods used for directory enumeration so they can be
 // awaited. Without these, the calls throw "At least 5 arguments required" because
@@ -101,7 +102,10 @@ export class WallhubManager {
 
         this.indicator = null;
         this._previewItem = null;
+        this._previewBox = null;
+        this._intervalItem = null;
         this._controlItem = null;
+        this._randomIdx = null;
     }
 
     enable() {
@@ -135,14 +139,26 @@ export class WallhubManager {
         }));
         this._signalIds.push(this.settings.connect('changed::slideshow-interval-unit', () => {
             this.slideshowIntervalUnit = this.settings.get_enum('slideshow-interval-unit');
+            this.updateIntervalLabel();
             this.startLoop();
         }));
         this._signalIds.push(this.settings.connect('changed::slideshow-interval', () => {
             this.slideshowInterval = this.settings.get_uint('slideshow-interval');
+            this.updateIntervalLabel();
             this.startLoop();
         }));
 
         this.buildIndicator();
+        this.updateIntervalLabel();
+        // Refresh preview and pick a fresh random candidate whenever the menu
+        // is opened, so both always reflect the current state.
+        this.indicator.menu.connect('open-state-changed', (menu, isOpen) => {
+            if (!isOpen || this.ext.disabling)
+                return;
+            this._randomIdx = null;
+            this.updateIntervalLabel();
+            this.updatePreview();
+        });
         this.updateQueue()
             .then(() => {
                 this.startLoop();
@@ -198,7 +214,10 @@ export class WallhubManager {
             this.indicator = null;
         }
         this._previewItem = null;
+        this._previewBox = null;
+        this._intervalItem = null;
         this._controlItem = null;
+        this._randomIdx = null;
 
         this.wallpaperQueue = null;
         this.bgSettings = null;
@@ -215,17 +234,32 @@ export class WallhubManager {
         });
         this.indicator.add_child(icon);
 
-        // Preview of the next wallpaper (non-interactive).
+        // Preview of the wallpaper the hovered/next action would apply. Wrapped
+        // in a container so the image keeps a margin on all four sides.
         this._previewItem = new PopupMenu.PopupBaseMenuItem({
             style_class: 'wallhub-preview',
             reactive: false,
         });
         this._previewItem.setSensitive(false);
 
-        // Control bar: previous / next / random.
+        this._previewBox = new St.Bin({
+            x_align: St.Align.MIDDLE,
+            y_align: St.Align.MIDDLE,
+            style: 'margin: 12px;',
+            x_expand: true,
+            y_expand: true,
+        });
+        this._previewItem.add_child(this._previewBox);
+
+        // Interval caption, e.g. "Every 10 seconds".
+        this._intervalItem = new PopupMenu.PopupMenuItem('');
+        this._intervalItem.setSensitive(false);
+
+        // Control bar: previous / next / random / settings.
         this._controlItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
         this.buildControls();
 
+        this.indicator.menu.addMenuItem(this._intervalItem);
         this.indicator.menu.addMenuItem(this._previewItem);
         this.indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.indicator.menu.addMenuItem(this._controlItem);
@@ -234,7 +268,9 @@ export class WallhubManager {
     }
 
     buildControls() {
-        const makeButton = (iconName, tooltip, callback) => {
+        // hoverPath: preview path to show while the pointer is over this button
+        // (undefined = keep the default next-wallpaper preview).
+        const makeButton = (iconName, tooltip, callback, hoverPath) => {
             const btnIcon = new St.Icon({
                 icon_name: iconName,
                 style_class: 'popup-menu-icon',
@@ -252,13 +288,28 @@ export class WallhubManager {
                     return;
                 callback();
             });
+            btn.connect('enter-event', () => {
+                if (!this.ext.disabling)
+                    this._showPreviewFor(hoverPath ? hoverPath() : undefined);
+                return false;
+            });
+            btn.connect('leave-event', () => {
+                if (!this.ext.disabling)
+                    this.updatePreview();
+                return false;
+            });
             this._controlItem.add_child(btn);
             return btn;
         };
 
-        makeButton('media-skip-backward-symbolic', _('Previous'), () => this.prevWallpaper());
-        makeButton('media-skip-forward-symbolic', _('Next'), () => this.nextWallpaper());
-        makeButton('media-playlist-shuffle-symbolic', _('Random'), () => this.randomWallpaper());
+        makeButton('media-skip-backward-symbolic', _('Previous'),
+            () => this.prevWallpaper(), () => this._peekPrev());
+        makeButton('media-skip-forward-symbolic', _('Next'),
+            () => this.nextWallpaper(), () => this._peekNext());
+        makeButton('media-playlist-shuffle-symbolic', _('Random'),
+            () => this.randomWallpaper(), () => this._randomCandidate());
+        makeButton('emblem-system-symbolic', _('Open Bar Settings'),
+            () => this.ext.openPreferences(), null);
     }
 
     // ---- Slideshow navigation ----
@@ -291,7 +342,10 @@ export class WallhubManager {
         const len = this.wallpaperQueue.length;
         if (len === 0)
             return;
-        this._cursor = Math.floor(Math.random() * len);
+        // Apply the candidate that was already being previewed, so what the user
+        // saw is exactly what gets applied.
+        const candidate = this._randomCandidate();
+        this._cursor = candidate !== null ? candidate : Math.floor(Math.random() * len);
         this._applyAndPreview(this.wallpaperQueue[this._cursor]);
     }
 
@@ -301,6 +355,26 @@ export class WallhubManager {
         if (len === 0)
             return null;
         return this.wallpaperQueue[(this._cursor + 1) % len];
+    }
+
+    // Path that prevWallpaper() would apply.
+    _peekPrev() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return null;
+        return this.wallpaperQueue[(this._cursor - 1 + len) % len];
+    }
+
+    // A stable random candidate index, kept until randomWallpaper() consumes it
+    // so the preview and the applied wallpaper are the same image.
+    _randomCandidate() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return null;
+        if (this._randomIdx === undefined || this._randomIdx === null ||
+            this._randomIdx < 0 || this._randomIdx >= len)
+            this._randomIdx = Math.floor(Math.random() * len);
+        return this._randomIdx;
     }
 
     // Resolve a previewable image path for a queue entry. Dynamic wallpaper
@@ -326,10 +400,16 @@ export class WallhubManager {
     }
 
     updatePreview() {
-        if (!this._previewItem)
+        this._showPreviewFor(this._peekNext());
+    }
+
+    // Show the preview for a specific queue path (or the default next one when
+    // path is undefined). Used for hover feedback on the control buttons.
+    _showPreviewFor(path) {
+        if (!this._previewItem || !this._previewBox)
             return;
-        const next = this._peekNext();
-        const imagePath = this._previewImagePath(next);
+        const target = path === undefined ? this._peekNext() : path;
+        const imagePath = this._previewImagePath(target);
         if (!imagePath) {
             this._previewItem.hide();
             return;
@@ -355,13 +435,37 @@ export class WallhubManager {
                 this._previewItem.hide();
                 return;
             }
-            this._previewItem.content = image;
-            this._previewItem.set_size(width, height);
+            this._previewBox.set_size(width, height);
+            this._previewBox.child = image;
             this._previewItem.show();
         } catch (e) {
             console.warn('Wallhub: preview render failed: ' + e);
             this._previewItem.hide();
         }
+    }
+
+    // Human-readable interval, e.g. "Every 10 seconds" / "Every 5 minutes".
+    _intervalLabel() {
+        const unit = this.slideshowIntervalUnit;
+        const n = this.slideshowInterval;
+        if (unit >= 3600) {
+            return n === 1
+                ? _('Changes every hour')
+                : _('Changes every %d hours').format(n);
+        }
+        if (unit >= 60) {
+            return n === 1
+                ? _('Changes every minute')
+                : _('Changes every %d minutes').format(n);
+        }
+        return n === 1
+            ? _('Changes every second')
+            : _('Changes every %d seconds').format(n);
+    }
+
+    updateIntervalLabel() {
+        if (this._intervalItem)
+            this._intervalItem.label.text = this._intervalLabel();
     }
 
     // ---- Timed rotation ----
