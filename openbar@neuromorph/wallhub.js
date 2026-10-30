@@ -153,11 +153,14 @@ export class WallhubManager {
             this.startLoop();
         }));
         // Keep the indicator in sync when the pref switch changes the value.
+        // Single apply path for the persistent flag. Guarded so the signal and
+        // setPaused() can both run without depending on ordering.
         this._signalIds.push(this.settings.connect('changed::slideshow-paused', () => {
-            const paused = this.settings.get_boolean('slideshow-paused');
-            if (paused === this._paused)
+            try {
+                this._paused = this.settings.get_boolean('slideshow-paused');
+            } catch (e) {
                 return;
-            this._paused = paused;
+            }
             this.startLoop();
             this.updatePauseButton();
         }));
@@ -615,20 +618,30 @@ export class WallhubManager {
         });
     }
 
-    // Toggle the automatic rotation. Manual prev/next/random stay available.
-    // Writes back to GSettings so the preference switch and a restart stay in
-    // sync; the changed::slideshow-paused handler is the single place that
-    // applies the value (avoiding double work).
+    // Toggle automatic rotation. Manual prev/next/random stay available.
+    //
+    // slideshow-paused is the single source of truth: this writes it and the
+    // changed::slideshow-paused handler applies it, so the tray button and the
+    // preference switch are the same persistent setting and survive a restart.
     setPaused(paused) {
         const value = Boolean(paused);
-        if (this._paused === value)
-            return;
-        this._paused = value;
         try {
+            if (this.settings.get_boolean('slideshow-paused') === value) {
+                // Already in the requested state; make sure the in-memory flag
+                // and button agree with the stored value.
+                this._paused = value;
+                this.startLoop();
+                this.updatePauseButton();
+                return;
+            }
             this.settings.set_boolean('slideshow-paused', value);
         } catch (e) {
             console.warn('Wallhub: could not persist slideshow-paused: ' + e.message);
+            return;
         }
+        // changed::slideshow-paused applies it; do it here too in case the
+        // signal is coalesced, but keep both paths idempotent.
+        this._paused = value;
         this.startLoop();
         this.updatePauseButton();
     }
