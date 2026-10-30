@@ -635,3 +635,270 @@ msgstr "剪贴板事件弹出的横幅通知"
 msgid "Keyboard bindings for clipboard actions"
 msgstr "剪贴板操作的键盘快捷键"
 
+msgid "(log truncated to the last ~1 MB; use the filter to narrow it down)\n"
+msgstr "（日志已截断为最后约 1 MB，请用过滤条件缩小范围）\n"
+
+msgid "Clipboard"
+msgstr "剪贴板"
+
+msgid "Clipboard History"
+msgstr "剪贴板历史"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Enable clipboard history"
+msgstr "启用剪贴板历史"
+
+msgid "Errors reported by every loaded extension. This is what makes an extension show as ERROR or fail silently."
+msgstr "所有已加载扩展报告的错误。扩展显示为「错误」或静默失败时，原因就在这里。"
+
+msgid "Keep a history of copied text and images in a menu on the top bar."
+msgstr "在顶栏菜单中保留复制过的文本和图片历史。"
+
+msgid "Move a maximized or fullscreen window to a workspace that is empty on its monitor, and back when it is restored."
+msgstr "将最大化或全屏的窗口移动到其显示器上为空的工作区，恢复时再移回。"
+
+msgid "Moving a window with the keyboard skips it, dragging onto it in the overview is refused, and it is dimmed there."
+msgstr "用键盘移动窗口时会跳过它；在概览中拖入会被拒绝，并在概览中置灰显示。"
+
+msgid "Recent gnome-shell output from the system journal, including JS errors and warnings from extensions."
+msgstr "系统日志中最近的 gnome-shell 输出，包含扩展的 JS 错误与警告。"
+
+msgid "Open Gnome Box Settings"
+msgstr "打开 Open Gnome Box 设置"
+
+msgid "Play/Pause quotes"
+msgstr "播放/暂停引言"
+
+msgid "Apply selected themes to Dark/Light modes"
+msgstr "将选中主题应用到深色/浅色模式"
+
+msgid "Generate/ Refresh Color Palette from desktop background"
+msgstr "从桌面背景生成/刷新调色板"
+
+msgid "Move notification popups as per the bar position (Top/Bottom)"
+msgstr "按顶栏位置（上/下）移动通知弹窗"
+
+msgid "Turn-On to use custom bottom-margin below. Allows to adjust the gap between top bar and app windows. Especially useful when using tiling extensions."
+msgstr "开启后使用下方的自定义底边距。可调整顶栏与应用窗口之间的间隙，在使用平铺类扩展时尤其有用。"
+
+msgid "Interact with panel buttons, from the screen-edge proximity, without having to precisely pinpoint them, refer Fitts Law."
+msgstr "从屏幕边缘附近即可操作面板按钮，无需精确瞄准，参见费茨定律。"
+
+msgid "Click on the color buttons to edit colors"
+msgstr "点击颜色按钮以编辑颜色"
+
+msgid "App theming is experimental"
+msgstr "应用主题（App theming）为实验性功能"
+
+msgid "Type of Bar"
+msgstr "顶栏类型"
+
+msgid "Position of Bar"
+msgstr "顶栏位置"
+
+msgid "Bar Height"
+msgstr "顶栏高度"
+
+msgid "Bar Margins"
+msgstr "顶栏边距"
+
+msgid "Customize Bottom Margin"
+msgstr "自定义底边距"
+
+msgid "Custom Bottom Margin"
+msgstr "自定义底边距"
+
+msgid "Apply in Overview"
+msgstr "在概览中生效"
+
+msgid "Apply in Fullscreen"
+msgstr "在全屏中生效"
+
+msgid "Apply to Notifications"
+msgstr "应用到通知"
+
+msgid "Apply"
+msgstr "应用"
+
+msgid "Enable Buttons Proximity"
+msgstr "启用按钮邻近触发"
+
+msgid "Enable Window-Max Bar"
+msgstr "启用窗口最大化顶栏"
+
+msgid "Customize Bar Height?"
+msgstr "自定义顶栏高度？"
+
+msgid "Bar Height (WMax)"
+msgstr "顶栏高度（最大化）"
+
+msgid "Bar BG Color (WMax)"
+msgstr "顶栏背景色（最大化）"
+
+msgid "Bar BG Alpha (WMax)"
+msgstr "顶栏背景透明度（最大化）"
+
+msgid "Match BG with Headerbar"
+msgstr "背景与标题栏一致"
+
+msgid "Keep Button Color (Tri/Islands)"
+msgstr "保留按钮颜色（三角/岛屿）"
+
+msgid "Keep Border (Tri/Islands)"
+msgstr "保留边框（三角/岛屿）"
+
+msgid "Keep Neon Glow (Tri/Islands)"
+msgstr "保留霓虹光晕（三角/岛屿）"
+
+msgid "Accent Color (override)"
+msgstr "强调色（覆盖）"
+
+msgid "Accent Color"
+msgstr "强调色"
+
+msgid "Accent Alpha"
+msgstr "强调色透明度"
+
+msgid "Auto FG Color"
+msgstr "自动前景色"
+
+msgid "FG Color"
+msgstr "前景色"
+
+msgid "FG Alpha"
+msgstr "前景色透明度"
+
+msgid "BG Color"
+msgstr "背景色"
+
+msgid "BG Alpha"
+msgstr "背景透明度"
+
+msgid "BG Gradient"
+msgstr "背景渐变"
+
+msgid "Gradient End Color"
+msgstr "渐变终点色"
+
+msgid "Gradient End Alpha"
+msgstr "渐变终点透明度"
+
+msgid "Gradient Direction"
+msgstr "渐变方向"
+
+msgid "Bar BG Color"
+msgstr "顶栏背景色"
+
+msgid "Bar BG Alpha"
+msgstr "顶栏背景透明度"
+
+msgid "Tri/Islands BG Color"
+msgstr "三角/岛屿背景色"
+
+msgid "Tri/Islands Alpha"
+msgstr "三角/岛屿透明度"
+
+msgid "Box/Margins Color"
+msgstr "边框盒/边距颜色"
+
+msgid "Box/Margins Alpha"
+msgstr "边框盒/边距透明度"
+
+msgid "Apply Candybar Pallete"
+msgstr "应用糖果条配色"
+
+msgid "Candy BG Alpha"
+msgstr "糖果条背景透明度"
+
+msgid "Shadow Color"
+msgstr "阴影颜色"
+
+msgid "Shadow Alpha"
+msgstr "阴影透明度"
+
+msgid "Shadow Spread"
+msgstr "阴影扩散"
+
+msgid "Auto Highlight Color"
+msgstr "自动高亮色"
+
+msgid "Highlight Color"
+msgstr "高亮色"
+
+msgid "Highlight Alpha"
+msgstr "高亮透明度"
+
+msgid "Override Color"
+msgstr "覆盖颜色"
+
+msgid "Border Color"
+msgstr "边框颜色"
+
+msgid "Border Alpha"
+msgstr "边框透明度"
+
+msgid "Color"
+msgstr "颜色"
+
+msgid "Alpha"
+msgstr "透明度"
+
+msgid "Panel Font"
+msgstr "面板字体"
+
+msgid "Horizontal Padding"
+msgstr "水平内边距"
+
+msgid "Vertical Padding"
+msgstr "垂直内边距"
+
+msgid "Type of Border"
+msgstr "边框类型"
+
+msgid "Width"
+msgstr "宽度"
+
+msgid "Corner Radius"
+msgstr "圆角半径"
+
+msgid "Border Radius"
+msgstr "边框圆角"
+
+msgid "Icon Size"
+msgstr "图标大小"
+
+msgid "Menu Panels Radius"
+msgstr "菜单面板圆角"
+
+msgid "Calendar Subs Radius"
+msgstr "日历子面板圆角"
+
+msgid "Quick Toggle Radius"
+msgstr "快捷开关圆角"
+
+msgid "Slider Height"
+msgstr "滑块高度"
+
+msgid "Slider Handle Border"
+msgstr "滑块手柄边框"
+
+msgid "Clipboard Indicator"
+msgstr "剪贴板指示器"
+
+msgid "Open Gnome Box"
+msgstr "Open Gnome Box"
+
+msgid "Preview Size (characters)"
+msgstr "预览长度（字符）"
+
+msgid "History clear interval (in minutes)"
+msgstr "历史清空间隔（分钟）"
+
+msgid "Max cache file size (MB)"
+msgstr "缓存文件上限（MB）"
+
+msgid "Only save pinned (favorite) entries to disk"
+msgstr "仅将已置顶条目保存到磁盘"
+

@@ -560,7 +560,7 @@ class OpenbarPrefs {
 
         const quoteBtn = new Gtk.Button({
             child: quoteImage,
-            tooltip_text: 'Play/Pause quotes',
+            tooltip_text: _('Play/Pause quotes'),
             css_classes: ['openbar-quotebtn'],
         });
         quoteBox.append(quoteBtn);
@@ -756,7 +756,7 @@ class OpenbarPrefs {
 
         // Add a accent override color chooser
         let accentOColorLabel = new Gtk.Label({
-            label: 'Accent Color (override)',
+            label: _('Accent Color (override)'),
             halign: Gtk.Align.START,
         });
         palettegrid.attach(accentOColorLabel, 1, rowbar, 1, 1);
@@ -819,8 +819,8 @@ class OpenbarPrefs {
         rownum += 1;
 
         const applyThemeBtn = new Gtk.Button({
-            label: 'Apply',
-            tooltip_text: 'Apply selected themes to Dark/Light modes'
+            label: _('Apply'),
+            tooltip_text: _('Apply selected themes to Dark/Light modes')
         });
         themeGrid.attach(applyThemeBtn, 3, 1, 1, 2);
 
@@ -886,7 +886,7 @@ class OpenbarPrefs {
             label: `🔄 Get`,
             halign: Gtk.Align.END,
             margin_top: 10,
-            tooltip_text: 'Generate/ Refresh Color Palette from desktop background'
+            tooltip_text: _('Generate/ Refresh Color Palette from desktop background')
         });
         getPaletteBtn.connect('clicked', () => {
             this.triggerBackgroundPalette(window);
@@ -943,7 +943,7 @@ class OpenbarPrefs {
 
         //Type of bar
         let barTypeLbl = new Gtk.Label({
-            label: 'Type of Bar',
+            label: _('Type of Bar'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(barTypeLbl, 1, rowbar, 1, 1);
@@ -955,7 +955,7 @@ class OpenbarPrefs {
 
         //Position of bar
         let barPosLbl = new Gtk.Label({
-            label: 'Position of Bar',
+            label: _('Position of Bar'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(barPosLbl, 1, rowbar, 1, 1);
@@ -967,9 +967,9 @@ class OpenbarPrefs {
 
         //Position of notification popups
         let notifPosLbl = new Gtk.Label({
-            label: 'Apply to Notifications',
+            label: _('Apply to Notifications'),
             halign: Gtk.Align.START,
-            tooltip_text: 'Move notification popups as per the bar position (Top/Bottom)'
+            tooltip_text: _('Move notification popups as per the bar position (Top/Bottom)')
         });
         bargrid.attach(notifPosLbl, 1, rowbar, 1, 1);
 
@@ -980,7 +980,7 @@ class OpenbarPrefs {
 
         // Add a bar height scale
         let heightLabel = new Gtk.Label({
-            label: 'Bar Height',
+            label: _('Bar Height'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(heightLabel, 1, rowbar, 1, 1);
@@ -992,7 +992,7 @@ class OpenbarPrefs {
 
         // Add a bar margin scale
         let marginLabel = new Gtk.Label({
-            label: 'Bar Margins',
+            label: _('Bar Margins'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(marginLabel, 1, rowbar, 1, 1);
@@ -1004,9 +1004,9 @@ class OpenbarPrefs {
 
         // Add a custom bottom margin switch
         let bottomMarginSwitchLabel = new Gtk.Label({
-            label: 'Customize Bottom Margin',
+            label: _('Customize Bottom Margin'),
             halign: Gtk.Align.START,
-            tooltip_text: 'Turn-On to use custom bottom-margin below. Allows to adjust the gap between top bar and app windows. Especially useful when using tiling extensions.',
+            tooltip_text: _('Turn-On to use custom bottom-margin below. Allows to adjust the gap between top bar and app windows. Especially useful when using tiling extensions.'),
         });
         bargrid.attach(bottomMarginSwitchLabel, 1, rowbar, 1, 1);
 
@@ -1017,7 +1017,7 @@ class OpenbarPrefs {
 
         // Add a bar bottom margin scale
         let bottomMarginLabel = new Gtk.Label({
-            label: 'Custom Bottom Margin',
+            label: _('Custom Bottom Margin'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(bottomMarginLabel, 1, rowbar, 1, 1);
@@ -1029,7 +1029,7 @@ class OpenbarPrefs {
 
         // Add an overview switch
         let overviewLabel = new Gtk.Label({
-            label: 'Apply in Overview',
+            label: _('Apply in Overview'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(overviewLabel, 1, rowbar, 1, 1);
@@ -1041,7 +1041,7 @@ class OpenbarPrefs {
 
         // Add a fullscreen switch
         let fullscreenLabel = new Gtk.Label({
-            label: 'Apply in Fullscreen',
+            label: _('Apply in Fullscreen'),
             halign: Gtk.Align.START,
         });
         bargrid.attach(fullscreenLabel, 1, rowbar, 1, 1);
@@ -1053,9 +1053,9 @@ class OpenbarPrefs {
 
         // Add a Proximity - Fitts Widgets switch
         let fittsWidgetsLabel = new Gtk.Label({
-            label: 'Enable Buttons Proximity',
+            label: _('Enable Buttons Proximity'),
             halign: Gtk.Align.START,
-            tooltip_text: 'Interact with panel buttons, from the screen-edge proximity, without having to precisely pinpoint them, refer Fitts Law.',
+            tooltip_text: _('Interact with panel buttons, from the screen-edge proximity, without having to precisely pinpoint them, refer Fitts Law.'),
         });
         bargrid.attach(fittsWidgetsLabel, 1, rowbar, 1, 1);
 
@@ -1107,7 +1107,7 @@ class OpenbarPrefs {
 
         // Add a WMax Bar switch
         let wmaxLabel = new Gtk.Label({
-            label: 'Enable Window-Max Bar',
+            label: _('Enable Window-Max Bar'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxLabel, 1, rowbar, 1, 1);
@@ -1119,7 +1119,7 @@ class OpenbarPrefs {
 
         // Add a WMax BG Color button
         let wmaxBgLabel = new Gtk.Label({
-            label: 'Bar BG Color (WMax)',
+            label: _('Bar BG Color (WMax)'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxBgLabel, 1, rowbar, 1, 1);
@@ -1131,7 +1131,7 @@ class OpenbarPrefs {
 
         // Add a WMax BG Alpha scale
         let wmaxAlphaLabel = new Gtk.Label({
-            label: 'Bar BG Alpha (WMax)',
+            label: _('Bar BG Alpha (WMax)'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxAlphaLabel, 1, rowbar, 1, 1);
@@ -1143,7 +1143,7 @@ class OpenbarPrefs {
 
         // Match wmax BG with Gtk Headerbar hint switch
         let wmaxHbarLabel = new Gtk.Label({
-            label: 'Match BG with Headerbar',
+            label: _('Match BG with Headerbar'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxHbarLabel, 1, rowbar, 1, 1);
@@ -1155,7 +1155,7 @@ class OpenbarPrefs {
 
         // Add a WMax custom margin enable switch
         let wmaxCustMarginLabel = new Gtk.Label({
-            label: 'Customize Bar Height?',
+            label: _('Customize Bar Height?'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxCustMarginLabel, 1, rowbar, 1, 1);
@@ -1167,7 +1167,7 @@ class OpenbarPrefs {
 
         // Add a wmax bar margin scale
         let wmaxmarginLabel = new Gtk.Label({
-            label: 'Bar Height (WMax)',
+            label: _('Bar Height (WMax)'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxmarginLabel, 1, rowbar, 1, 1);
@@ -1179,7 +1179,7 @@ class OpenbarPrefs {
 
         // Add a WMax Buttons BG switch
         let wmaxBtnBGLabel = new Gtk.Label({
-            label: 'Keep Button Color (Tri/Islands)',
+            label: _('Keep Button Color (Tri/Islands)'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxBtnBGLabel, 1, rowbar, 1, 1);
@@ -1191,7 +1191,7 @@ class OpenbarPrefs {
 
         // Add a WMax border switch
         let wmaxBorderLabel = new Gtk.Label({
-            label: 'Keep Border (Tri/Islands)',
+            label: _('Keep Border (Tri/Islands)'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxBorderLabel, 1, rowbar, 1, 1);
@@ -1203,7 +1203,7 @@ class OpenbarPrefs {
 
         // Add a WMax neon switch
         let wmaxNeonLabel = new Gtk.Label({
-            label: 'Keep Neon Glow (Tri/Islands)',
+            label: _('Keep Neon Glow (Tri/Islands)'),
             halign: Gtk.Align.START,
         });
         bargridwmax.attach(wmaxNeonLabel, 1, rowbar, 1, 1);
@@ -1232,7 +1232,7 @@ class OpenbarPrefs {
 
         // Add an Auto FG color switch for Bar
         let autofgBarLabel = new Gtk.Label({
-            label: 'Auto FG Color',
+            label: _('Auto FG Color'),
             halign: Gtk.Align.START,
         });
         fggrid.attach(autofgBarLabel, 1, rowbar, 1, 1);
@@ -1244,7 +1244,7 @@ class OpenbarPrefs {
 
         // Add a foreground color chooser
         let fgColorLbl = new Gtk.Label({
-            label: 'FG Color',
+            label: _('FG Color'),
             halign: Gtk.Align.START,
         });
         fggrid.attach(fgColorLbl, 1, rowbar, 1, 1);
@@ -1255,7 +1255,7 @@ class OpenbarPrefs {
         rowbar += 1;
         // Add a foreground alpha scale
         let fgAlphaLbl = new Gtk.Label({
-            label: 'FG Alpha',
+            label: _('FG Alpha'),
             halign: Gtk.Align.START,
         });
         fggrid.attach(fgAlphaLbl, 1, rowbar, 1, 1);
@@ -1267,7 +1267,7 @@ class OpenbarPrefs {
 
         // Add a font button
         let fontLabel = new Gtk.Label({
-            label: 'Panel Font',
+            label: _('Panel Font'),
             halign: Gtk.Align.START,
         });
         fggrid.attach(fontLabel, 1, rowbar, 1, 1);
@@ -1351,7 +1351,7 @@ class OpenbarPrefs {
 
         // Add a Panel Box background color chooser
         let boxColorLbl = new Gtk.Label({
-            label: 'Box/Margins Color',
+            label: _('Box/Margins Color'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(boxColorLbl, 1, rowbar, 1, 1);
@@ -1363,7 +1363,7 @@ class OpenbarPrefs {
 
         // Add a background alpha scale
         let boxAlphaLbl = new Gtk.Label({
-            label: 'Box/Margins Alpha',
+            label: _('Box/Margins Alpha'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(boxAlphaLbl, 1, rowbar, 1, 1);
@@ -1376,7 +1376,7 @@ class OpenbarPrefs {
 
         // Add a bar background color chooser
         let bgColorLbl = new Gtk.Label({
-            label: 'Bar BG Color',
+            label: _('Bar BG Color'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(bgColorLbl, 1, rowbar, 1, 1);
@@ -1388,7 +1388,7 @@ class OpenbarPrefs {
 
         // Add a bar background alpha scale
         let bgAlphaLbl = new Gtk.Label({
-            label: 'Bar BG Alpha',
+            label: _('Bar BG Alpha'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(bgAlphaLbl, 1, rowbar, 1, 1);
@@ -1400,7 +1400,7 @@ class OpenbarPrefs {
 
         // Add a Islands color chooser
         let islandsColorLabel = new Gtk.Label({
-            label: 'Tri/Islands BG Color',
+            label: _('Tri/Islands BG Color'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(islandsColorLabel, 1, rowbar, 1, 1);
@@ -1412,7 +1412,7 @@ class OpenbarPrefs {
 
         // Add a Islands alpha scale
         let isAlphaLbl = new Gtk.Label({
-            label: 'Tri/Islands Alpha',
+            label: _('Tri/Islands Alpha'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(isAlphaLbl, 1, rowbar, 1, 1);
@@ -1424,7 +1424,7 @@ class OpenbarPrefs {
 
         // Add a gradient switch
         let gradientLbl = new Gtk.Label({
-            label: 'BG Gradient',
+            label: _('BG Gradient'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(gradientLbl, 1, rowbar, 1, 1);
@@ -1436,7 +1436,7 @@ class OpenbarPrefs {
 
         // Add a gradient color chooser
         let grColorLbl = new Gtk.Label({
-            label: 'Gradient End Color',
+            label: _('Gradient End Color'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(grColorLbl, 1, rowbar, 1, 1);
@@ -1448,7 +1448,7 @@ class OpenbarPrefs {
 
         // Add a gradient 2 alpha scale
         let grAlphaLbl = new Gtk.Label({
-            label: 'Gradient End Alpha',
+            label: _('Gradient End Alpha'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(grAlphaLbl, 1, rowbar, 1, 1);
@@ -1460,7 +1460,7 @@ class OpenbarPrefs {
 
         // Gradient direction
         let grDirecLbl = new Gtk.Label({
-            label: 'Gradient Direction',
+            label: _('Gradient Direction'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(grDirecLbl, 1, rowbar, 1, 1);
@@ -1472,9 +1472,9 @@ class OpenbarPrefs {
 
         // Candybar color palette
         let candybarLbl = new Gtk.Label({
-            label: 'Apply Candybar Pallete',
+            label: _('Apply Candybar Pallete'),
             halign: Gtk.Align.START,
-            tooltip_text: 'Click on the color buttons to edit colors',
+            tooltip_text: _('Click on the color buttons to edit colors'),
         });
         bggrid.attach(candybarLbl, 1, rowbar, 1, 1);
 
@@ -1512,7 +1512,7 @@ class OpenbarPrefs {
 
         // Add a candybar alpha scale
         let candyAlphaLbl = new Gtk.Label({
-            label: 'Candy BG Alpha',
+            label: _('Candy BG Alpha'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(candyAlphaLbl, 1, rowbar, 1, 1);
@@ -1536,7 +1536,7 @@ class OpenbarPrefs {
 
         // Add a panel shadow color chooser
         let shColorLabel = new Gtk.Label({
-            label: 'Shadow Color',
+            label: _('Shadow Color'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(shColorLabel, 1, rowbar, 1, 1);
@@ -1548,7 +1548,7 @@ class OpenbarPrefs {
 
         // Add a panel shadow alpha and spread scale
         let shAlphaLbl = new Gtk.Label({
-            label: 'Shadow Spread',
+            label: _('Shadow Spread'),
             halign: Gtk.Align.START,
         });
         bggrid.attach(shAlphaLbl, 1, rowbar, 1, 1);
@@ -1587,7 +1587,7 @@ class OpenbarPrefs {
 
         // Add an Auto highlight color switch for Bar
         let autohgBarLabel = new Gtk.Label({
-            label: 'Auto Highlight Color',
+            label: _('Auto Highlight Color'),
             halign: Gtk.Align.START,
         });
         hgrid.attach(autohgBarLabel, 1, rowbar, 1, 1);
@@ -1599,7 +1599,7 @@ class OpenbarPrefs {
 
         // Add a highlight color chooser
         let highlightColorLabel = new Gtk.Label({
-            label: 'Highlight Color',
+            label: _('Highlight Color'),
             halign: Gtk.Align.START,
         });
         hgrid.attach(highlightColorLabel, 1, rowbar, 1, 1);
@@ -1614,7 +1614,7 @@ class OpenbarPrefs {
 
         // Add a highlight alpha scale
         let hgAlphaLbl = new Gtk.Label({
-            label: 'Highlight Alpha',
+            label: _('Highlight Alpha'),
             halign: Gtk.Align.START,
         });
         hgrid.attach(hgAlphaLbl, 1, rowbar, 1, 1);
@@ -1638,7 +1638,7 @@ class OpenbarPrefs {
 
         // Add a horizontal button-padding scale
         let hBtnPadLbl = new Gtk.Label({
-            label: 'Horizontal Padding',
+            label: _('Horizontal Padding'),
             halign: Gtk.Align.START,
         });
         hgrid.attach(hBtnPadLbl, 1, rowbar, 1, 1);
@@ -1650,7 +1650,7 @@ class OpenbarPrefs {
 
         // Add a vertical button-padding scale
         let vBtnPadLbl = new Gtk.Label({
-            label: 'Vertical Padding',
+            label: _('Vertical Padding'),
             halign: Gtk.Align.START,
         });
         hgrid.attach(vBtnPadLbl, 1, rowbar, 1, 1);
@@ -1668,7 +1668,7 @@ class OpenbarPrefs {
 
         // //Type of border
         // let borderTypeLbl = new Gtk.Label({
-        //     label: 'Type of Border',
+        //     label: _('Type of Border'),
         //     halign: Gtk.Align.START,
         // });
         // bgrid.attach(borderTypeLbl, 1, rowbar, 1, 1);
@@ -1694,7 +1694,7 @@ class OpenbarPrefs {
 
         // Add a border width scale
         let borderWidthLabel = new Gtk.Label({
-            label: 'Width',
+            label: _('Width'),
             halign: Gtk.Align.START,
         });
         bgrid.attach(borderWidthLabel, 1, rowbar, 1, 1);
@@ -1735,7 +1735,7 @@ class OpenbarPrefs {
 
         // Add a border radius scale
         let bRadiuslbl = new Gtk.Label({
-            label: 'Corner Radius',
+            label: _('Corner Radius'),
             halign: Gtk.Align.START,
         });
         bgrid.attach(bRadiuslbl, 1, rowbar, 1, 1);
@@ -1777,7 +1777,7 @@ class OpenbarPrefs {
 
         // Add a border color chooser
         let borderColorLabel = new Gtk.Label({
-            label: 'Color',
+            label: _('Color'),
             halign: Gtk.Align.START,
         });
         bgrid.attach(borderColorLabel, 1, rowbar, 1, 1);
@@ -1789,7 +1789,7 @@ class OpenbarPrefs {
 
         // Add a Border alpha scale
         let bAlphaLbl = new Gtk.Label({
-            label: 'Alpha',
+            label: _('Alpha'),
             halign: Gtk.Align.START,
         });
         bgrid.attach(bAlphaLbl, 1, rowbar, 1, 1);
@@ -1847,7 +1847,7 @@ class OpenbarPrefs {
 
         // Add a Auto FG color switch for Menu
         let autofgMenuLabel = new Gtk.Label({
-            label: 'Auto FG Color',
+            label: _('Auto FG Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(autofgMenuLabel, 1, rowbar, 1, 1);
@@ -1859,7 +1859,7 @@ class OpenbarPrefs {
 
         // Add a menu FG color chooser
         let menuFGColorLabel = new Gtk.Label({
-            label: 'FG Color',
+            label: _('FG Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menuFGColorLabel, 1, rowbar, 1, 1);
@@ -1871,7 +1871,7 @@ class OpenbarPrefs {
 
         // Add a menu FG alpha scale
         let mfgAlphaLbl = new Gtk.Label({
-            label: 'FG Alpha',
+            label: _('FG Alpha'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mfgAlphaLbl, 1, rowbar, 1, 1);
@@ -1883,7 +1883,7 @@ class OpenbarPrefs {
 
         // Add a menu BG color chooser
         let menuBGColorLabel = new Gtk.Label({
-            label: 'BG Color',
+            label: _('BG Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menuBGColorLabel, 1, rowbar, 1, 1);
@@ -1895,7 +1895,7 @@ class OpenbarPrefs {
 
         // Add a menu BG alpha scale
         let mbgAlphaLbl = new Gtk.Label({
-            label: 'BG Alpha',
+            label: _('BG Alpha'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mbgAlphaLbl, 1, rowbar, 1, 1);
@@ -1932,7 +1932,7 @@ class OpenbarPrefs {
 
         // Add a secondary menu BG color chooser
         let smenuBGColorLabel = new Gtk.Label({
-            label: 'Override Color',
+            label: _('Override Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(smenuBGColorLabel, 1, rowbar, 1, 1);
@@ -1944,7 +1944,7 @@ class OpenbarPrefs {
 
         // Add a menu Border color chooser
         let menubColorLabel = new Gtk.Label({
-            label: 'Border Color',
+            label: _('Border Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menubColorLabel, 1, rowbar, 1, 1);
@@ -1956,7 +1956,7 @@ class OpenbarPrefs {
 
         // Add a menu border alpha scale
         let mbAlphaLbl = new Gtk.Label({
-            label: 'Border Alpha',
+            label: _('Border Alpha'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mbAlphaLbl, 1, rowbar, 1, 1);
@@ -1968,7 +1968,7 @@ class OpenbarPrefs {
 
         // Add a Auto FG color switch for Menu
         let autohgMenuLabel = new Gtk.Label({
-            label: 'Auto Highlight Color',
+            label: _('Auto Highlight Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(autohgMenuLabel, 1, rowbar, 1, 1);
@@ -1980,7 +1980,7 @@ class OpenbarPrefs {
 
         // Add a menu highlight color chooser
         let menuhColorLabel = new Gtk.Label({
-            label: 'Highlight Color',
+            label: _('Highlight Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menuhColorLabel, 1, rowbar, 1, 1);
@@ -1992,7 +1992,7 @@ class OpenbarPrefs {
 
         // Add a menu highlight alpha scale
         let mhAlphaLbl = new Gtk.Label({
-            label: 'Highlight Alpha',
+            label: _('Highlight Alpha'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mhAlphaLbl, 1, rowbar, 1, 1);
@@ -2004,7 +2004,7 @@ class OpenbarPrefs {
 
         // Add a menu selection color chooser
         let menusColorLabel = new Gtk.Label({
-            label: 'Accent Color',
+            label: _('Accent Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menusColorLabel, 1, rowbar, 1, 1);
@@ -2016,7 +2016,7 @@ class OpenbarPrefs {
 
         // Add a menu selection alpha scale
         let msAlphaLbl = new Gtk.Label({
-            label: 'Accent Alpha',
+            label: _('Accent Alpha'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(msAlphaLbl, 1, rowbar, 1, 1);
@@ -2028,7 +2028,7 @@ class OpenbarPrefs {
 
         // Add a menu shadow color chooser
         let menushColorLabel = new Gtk.Label({
-            label: 'Shadow Color',
+            label: _('Shadow Color'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menushColorLabel, 1, rowbar, 1, 1);
@@ -2040,7 +2040,7 @@ class OpenbarPrefs {
 
         // Add a menu shadow alpha scale
         let mshAlphaLbl = new Gtk.Label({
-            label: 'Shadow Alpha',
+            label: _('Shadow Alpha'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mshAlphaLbl, 1, rowbar, 1, 1);
@@ -2052,7 +2052,7 @@ class OpenbarPrefs {
 
         // Add a Menu Panels radius scale
         let menuRadLbl = new Gtk.Label({
-            label: 'Menu Panels Radius',
+            label: _('Menu Panels Radius'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menuRadLbl, 1, rowbar, 1, 1);
@@ -2064,7 +2064,7 @@ class OpenbarPrefs {
 
         // Add a Calendar/Notifications Buttons radius scale
         let notifRadLbl = new Gtk.Label({
-            label: 'Calendar Subs Radius',
+            label: _('Calendar Subs Radius'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(notifRadLbl, 1, rowbar, 1, 1);
@@ -2076,7 +2076,7 @@ class OpenbarPrefs {
 
         // Add a Quick Toggle buttons radius scale
         let qToggleRadLbl = new Gtk.Label({
-            label: 'Quick Toggle Radius',
+            label: _('Quick Toggle Radius'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(qToggleRadLbl, 1, rowbar, 1, 1);
@@ -2088,7 +2088,7 @@ class OpenbarPrefs {
 
         // Add a slider height scale
         let mSliderHtLbl = new Gtk.Label({
-            label: 'Slider Height',
+            label: _('Slider Height'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mSliderHtLbl, 1, rowbar, 1, 1);
@@ -2100,7 +2100,7 @@ class OpenbarPrefs {
 
         // Add a slider handle border width scale
         let mSliHandBordLbl = new Gtk.Label({
-            label: 'Slider Handle Border',
+            label: _('Slider Handle Border'),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mSliHandBordLbl, 1, rowbar, 1, 1);
@@ -2154,7 +2154,7 @@ class OpenbarPrefs {
 
         // Add a dash BG color chooser
         let dashBgColorLabel = new Gtk.Label({
-            label: 'BG Color',
+            label: _('BG Color'),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(dashBgColorLabel, 1, rowbar, 1, 1);
@@ -2166,7 +2166,7 @@ class OpenbarPrefs {
 
         // Add a dash BG alpha scale
         let dashBgAlphaLbl = new Gtk.Label({
-            label: 'BG Alpha',
+            label: _('BG Alpha'),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(dashBgAlphaLbl, 1, rowbar, 1, 1);
@@ -2178,7 +2178,7 @@ class OpenbarPrefs {
 
         // Add a dash border radius scale
         let dashbRadiusLbl = new Gtk.Label({
-            label: 'Border Radius',
+            label: _('Border Radius'),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(dashbRadiusLbl, 1, rowbar, 1, 1);
@@ -2190,7 +2190,7 @@ class OpenbarPrefs {
 
         // Add a dash Icon Size scale
         let dashIconSizeLbl = new Gtk.Label({
-            label: 'Icon Size',
+            label: _('Icon Size'),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(dashIconSizeLbl, 1, rowbar, 1, 1);
@@ -2312,7 +2312,7 @@ class OpenbarPrefs {
             label: `<span size="large">GTK / Flatpak Apps   🧪</span>\n`,
             use_markup: true,
             halign: Gtk.Align.CENTER,
-            tooltip_text: 'App theming is experimental',
+            tooltip_text: _('App theming is experimental'),
             css_classes: [titleClass],
         });
         appgrid.attach(gtkflatpakLabel, 1, rowbar, 2, 1);

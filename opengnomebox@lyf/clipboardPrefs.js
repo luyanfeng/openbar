@@ -60,7 +60,7 @@ function addIntSpinRow(group, settings, key, title, subtitle, lower, upper, step
 function buildUiGroup(settings, _) {
     const group = makeGroup(_('UI'), _('Menu contents and what the top bar shows'), true);
     addIntSpinRow(group, settings, 'preview-size',
-        'Preview Size (characters)',
+        _('Preview Size (characters)'),
         _('Number of characters shown per entry in the history menu'),
         10, 100, 1);
     addSwitchRow(group, settings, 'confirm-clear',
@@ -131,7 +131,7 @@ function buildBehaviorGroup(settings, _) {
         _('Clear clipboard history on interval'),
         _('Automatically clear clipboard history at a recurring interval'));
     const intervalRow = addIntSpinRow(group, settings, 'clear-history-interval',
-        'History clear interval (in minutes)',
+        _('History clear interval (in minutes)'),
         null,
         1, 1440, 10);
     intervalSwitch.connect('notify::active', () => {
@@ -159,12 +159,12 @@ function buildLimitsGroup(settings, _) {
         _('Maximum number of entries to keep in clipboard history'),
         1, 10000, 1);
     addIntSpinRow(group, settings, 'cache-size',
-        'Max cache file size (MB)',
+        _('Max cache file size (MB)'),
         _('Maximum disk space used for caching clipboard data'),
         1, 1024, 1);
     addSwitchRow(group, settings, 'cache-only-favorites',
         _('Cache only pinned items'),
-        'Only save pinned (favorite) entries to disk');
+        _('Only save pinned (favorite) entries to disk'));
     return group;
 }
 
