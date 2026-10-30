@@ -295,24 +295,33 @@ export class WallhubManager {
                 child: btnIcon,
                 x_expand: true,
                 y_expand: true,
+                track_hover: true,
             });
             btn.connect('clicked', () => {
                 if (this.ext.disabling)
                     return;
                 callback();
             });
-            // notify::hover is the reliable hover hook in the shell (enter/leave
-            // event handlers are not used by shell widgets).
-            if (hoverPath) {
-                btn.connect('notify::hover', () => {
-                    if (this.ext.disabling)
-                        return;
-                    if (btn.hover)
-                        this._showPreviewFor(hoverPath());
-                    else
-                        this.updatePreview();
-                });
-            }
+            // Single hover handler: visible feedback plus preview switching.
+            // notify::hover is what shell widgets actually use.
+            btn.connect('notify::hover', () => {
+                if (this.ext.disabling)
+                    return;
+                const hovered = btn.hover;
+                try {
+                    btn.style = hovered
+                        ? 'background-color: rgba(255,255,255,0.16); border-radius: 6px;'
+                        : '';
+                } catch (e) {
+                    // styling must never break interaction
+                }
+                if (!hoverPath)
+                    return;
+                if (hovered)
+                    this._showPreviewFor(hoverPath());
+                else
+                    this.updatePreview();
+            });
             this._controlItem.add_child(btn);
             return btn;
         };
@@ -322,7 +331,7 @@ export class WallhubManager {
         makeButton('media-skip-forward-symbolic', _('Next'),
             () => this.nextWallpaper(), () => this._peekNext());
         makeButton('media-playlist-shuffle-symbolic', _('Random'),
-            () => this.randomWallpaper(), () => this._randomCandidate());
+            () => this.randomWallpaper(), () => this._peekRandom());
         makeButton('emblem-system-symbolic', _('Open Bar Settings'),
             () => this.ext.openPreferences(), null);
     }
@@ -362,6 +371,8 @@ export class WallhubManager {
         const candidate = this._randomCandidate();
         this._cursor = candidate !== null ? candidate : Math.floor(Math.random() * len);
         this._applyAndPreview(this.wallpaperQueue[this._cursor]);
+        // Consume the candidate so the next hover previews a fresh random image.
+        this._randomIdx = null;
     }
 
     // Path that nextWallpaper() would apply.
@@ -392,10 +403,16 @@ export class WallhubManager {
         return this._randomIdx;
     }
 
+    // Path that randomWallpaper() would apply (for the hover preview).
+    _peekRandom() {
+        const idx = this._randomCandidate();
+        return idx === null ? null : this.wallpaperQueue[idx];
+    }
+
     // Resolve a previewable image path for a queue entry. Dynamic wallpaper
     // .xml files have no raster of their own, so extract the first frame.
     _previewImagePath(path) {
-        if (!path)
+        if (!path || typeof path !== 'string')
             return null;
         if (!path.toLowerCase().endsWith('.xml'))
             return path;
