@@ -29,6 +29,7 @@ import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as ShellMountOperation from 'resource:///org/gnome/shell/ui/shellMountOperation.js';
 import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
+import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import * as StyleSheets from './stylesheets.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { InjectionManager } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -669,6 +670,8 @@ export class DedicatedWorkspaceGuard {
         // Transient message shown when a move is refused.
         this._toastActor = null;
         this._toastTimeoutId = 0;
+        this._overviewShowingId = 0;
+        this._thumbnailsRebuiltId = 0;
     }
 
     enable() {
@@ -677,6 +680,7 @@ export class DedicatedWorkspaceGuard {
         this._enabled = true;
         this._install();
         this._refreshThumbnails();
+        this._debugThumbnails('enable');
     }
 
     disable() {
@@ -696,6 +700,12 @@ export class DedicatedWorkspaceGuard {
                 global.workspace_manager.disconnect(this._thumbnailsChangedId);
         } catch (e) {}
         this._thumbnailsChangedId = 0;
+        try {
+            if (this._overviewShowingId)
+                Main.overview.disconnect(this._overviewShowingId);
+        } catch (e) {}
+        this._overviewShowingId = 0;
+        this._hideMessage();
     }
 
     // ---- dedicated set -----------------------------------------------------
@@ -980,14 +990,19 @@ export class DedicatedWorkspaceGuard {
     showMessage(text) {
         try {
             this._hideMessage();
+            // St.Label has no text_align property (that is GTK); St uses
+            // ClutterText.justify. Set only what exists, so a wrong property
+            // name cannot make the whole hint fail to appear.
             const label = new St.Label({
                 text,
                 style_class: 'openbar-space-hint',
                 style: 'background-color: rgba(0,0,0,0.75); color: #fff; ' +
                     'padding: 10px 20px; border-radius: 8px; font-size: 13px;',
                 x_align: Clutter.ActorAlign.CENTER,
-                text_align: Clutter.ActorAlign.CENTER,
             });
+            // A full-stage container pinned by layout constraints is more
+            // reliable than setting an explicit size (which is 0 before the
+            // first allocation).
             const bin = new St.Bin({
                 child: label,
                 x_align: Clutter.ActorAlign.CENTER,
@@ -996,8 +1011,8 @@ export class DedicatedWorkspaceGuard {
                 y_expand: true,
                 reactive: false,
             });
-            bin.set_position(0, 0);
-            bin.set_size(global.stage.width, global.stage.height);
+            const monitor = Main.layoutManager.primaryMonitor;
+            bin.add_constraint(new Layout.MonitorConstraint({ index: monitor?.index ?? 0 }));
             bin.translation_y = -90;
             Main.uiGroup.add_child(bin);
             this._toastActor = bin;
@@ -1048,16 +1063,49 @@ export class DedicatedWorkspaceGuard {
     }
 
     _allThumbnails() {
+        // Walk the actor tree instead of relying on the private overview
+        // hierarchy: _workspacesViews can hold either WorkspacesView (which has
+        // _thumbnails) or SecondaryMonitorDisplay (which does not), so any fixed
+        // path breaks on multi-monitor or when the shell reshuffles its classes.
         const out = [];
+        const seen = new Set();
+        const visit = (actor, depth) => {
+            if (!actor || depth > 12 || seen.has(actor))
+                return;
+            seen.add(actor);
+            try {
+                const thumbs = actor._thumbnails;
+                if (Array.isArray(thumbs) && thumbs.length > 0 &&
+                    typeof thumbs[0]?.metaWorkspace !== 'undefined') {
+                    for (const t of thumbs) {
+                        if (t && !out.includes(t))
+                            out.push(t);
+                    }
+                }
+            } catch (e) {}
+            try {
+                for (const child of actor.get_children?.() ?? [])
+                    visit(child, depth + 1);
+            } catch (e) {}
+        };
         try {
-            const views = this._workspaceViews();
-            for (const view of views) {
-                const box = view?._thumbnails;
-                for (const thumb of (box?._thumbnails ?? []))
-                    out.push(thumb);
-            }
+            visit(Main.overview?._overview ?? Main.overview, 0);
         } catch (e) {}
         return out;
+    }
+
+    // Probe the overview structure; used to debug the thumbnail lookup.
+    _debugThumbnails(tag) {
+        try {
+            const display = Main.overview?._overview?._controls?._workspacesDisplay;
+            const views = this._workspaceViews();
+            const counts = views.map(v => (v?._thumbnails?._thumbnails ?? []).length);
+            console.log(`Open Bar[diag] ${tag}: display=${!!display} views=${views.length} ` +
+                `thumbCounts=[${counts.join(',')}] dedicated=${this._dedicated.size} ` +
+                `overviewVisible=${Main.overview?.visible}`);
+        } catch (e) {
+            console.log(`Open Bar[diag] ${tag}: error ${e.message}`);
+        }
     }
 
     // The overview keeps one view per monitor; both spellings exist in the
@@ -1079,10 +1127,23 @@ export class DedicatedWorkspaceGuard {
     // Re-dim after the thumbnail strip is rebuilt.
     watchThumbnails() {
         try {
-            if (this._thumbnailsChangedId)
-                return;
-            this._thumbnailsChangedId = global.workspace_manager.connect(
-                'notify::n-workspaces', () => this._refreshThumbnails());
+            if (!this._thumbnailsChangedId) {
+                this._thumbnailsChangedId = global.workspace_manager.connect(
+                    'notify::n-workspaces', () => {
+                        this._refreshThumbnails();
+                        this._debugThumbnails('n-workspaces');
+                    });
+            }
+            // Thumbnails only exist while the overview is up, so refresh every
+            // time it is shown; 'showing' fires before the animation starts.
+            if (!this._overviewShowingId) {
+                this._overviewShowingId = Main.overview.connect('showing', () => {
+                    this._refreshThumbnails();
+                    for (const t of this._allThumbnails())
+                        this._patchThumbnailDnD(t);
+                    this._debugThumbnails('showing');
+                });
+            }
         } catch (e) {}
     }
 }
