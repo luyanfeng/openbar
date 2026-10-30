@@ -100,6 +100,7 @@ export class WallhubManager {
         this.loopSourceId = null;
         this._signalIds = [];
         this._cursor = -1;
+        this._interfaceSettings = null;
 
         this.indicator = null;
         this._previewItem = null;
@@ -162,6 +163,16 @@ export class WallhubManager {
             this.updateIntervalLabel();
             this.updatePreview();
         });
+        // Keep the default preview in sync when the desktop wallpaper changes
+        // (e.g. our own rotation, or another program setting it).
+        this._signalIds.push(this.bgSettings.connect('changed::picture-uri', () => {
+            if (!this.ext.disabling)
+                this.updatePreview();
+        }));
+        this._signalIds.push(this.bgSettings.connect('changed::picture-uri-dark', () => {
+            if (!this.ext.disabling)
+                this.updatePreview();
+        }));
         this.updateQueue()
             .then(() => {
                 this.startLoop();
@@ -226,6 +237,7 @@ export class WallhubManager {
 
         this.wallpaperQueue = null;
         this.bgSettings = null;
+        this._interfaceSettings = null;
     }
 
     // ---- Top-bar indicator ----
@@ -431,8 +443,43 @@ export class WallhubManager {
         }
     }
 
+    // Default preview: the wallpaper currently on the desktop.
     updatePreview() {
-        this._showPreviewFor(this._peekNext());
+        this._showPreviewFor(this._currentDesktopWallpaper());
+    }
+
+    // Resolve the current desktop wallpaper path, honouring the light/dark
+    // colour scheme, and unwrapping dynamic .xml wallpapers to a real image.
+    _currentDesktopWallpaper() {
+        try {
+            if (!this.bgSettings)
+                return null;
+            let uri = this.bgSettings.get_string('picture-uri');
+            if (this._prefersDark()) {
+                const darkUri = this.bgSettings.get_string('picture-uri-dark');
+                if (darkUri)
+                    uri = darkUri;
+            }
+            if (!uri || !uri.startsWith('file://'))
+                return null;
+            const [path] = GLib.filename_from_uri(uri);
+            return path || null;
+        } catch (e) {
+            console.warn('Wallhub: could not read current wallpaper: ' + e.message);
+            return null;
+        }
+    }
+
+    _prefersDark() {
+        try {
+            if (!this._interfaceSettings) {
+                this._interfaceSettings =
+                    new Gio.Settings({ schema_id: 'org.gnome.desktop.interface' });
+            }
+            return this._interfaceSettings.get_string('color-scheme') === 'prefer-dark';
+        } catch (e) {
+            return false;
+        }
     }
 
     // Show the preview for a specific queue path (or the default next one when
