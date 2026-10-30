@@ -660,8 +660,8 @@ export class DedicatedWorkspaceGuard {
         // Marks our own moves so the guards let them through.
         this._internalMoves = 0;
         this._injectionManager = null;
-        this._originalChangeWorkspace = null;
-        this._originalChangeWorkspaceByIndex = null;
+        this._workspaceChangedId = 0;
+        this._owners = new Map();
         this._thumbnailsChangedId = 0;
         this._enabled = false;
     }
@@ -684,8 +684,8 @@ export class DedicatedWorkspaceGuard {
             console.warn('Open Bar: could not restore workspace methods: ' + e.message);
         }
         this._injectionManager = null;
-        this._originalChangeWorkspace = null;
-        this._originalChangeWorkspaceByIndex = null;
+        this._workspaceChangedId = 0;
+        this._owners = new Map();
         try {
             if (this._thumbnailsChangedId)
                 global.workspace_manager.disconnect(this._thumbnailsChangedId);
@@ -726,36 +726,106 @@ export class DedicatedWorkspaceGuard {
     // ---- patching ----------------------------------------------------------
 
     _install() {
+        // Meta.Window.prototype comes from GObject introspection (assigning to it
+        // is not reliable) and ES module exports like
+        // Main.moveWindowToMonitorAndWorkspace are read-only bindings. The
+        // dependable hook is Meta.Display's 'workspace-changed' signal, which
+        // fires after any move - keyboard, overview drag, or another extension.
         try {
-            this._injectionManager = new InjectionManager();
-        } catch (e) {
-            console.warn('Open Bar: InjectionManager unavailable: ' + e.message);
-            return;
-        }
-
-        // Index-based moves (keyboard shortcuts, extension helpers).
-        this._injectionManager.overrideMethod(
-            Meta.Window.prototype, 'change_workspace_by_index',
-            original => {
-                this._originalChangeWorkspaceByIndex = original;
-                return (index, append) => {
-                    const real = this._redirectIndex(this, index);
-                    return original.call(this, real, append);
-                };
-            });
-
-        // Object-based moves.
-        this._injectionManager.overrideMethod(
-            Meta.Window.prototype, 'change_workspace',
-            original => {
-                this._originalChangeWorkspace = original;
-                return workspace => {
-                    const target = this._redirectWorkspace(this, workspace);
-                    if (!target)
+            this._workspaceChangedId = global.display.connect(
+                'workspace-changed', (display, win) => {
+                    if (this._internalMoves > 0 || !this._enabled)
                         return;
-                    return original.call(this, target);
+                    this._evict(win);
+                });
+        } catch (e) {
+            console.warn('Open Bar: could not watch workspace-changed: ' + e.message);
+        }
+    }
+
+    // A window landed on a dedicated workspace it does not own: move it back out.
+    _evict(win) {
+        try {
+            if (!win || win.window_type !== Meta.WindowType.NORMAL)
+                return;
+            if (win.is_always_on_all_workspaces())
+                return;
+            const ws = win.get_workspace();
+            if (!this.isDedicated(ws))
+                return;
+            if (this._ownerOf(ws) === win)
+                return;
+            const manager = global.workspace_manager;
+            // Nearest workspace that is neither dedicated nor the one we are on.
+            const current = ws.index();
+            let target = null;
+            for (let d = 1; d < manager.get_n_workspaces(); d++) {
+                for (const i of [current - d, current + d]) {
+                    if (i < 0 || i >= manager.get_n_workspaces())
+                        continue;
+                    const cand = manager.get_workspace_by_index(i);
+                    if (cand && !this.isDedicated(cand)) {
+                        target = cand;
+                        break;
+                    }
+                }
+                if (target)
+                    break;
+            }
+            if (!target)
+                return;
+            this._internalMoves++;
+            try {
+                win.change_workspace(target);
+            } finally {
+                this._internalMoves--;
+            }
+        } catch (e) {
+            console.warn('Open Bar: could not evict window: ' + e.message);
+        }
+    }
+
+    // Record which window owns a dedicated workspace.
+    setOwner(workspace, win) {
+        if (!workspace)
+            return;
+        if (!this._owners)
+            this._owners = new Map();
+        this._owners.set(workspace, win ?? null);
+    }
+
+    _ownerOf(workspace) {
+        return this._owners ? (this._owners.get(workspace) ?? null) : null;
+    }
+
+    // Drag & drop rejection: patch the thumbnail box once we can reach it, so a
+    // drop onto a dedicated workspace is refused outright.
+    installDropGuard() {
+        try {
+            const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
+            for (const view of views) {
+                const box = view?._thumbnails;
+                if (!box || box._openbarDropPatched)
+                    continue;
+                const original = box.acceptDropInternal;
+                if (typeof original !== 'function')
+                    continue;
+                box.acceptDropInternal = (source, actor, time) => {
+                    if (source?.metaWindow) {
+                        const idx = box._dropWorkspace;
+                        const manager = global.workspace_manager;
+                        const ws = (idx >= 0 && idx < manager.get_n_workspaces())
+                            ? manager.get_workspace_by_index(idx) : null;
+                        if (ws && this.isDedicated(ws))
+                            return false;
+                    }
+                    return original.call(box, source, actor, time);
                 };
-            });
+                box._openbarDropPatched = true;
+            }
+        } catch (e) {
+            console.warn('Open Bar: could not install drop guard: ' + e.message);
+        }
     }
 
     // Decide which workspace a move should really go to.
@@ -964,6 +1034,7 @@ export class FullscreenEmptyWorkspace {
             if (wanted) {
                 this._guard.enable();
                 this._guard.watchThumbnails();
+                this._guard.installDropGuard();
                 // Re-register workspaces we already own.
                 for (const st of this._state.values()) {
                     if (st?.dedicatedWs)
@@ -1172,10 +1243,9 @@ export class FullscreenEmptyWorkspace {
             // macOS model: every fullscreen window gets its own Space. Always
             // create a fresh workspace beside the current one instead of reusing
             // an empty one, so two fullscreen windows never share a workspace.
-            // AutoMove hooks _checkWorkspaces and keeps trailing workspaces
-            // alive, which conflicts with creating/removing them here.
-            if (this._settings.get_boolean('auto-move-windows'))
-                return;
+            // Note: AutoMove hooks _checkWorkspaces and keeps trailing
+            // workspaces alive, but that only matters when REMOVING a workspace
+            // (handled in _restore), so creation is not gated on it.
             try {
                 const before = manager.get_n_workspaces();
                 manager.append_new_workspace(false, global.get_current_time());
@@ -1196,8 +1266,11 @@ export class FullscreenEmptyWorkspace {
             this._state.set(id, { originWs, originIndex, dedicatedWs, created });
             // Register before moving so the guard already knows this workspace
             // is off-limits; the move itself runs with the guard bypassed.
-            if (this._guardEnabled)
+            if (this._guardEnabled) {
                 this._guard.add(dedicatedWs);
+                this._guard.setOwner(dedicatedWs, win);
+                this._guard.installDropGuard();
+            }
             this._guard.runInternal(() => win.change_workspace(dedicatedWs));
 
             try {
@@ -1273,8 +1346,10 @@ export class FullscreenEmptyWorkspace {
             } catch (e) {}
 
             // The workspace is no longer off-limits once the owner has left.
-            if (this._guardEnabled && dedicatedWs)
+            if (this._guardEnabled && dedicatedWs) {
+                this._guard.setOwner(dedicatedWs, null);
                 this._guard.remove(dedicatedWs);
+            }
 
             // Remove the workspace we created for this window. Do not rely on
             // mutter's automatic cleanup: it only reliably removes trailing
