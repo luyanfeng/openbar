@@ -3434,10 +3434,25 @@ class OpenbarPrefs {
 
         this._autoMoveRows = [];
 
+        // Resolve a desktop id to a human readable name for the rule list.
+        // Gio.DesktopAppInfo exists in all supported GLib versions, whereas the
+        // GioUnix fallback object below does not carry DesktopAppInfo.
+        const appNameFor = (appId) => {
+            try {
+                const info = Gio.DesktopAppInfo.new(appId);
+                return info ? info.get_display_name() : null;
+            } catch (e) {
+                return null;
+            }
+        };
+
         const makeRuleRow = (appId, ws, index) => {
+            const displayName = appNameFor(appId);
             const row = new Adw.ActionRow({
-                title: appId || _('(invalid)'),
-                subtitle: _('Workspace %s').format(ws ?? '?'),
+                title: displayName || appId || _('(invalid)'),
+                subtitle: displayName
+                    ? _('Workspace %s · %s').format(ws ?? '?', appId)
+                    : _('Workspace %s').format(ws ?? '?'),
             });
             const removeBtn = new Gtk.Button({
                 icon_name: 'user-trash-symbolic',
@@ -3482,15 +3497,30 @@ class OpenbarPrefs {
             }
         };
 
-        const appEntry = new Gtk.Entry({
-            placeholder_text: _('org.gnome.Nautilus.desktop'),
-            hexpand: true,
-            valign: Gtk.Align.CENTER,
+        // Application picker: list installed apps by display name instead of
+        // asking the user to type a desktop id.
+        let appList = [];
+        try {
+            appList = Gio.AppInfo.get_all()
+                .filter(a => a.should_show())
+                .map(a => ({ id: a.get_id(), name: a.get_display_name() }))
+                .filter(a => a.id)
+                .sort((x, y) => x.name.localeCompare(y.name));
+        } catch (e) {
+            console.warn('Open Bar: could not list applications: ' + e.message);
+        }
+
+        const appCombo = new Adw.ComboRow({
+            title: _('Application'),
+            subtitle: _('Choose the application to move.'),
         });
-        const appRow = new Adw.ActionRow({ title: _('Application ID') });
-        appRow.add_suffix(appEntry);
-        appRow.activatable = false;
-        autoMoveExp.add_row(appRow);
+        const appModel = new Gtk.StringList();
+        appList.forEach(a => appModel.append(a.name));
+        if (appList.length === 0)
+            appModel.append(_('(no applications found)'));
+        appCombo.model = appModel;
+        appCombo.selected = 0;
+        autoMoveExp.add_row(appCombo);
 
         const wsAdjustment = new Gtk.Adjustment({
             lower: 1, upper: 36, step_increment: 1, page_increment: 1, value: 1,
@@ -3517,16 +3547,16 @@ class OpenbarPrefs {
         autoMoveExp.add_row(btnRow);
 
         addRuleBtn.connect('clicked', () => {
-            const appId = appEntry.get_text().trim();
-            if (!appId)
+            const sel = appCombo.selected;
+            if (sel < 0 || sel >= appList.length)
                 return;
+            const appId = appList[sel].id;
             const workspace = Math.max(1, Math.min(36, wsSpin.get_value_as_int()));
             const current = this._settings.get_strv('auto-move-list');
             // Replace an existing rule for the same app.
             const filtered = current.filter(r => r.split(':')[0] !== appId);
             filtered.push(`${appId}:${workspace}`);
             this._settings.set_strv('auto-move-list', filtered);
-            appEntry.set_text('');
             wsSpin.set_value(1);
             refreshRules();
         });

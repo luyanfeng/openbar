@@ -15,6 +15,9 @@ msgstr "（无效）"
 msgid "(log truncated to the last ~1 MB; use the filter to narrow it down)\\n"
 msgstr "（日志已截断为最后约 1 MB，请用过滤条件缩小范围）\\n"
 
+msgid "(no applications found)"
+msgstr "（未找到应用）"
+
 msgid "(no matching entries)"
 msgstr "（没有匹配的记录）"
 
@@ -45,14 +48,8 @@ msgstr "连接驱动器时在状态区显示图标。"
 msgid "Also for maximized windows"
 msgstr "最大化的窗口也移动"
 
-msgid "Application ID"
-msgstr "应用 ID"
-
-msgid "Application desktop id and the workspace it should open on."
-msgstr "应用的桌面文件 ID，以及它应当在哪个工作区打开。"
-
-msgid "Applies to windows opened after this is enabled."
-msgstr "仅对启用之后打开的窗口生效。"
+msgid "Application"
+msgstr "应用"
 
 msgid "Auto Move Windows"
 msgstr "自动移动窗口"
@@ -81,6 +78,9 @@ msgstr "每分钟切换"
 msgid "Changes every second"
 msgstr "每秒切换"
 
+msgid "Choose the application to move."
+msgstr "选择要移动的应用。"
+
 msgid "Copy"
 msgstr "复制"
 
@@ -92,9 +92,6 @@ msgstr "顶栏右侧各指示器之间的间距。"
 
 msgid "Eject"
 msgstr "弹出"
-
-msgid "Enable Auto Move"
-msgstr "启用自动移动"
 
 msgid "Extension Errors"
 msgstr "扩展错误"
@@ -192,9 +189,6 @@ msgstr "删除规则"
 msgid "Rotate desktop background through a set of images or folders."
 msgstr "在一组图片或文件夹之间轮换桌面壁纸。"
 
-msgid "Rules"
-msgstr "规则"
-
 msgid "Seconds"
 msgstr "秒"
 
@@ -261,8 +255,8 @@ msgstr "工作区"
 msgid "Workspace %s"
 msgstr "工作区 %s"
 
+msgid "Workspace %s · %s"
+msgstr "工作区 %s · %s"
+
 msgid "journalctl exited with status %d."
 msgstr "journalctl 退出状态为 %d。"
-
-msgid "org.gnome.Nautilus.desktop"
-msgstr "org.gnome.Nautilus.desktop"
