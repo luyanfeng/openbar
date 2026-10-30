@@ -920,6 +920,10 @@ export class DedicatedWorkspaceGuard {
         try {
             const preview = win?._delegate;
             const dnd = preview?._draggable;
+            console.log(`Open Bar[drag]: win=${win?.get_id?.()} ` +
+                `delegate=${preview?.constructor?.name ?? 'none'} ` +
+                `dnd=${!!dnd} want=${draggable} ` +
+                `keys=${dnd ? Object.keys(dnd).slice(0, 6).join(',') : '-'}`);
             if (dnd && typeof dnd === 'object')
                 dnd.enabled = draggable;
         } catch (e) {
@@ -1033,9 +1037,11 @@ export class DedicatedWorkspaceGuard {
                 x_align: Clutter.ActorAlign.CENTER,
             });
             try {
-                label.clutter_text.set_font_size(20 * 1024);   // 20px
-                label.clutter_text.set_line_wrap(true);
-                label.clutter_text.set_ellipsize(0);            // Pango.EllipsizeMode.NONE
+                // ClutterText exposes font-name (a Pango description), not
+                // font_size; the CSS font-size above is not reliable on St.
+                label.clutter_text.font_name = 'Sans 20';
+                label.clutter_text.line_wrap = true;
+                label.clutter_text.ellipsize = 0;   // Pango.EllipsizeMode.NONE
             } catch (e) {
                 console.warn('Open Bar: could not size hint text: ' + e.message);
             }
