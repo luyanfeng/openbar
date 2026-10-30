@@ -3258,20 +3258,36 @@ class OpenbarPrefs {
         refreshLog();
     }
 
+    // Gio.DBusConnection.call takes ten arguments, the last one being the
+    // callback; awaiting it directly only works after Gio._promisify has been
+    // applied to the prototype. Wrap it explicitly instead, so the arity is
+    // right no matter what else has or has not been promisified.
+    _dbusCall(method, params, timeoutMs = 3000) {
+        return new Promise((resolve, reject) => {
+            const bus = Gio.DBus.session;
+            if (!bus) {
+                reject(new Error('no session bus'));
+                return;
+            }
+            bus.call(
+                'org.gnome.Shell', '/org/gnome/Shell',
+                'org.gnome.Shell.Extensions', method, params, null,
+                Gio.DBusCallFlags.NONE, timeoutMs, null,
+                (source, result) => {
+                    try {
+                        resolve(source.call_finish(result));
+                    } catch (e) {
+                        reject(e);
+                    }
+                });
+        });
+    }
+
     async _refreshExtensionErrors(textView) {
         if (!textView)
             return;
         try {
-            const bus = Gio.DBus.session;
-            if (!bus) {
-                textView.buffer.text = _('No session bus available.');
-                return;
-            }
-
-            const reply = await bus.call(
-                'org.gnome.Shell', '/org/gnome/Shell',
-                'org.gnome.Shell.Extensions', 'ListExtensions',
-                null, null, Gio.DBusCallFlags.NONE, 3000, null);
+            const reply = await this._dbusCall('ListExtensions', null);
             const [extensions] = reply.deep_unpack();
             if (!extensions || typeof extensions !== 'object') {
                 textView.buffer.text = _('Unexpected reply from the shell.');
@@ -3300,14 +3316,8 @@ class OpenbarPrefs {
         if (typeof uuid !== 'string' || uuid.length === 0)
             return [];
         try {
-            const bus = Gio.DBus.session;
-            if (!bus)
-                return [];
-            const reply = await bus.call(
-                'org.gnome.Shell', '/org/gnome/Shell',
-                'org.gnome.Shell.Extensions', 'GetExtensionErrors',
-                new GLib.Variant('(s)', [uuid]), null,
-                Gio.DBusCallFlags.NONE, 3000, null);
+            const reply = await this._dbusCall('GetExtensionErrors',
+                new GLib.Variant('(s)', [uuid]));
             const [errors] = reply.deep_unpack();
             if (!Array.isArray(errors))
                 return [];
