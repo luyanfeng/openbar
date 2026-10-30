@@ -9,6 +9,11 @@
 // those alongside our built-in copy means two implementations of the same hook:
 // duplicate drive icons, and windows redirected to a workspace twice.
 //
+// All queries are ASYNCHRONOUS on purpose. The shell both serves
+// org.gnome.Shell.Extensions and calls into it, so a synchronous call from the
+// shell's own main thread deadlocks on itself and aborts the process. Results
+// are cached briefly so a settings-changed storm cannot flood the bus.
+//
 // Only Gio/GLib are imported here: this module is used both by the extension
 // (integrations.js) and by the preference window, which runs in its own gjs
 // process where the shell's UI modules are not available.
@@ -24,6 +29,8 @@ const SHELL_EXTENSIONS_DBUS = {
     iface: 'org.gnome.Shell.Extensions',
 };
 
+const CALL_TIMEOUT_MS = 3000;
+
 // Keyed by the Open Gnome Box setting that turns the feature on, so callers can
 // look a feature up from the key they already have.
 export const CONFLICTING_EXTENSIONS = {
@@ -35,6 +42,10 @@ export const CONFLICTING_EXTENSIONS = {
         uuid: 'drive-menu@gnome-shell-extensions.gcampax.github.com',
         label: 'Removable Drive Menu',
     },
+    'clipboard-enabled': {
+        uuid: 'clipboard-indicator@tudmotu.com',
+        label: 'Clipboard Indicator',
+    },
 };
 
 function unpack(value) {
@@ -43,21 +54,36 @@ function unpack(value) {
         : value;
 }
 
+function callRemote(method, params) {
+    return new Promise((resolve, reject) => {
+        const bus = Gio.DBus.session;
+        if (!bus) {
+            reject(new Error('no session bus'));
+            return;
+        }
+        bus.call(
+            SHELL_EXTENSIONS_DBUS.name, SHELL_EXTENSIONS_DBUS.path,
+            SHELL_EXTENSIONS_DBUS.iface, method, params, null,
+            Gio.DBusCallFlags.NONE, CALL_TIMEOUT_MS, null,
+            (source, result) => {
+                try {
+                    resolve(source.call_finish(result));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+    });
+}
+
 // Current state of another extension, or null when the shell cannot be asked
 // (no session bus, shell not answering). Callers must treat null as "unknown"
 // and stay quiet rather than claiming a conflict.
-export function foreignExtensionInfo(uuid) {
+export async function foreignExtensionInfo(uuid) {
     if (typeof uuid !== 'string' || uuid.length === 0)
         return null;
     try {
-        const bus = Gio.DBus.session;
-        if (!bus)
-            return null;
-        const reply = bus.call_sync(
-            SHELL_EXTENSIONS_DBUS.name, SHELL_EXTENSIONS_DBUS.path,
-            SHELL_EXTENSIONS_DBUS.iface, 'GetExtensionInfo',
-            new GLib.Variant('(s)', [uuid]), null,
-            Gio.DBusCallFlags.NONE, 2000, null);
+        const reply = await callRemote('GetExtensionInfo',
+            new GLib.Variant('(s)', [uuid]));
         const [info] = reply.deep_unpack();
         if (!info)
             return null;
@@ -77,31 +103,24 @@ export function foreignExtensionInfo(uuid) {
 // True when the standalone extension providing `settingKey` is installed and
 // enabled. Unknown state counts as "not conflicting" so a missing shell does
 // not block the feature.
-export function conflictingExtensionEnabled(settingKey) {
+export async function conflictingExtensionEnabled(settingKey) {
     const entry = CONFLICTING_EXTENSIONS[settingKey];
     if (!entry)
         return false;
-    const info = foreignExtensionInfo(entry.uuid);
+    const info = await foreignExtensionInfo(entry.uuid);
     return !!info?.enabled;
 }
 
 // Disable the standalone extension so the built-in copy can own the feature.
-// Returns true only when the shell confirms it is no longer enabled, so the
+// Resolves true only when the shell confirms it is no longer enabled, so the
 // caller never ends up with both copies running.
-export function disableConflictingExtension(settingKey) {
+export async function disableConflictingExtension(settingKey) {
     const entry = CONFLICTING_EXTENSIONS[settingKey];
     if (!entry)
         return true;
     try {
-        const bus = Gio.DBus.session;
-        if (!bus)
-            return false;
-        bus.call_sync(
-            SHELL_EXTENSIONS_DBUS.name, SHELL_EXTENSIONS_DBUS.path,
-            SHELL_EXTENSIONS_DBUS.iface, 'DisableExtension',
-            new GLib.Variant('(s)', [entry.uuid]), null,
-            Gio.DBusCallFlags.NONE, 3000, null);
-        return !conflictingExtensionEnabled(settingKey);
+        await callRemote('DisableExtension', new GLib.Variant('(s)', [entry.uuid]));
+        return !(await conflictingExtensionEnabled(settingKey));
     } catch (e) {
         console.warn(`Open Gnome Box: could not disable ${entry.uuid}: ${e.message}`);
         return false;

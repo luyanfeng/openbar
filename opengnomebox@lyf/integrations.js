@@ -1578,29 +1578,54 @@ export class IntegrationsManager {
                 if (this.ext.disabling)
                     return;
                 const on = this._settings.get_boolean(settingKey);
-                // Turning on a feature whose standalone extension is also
-                // running: the standalone copy wins by default and we keep ours
-                // off, so the two never fight. The preference window asks first
-                // and disables the standalone one before writing the key.
-                if (on && this._takeOver(settingKey) === false)
-                    return;
-                try {
-                    if (on)
-                        this.integrations[name].enable();
-                    else
+                if (!on) {
+                    try {
                         this.integrations[name].disable();
-                } catch (e) {
-                    console.warn(`Open Gnome Box: integration ${name} toggle failed: ${e.message}`);
+                    } catch (e) {
+                        console.warn(`Open Gnome Box: integration ${name} toggle failed: ${e.message}`);
+                    }
+                    return;
                 }
+
+                // Turning on a feature whose standalone extension may also be
+                // running. Deciding that needs a bus round-trip, which must not
+                // happen synchronously inside this signal handler.
+                this._takeOver(settingKey)
+                    .then(allowed => {
+                        if (!allowed || this.ext.disabling)
+                            return;
+                        try {
+                            this.integrations[name].enable();
+                        } catch (e) {
+                            console.warn(`Open Gnome Box: integration ${name} toggle failed: ${e.message}`);
+                        }
+                    })
+                    .catch(e => {
+                        console.warn(`Open Gnome Box: integration ${name} conflict check failed: ${e.message}`);
+                    });
             }));
-            if (this._settings.get_boolean(settingKey)) {
-                if (this._takeOver(settingKey) === false)
-                    continue;
-                try {
-                    this.integrations[name].enable();
-                } catch (e) {
-                    console.warn(`Open Gnome Box: integration ${name} start failed: ${e.message}`);
-                }
+        }
+
+        // Startup: the same check, one feature at a time.
+        this._applyStartupStates(map).catch(e => {
+            console.warn('Open Gnome Box: could not apply integration settings: ' + e.message);
+        });
+    }
+
+    async _applyStartupStates(map) {
+        for (const [key, [name, settingKey]] of Object.entries(map)) {
+            if (this.ext.disabling)
+                return;
+            if (!this._settings.get_boolean(settingKey))
+                continue;
+            // eslint-disable-next-line no-await-in-loop
+            const allowed = await this._takeOver(settingKey);
+            if (!allowed || this.ext.disabling)
+                continue;
+            try {
+                this.integrations[name].enable();
+            } catch (e) {
+                console.warn(`Open Gnome Box: integration ${name} start failed: ${e.message}`);
             }
         }
     }
@@ -1608,16 +1633,16 @@ export class IntegrationsManager {
     // Decide whether our built-in copy may run for a feature that a standalone
     // extension also provides.
     //
-    // Returns true when our copy may run, false when the standalone extension
+    // Resolves true when our copy may run, false when the standalone extension
     // keeps the feature. This never disables the other extension: disarming
     // someone else's extension is only ever done from the preference window,
     // after the user picked one in the confirmation dialog. Anywhere else
     // (startup, an external gsettings write) we yield and put the key back so
     // the two copies cannot run at the same time.
-    _takeOver(settingKey) {
+    async _takeOver(settingKey) {
         if (!CONFLICTING_EXTENSIONS[settingKey])
             return true;
-        if (!conflictingExtensionEnabled(settingKey))
+        if (!(await conflictingExtensionEnabled(settingKey)))
             return true;
 
         console.warn(`Open Gnome Box: built-in ${

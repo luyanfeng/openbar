@@ -37,6 +37,7 @@ import * as AutoThemes from './autothemes.js';
 import * as StyleSheets from './stylesheets.js';
 import { WallhubManager } from './wallhub.js';
 import { IntegrationsManager } from './integrations.js';
+import { ClipboardManager } from './clipboard.js';
 
 Gio._promisify(Gio.File.prototype, "copy_async", "copy_finish");
 
@@ -1660,6 +1661,16 @@ export default class Openbar extends Extension {
         // spacing, auto-move windows, finger gestures, drive menu)
         this.integrations = new IntegrationsManager(this);
         this.integrations.enable();
+
+        // Enable the built-in clipboard history manager. It needs a real
+        // clipboards object from the extension base class.
+        if (this._settings.get_boolean('clipboard-enabled')) {
+            this.clipboard = St.Clipboard.get_default();
+            this.clipboardManager = new ClipboardManager(this);
+            this.clipboardManager.enable();
+            if (this._settings.get_boolean('enable-keybindings'))
+                this.clipboardManager.bindShortcuts();
+        }
     }
 
     disable() {
@@ -1827,6 +1838,17 @@ export default class Openbar extends Extension {
                 this.integrations.disable();
                 this.integrations = null;
             }
+        }
+        catch(e) {}
+
+        // Disable the built-in clipboard history manager
+        try {
+            if(this.clipboardManager) {
+                this.clipboardManager.unbindShortcuts();
+                this.clipboardManager.disable();
+                this.clipboardManager = null;
+            }
+            this.clipboard = null;
         }
         catch(e) {}
 

@@ -30,6 +30,7 @@ import {
     conflictingExtensionEnabled,
     disableConflictingExtension,
 } from './conflicts.js';
+import { buildClipboardPrefsPage } from './clipboardPrefs.js';
 
 // Retain compatibility with GLib < 2.80, which lacks GioUnix (from GSConnect extension)
 let GioUnix;
@@ -2873,6 +2874,9 @@ class OpenbarPrefs {
         // Build the integrated small extensions page
         this.buildExtensionsPage(window);
 
+        // Build the clipboard history page
+        this.buildClipboardPage(window);
+
         /////////////////////////////////////////////////////////////////////
 
         window.connect('unrealize', () => {
@@ -3120,7 +3124,11 @@ class OpenbarPrefs {
             halign: Gtk.Align.START,
             css_classes: ['pill'],
         });
-        errRefreshBtn.connect('clicked', () => this._refreshExtensionErrors(errTextView));
+        errRefreshBtn.connect('clicked', () => {
+            this._refreshExtensionErrors(errTextView).catch(e => {
+                errTextView.buffer.text = _('Failed to read extension errors: %s').format(e.message);
+            });
+        });
         errGroup.add(errRefreshBtn);
 
         // --- Shell log (journalctl, filtered to gnome-shell) ---
@@ -3237,15 +3245,13 @@ class OpenbarPrefs {
         });
 
         // Initial population. Never let this abort the preferences window.
-        try {
-            this._refreshExtensionErrors(errTextView);
-        } catch (e) {
+        this._refreshExtensionErrors(errTextView).catch(e => {
             errTextView.buffer.text = _('Failed to read extension errors: %s').format(e.message);
-        }
+        });
         refreshLog();
     }
 
-    _refreshExtensionErrors(textView) {
+    async _refreshExtensionErrors(textView) {
         if (!textView)
             return;
         try {
@@ -3255,11 +3261,11 @@ class OpenbarPrefs {
                 return;
             }
 
-            const listReply = bus.call_sync(
+            const reply = await bus.call(
                 'org.gnome.Shell', '/org/gnome/Shell',
                 'org.gnome.Shell.Extensions', 'ListExtensions',
                 null, null, Gio.DBusCallFlags.NONE, 3000, null);
-            const [extensions] = listReply.deep_unpack();
+            const [extensions] = reply.deep_unpack();
             if (!extensions || typeof extensions !== 'object') {
                 textView.buffer.text = _('Unexpected reply from the shell.');
                 return;
@@ -3267,7 +3273,7 @@ class OpenbarPrefs {
 
             const lines = [];
             for (const uuid of Object.keys(extensions).sort()) {
-                const errors = this._getExtensionErrors(uuid);
+                const errors = await this._getExtensionErrors(uuid);
                 if (!errors || errors.length === 0)
                     continue;
                 lines.push(uuid);
@@ -3283,14 +3289,14 @@ class OpenbarPrefs {
         }
     }
 
-    _getExtensionErrors(uuid) {
+    async _getExtensionErrors(uuid) {
         if (typeof uuid !== 'string' || uuid.length === 0)
             return [];
         try {
             const bus = Gio.DBus.session;
             if (!bus)
                 return [];
-            const reply = bus.call_sync(
+            const reply = await bus.call(
                 'org.gnome.Shell', '/org/gnome/Shell',
                 'org.gnome.Shell.Extensions', 'GetExtensionErrors',
                 new GLib.Variant('(s)', [uuid]), null,
@@ -3307,10 +3313,6 @@ class OpenbarPrefs {
         }
     }
 
-    // ---- Integrated small extensions ----
-
-    // One expander per feature, so each block reads as its own framed section
-    // instead of a long undifferentiated list.
     _makeFeatureExpander(group, { title, subtitle, enabledKey }) {
         const expander = new Adw.ExpanderRow({ title, subtitle: subtitle ?? '' });
         if (enabledKey) {
@@ -3354,49 +3356,67 @@ class OpenbarPrefs {
                 return false;
             }
 
-            // No standalone copy in the way: nothing to ask about.
-            if (!conflictingExtensionEnabled(key)) {
-                this._settings.set_boolean(key, true);
-                return false;
-            }
-
-            // Two copies would fight, so let the user pick one. The switch stays
-            // off until they confirm; the key is what drives the real state.
-            const entry = CONFLICTING_EXTENSIONS[key];
+            // The conflict check crosses the bus, so it stays async. The switch
+            // is held off until the answer arrives.
             toggle.block_signal_handler(toggle._openbarToggledId);
             toggle.active = false;
             toggle.unblock_signal_handler(toggle._openbarToggledId);
 
-            const dialog = new Adw.MessageDialog({
-                transient_for: this._window,
-                modal: true,
-                heading: _('Only one can be enabled'),
-                body: _('The extension “%s” already provides this feature and is ' +
-                    'currently enabled. Enabling the built-in copy will turn that ' +
-                    'extension off.').format(entry.label),
-            });
-            dialog.add_response('cancel', _('Cancel'));
-            dialog.add_response('takeover', _('Enable Built-in'));
-            dialog.set_response_appearance('takeover', Adw.ResponseAppearance.SUGGESTED);
-            dialog.set_default_response('takeover');
-            dialog.set_close_response('cancel');
-            dialog.connect('response', (dlg, response) => {
-                if (response !== 'takeover')
-                    return;
-                if (!disableConflictingExtension(key)) {
-                    this._reportConflictFailure(entry.label);
-                    return;
-                }
-                this._settings.set_boolean(key, true);
-            });
-            dialog.present();
+            conflictingExtensionEnabled(key)
+                .then(conflict => {
+                    if (!conflict) {
+                        this._settings.set_boolean(key, true);
+                        return;
+                    }
+                    this._askTakeOver(key, toggle);
+                })
+                .catch(e => {
+                    console.warn(`Open Gnome Box: conflict check for ${key} failed: ${e.message}`);
+                    this._settings.set_boolean(key, true);
+                });
 
-            // Keep the switch off; the response handler sets the real value.
+            // Keep the switch off; the async path sets the real value.
             return true;
         });
 
         this._settings.connect(`changed::${key}`, syncFromSettings);
         syncFromSettings();
+    }
+
+    // Ask whether the built-in copy should take the feature over from the
+    // standalone extension, and only switch on when the disable succeeds.
+    _askTakeOver(key, toggle) {
+        const entry = CONFLICTING_EXTENSIONS[key];
+        const dialog = new Adw.MessageDialog({
+            transient_for: this._window,
+            modal: true,
+            heading: _('Only one can be enabled'),
+            body: _('The extension “%s” already provides this feature and is ' +
+                'currently enabled. Enabling the built-in copy will turn that ' +
+                'extension off.').format(entry.label),
+        });
+        dialog.add_response('cancel', _('Cancel'));
+        dialog.add_response('takeover', _('Enable Built-in'));
+        dialog.set_response_appearance('takeover', Adw.ResponseAppearance.SUGGESTED);
+        dialog.set_default_response('takeover');
+        dialog.set_close_response('cancel');
+        dialog.connect('response', (dlg, response) => {
+            if (response !== 'takeover')
+                return;
+            disableConflictingExtension(key)
+                .then(disabled => {
+                    if (!disabled) {
+                        this._reportConflictFailure(entry.label);
+                        return;
+                    }
+                    this._settings.set_boolean(key, true);
+                })
+                .catch(e => {
+                    console.warn(`Open Gnome Box: ${e.message}`);
+                    this._reportConflictFailure(entry.label);
+                });
+        });
+        dialog.present();
     }
 
     _reportConflictFailure(label) {
@@ -3410,6 +3430,32 @@ class OpenbarPrefs {
         });
         dialog.add_response('close', _('Close'));
         dialog.present();
+    }
+
+    buildClipboardPage(window) {
+        const page = new Adw.PreferencesPage({
+            name: 'clipboard',
+            title: _('Clipboard'),
+            icon_name: 'edit-paste-symbolic',
+        });
+        window.add(page);
+
+        // The master switch goes through the same conflict handling as the
+        // other built-in features: the standalone Clipboard Indicator may
+        // already own the clipboard.
+        const masterGroup = new Adw.PreferencesGroup({
+            title: _('Clipboard History'),
+            description: _('Keep a history of copied text and images in a menu on the top bar.'),
+        });
+        page.add(masterGroup);
+
+        const masterRow = new Adw.ExpanderRow({ title: _('Enable clipboard history') });
+        const masterSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+        this._bindConflictingFeature('clipboard-enabled', masterSwitch);
+        masterRow.add_suffix(masterSwitch);
+        masterGroup.add(masterRow);
+
+        buildClipboardPrefsPage(page, this._settings);
     }
 
     buildExtensionsPage(window) {

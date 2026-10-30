@@ -23,6 +23,7 @@ import Gio from 'gi://Gio';
 import Pango from 'gi://Pango';
 import GLib from 'gi://GLib';
 import * as Utils from './utils.js';
+import { getClipboardStyles } from './clipboardStyles.js';
 
 Gio._promisify(Gio.File.prototype, 'load_contents_async', 'load_contents_finish');
 Gio._promisify(Gio.File.prototype, 'move_async', 'move_finish');
@@ -3818,6 +3819,12 @@ function getStylesheet(obar, Me) {
         //     width: 24px;
         //     height: 24px; }
     }
+
+    // Clipboard menu and indicator. Kept in its own module so the manager's
+    // styles stay next to the code that uses them.
+    if (obar._settings.get_boolean('clipboard-enabled'))
+        stylesheet += getClipboardStyles();
+
     return stylesheet;
 }
 
