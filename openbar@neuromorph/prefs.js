@@ -2853,6 +2853,9 @@ class OpenbarPrefs {
         // Build Wallhub wallpaper slideshow page (ported from wallhub@sakithb.github.io)
         this.buildWallhubPage(window);
 
+        // Build extension/shell log viewer page
+        this.buildLogsPage(window);
+
         /////////////////////////////////////////////////////////////////////
 
         window.connect('unrealize', () => {
@@ -2888,12 +2891,13 @@ class OpenbarPrefs {
         unitModel.append(_('Minutes'));
         unitModel.append(_('Seconds'));
         unitRow.model = unitModel;
-        const unitIndex = { Hours: 0, Minutes: 1, Seconds: 2 };
+        // get_enum/set_enum operate on the enum *value* (3600/60/1), not the index.
+        const unitValues = [3600, 60, 1];
         const currentUnit = this._settings.get_enum('slideshow-interval-unit');
-        unitRow.selected = unitIndex[currentUnit] ?? 1;
+        const currentIdx = unitValues.indexOf(currentUnit);
+        unitRow.selected = currentIdx >= 0 ? currentIdx : 1;
         unitRow.connect('notify::selected', () => {
-            const names = ['Hours', 'Minutes', 'Seconds'];
-            this._settings.set_enum('slideshow-interval-unit', names[unitRow.selected]);
+            this._settings.set_enum('slideshow-interval-unit', unitValues[unitRow.selected]);
         });
         generalGroup.add(unitRow);
 
@@ -3048,6 +3052,216 @@ class OpenbarPrefs {
         actionsBox.append(addFileBtn);
         actionsBox.append(addFolderBtn);
         pathsGroup.add(actionsBox);
+    }
+
+    // ---- Extension / shell log viewer ----
+
+    buildLogsPage(window) {
+        const page = new Adw.PreferencesPage({
+            name: 'logs',
+            title: _('Logs'),
+            icon_name: 'utilities-terminal-symbolic',
+        });
+        window.add(page);
+
+        // --- Extension errors (live, from the shell's extension system) ---
+        const errGroup = new Adw.PreferencesGroup({
+            title: _('Extension Errors'),
+            description: _('Errors reported by every loaded extension. This is what makes an ' +
+                'extension show as ERROR or fail silently.'),
+        });
+        page.add(errGroup);
+
+        const errTextView = new Gtk.TextView({
+            editable: false,
+            monospace: true,
+            wrap_mode: Gtk.WrapMode.WORD_CHAR,
+            top_margin: 8, bottom_margin: 8, left_margin: 8, right_margin: 8,
+        });
+        const errScroll = new Gtk.ScrolledWindow({
+            min_content_height: 180,
+            child: errTextView,
+            has_frame: true,
+        });
+        errGroup.add(errScroll);
+
+        const errRefreshBtn = new Gtk.Button({
+            label: _('Refresh'),
+            halign: Gtk.Align.START,
+            css_classes: ['pill'],
+        });
+        errRefreshBtn.connect('clicked', () => this._refreshExtensionErrors(errTextView));
+        errGroup.add(errRefreshBtn);
+
+        // --- Shell log (journalctl, filtered to gnome-shell) ---
+        const logGroup = new Adw.PreferencesGroup({
+            title: _('Shell Log'),
+            description: _('Recent gnome-shell output from the system journal, including JS ' +
+                'errors and warnings from extensions.'),
+        });
+        page.add(logGroup);
+
+        const filterBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+        });
+        const keywordEntry = new Gtk.Entry({
+            placeholder_text: _('Filter text (e.g. openbar, JS ERROR)'),
+            hexpand: true,
+        });
+        filterBox.append(keywordEntry);
+
+        const linesModel = new Gtk.StringList();
+        ['200', '500', '1000', '2000'].forEach(n => linesModel.append(_('%s lines').format(n)));
+        const linesDrop = new Gtk.DropDown({ model: linesModel });
+        linesDrop.selected = 1;
+        filterBox.append(linesDrop);
+        logGroup.add(filterBox);
+
+        const logView = new Gtk.TextView({
+            editable: false,
+            monospace: true,
+            wrap_mode: Gtk.WrapMode.WORD_CHAR,
+            top_margin: 8, bottom_margin: 8, left_margin: 8, right_margin: 8,
+        });
+        const logScroll = new Gtk.ScrolledWindow({
+            min_content_height: 320,
+            child: logView,
+            has_frame: true,
+        });
+        logGroup.add(logScroll);
+
+        const logBtnBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+        });
+        const logRefreshBtn = new Gtk.Button({
+            label: _('Refresh'),
+            css_classes: ['pill'],
+        });
+        const logCopyBtn = new Gtk.Button({
+            label: _('Copy'),
+            css_classes: ['pill'],
+        });
+        logBtnBox.append(logRefreshBtn);
+        logBtnBox.append(logCopyBtn);
+        logGroup.add(logBtnBox);
+
+        const readLog = lines => {
+            const keyword = keywordEntry.get_text().trim();
+            const args = ['journalctl', '-b', '_COMM=gnome-shell',
+                '-n', String(lines), '--no-pager', '-o', 'short-precise'];
+            if (keyword)
+                args.push('--grep', keyword);
+            try {
+                const res = GLib.spawn_sync(null, args, null,
+                    GLib.SpawnFlags.SEARCH_PATH, null);
+                // spawn_sync returns [ok, stdout, stderr, exitStatus].
+                if (!res || !res[0])
+                    return _('Could not run journalctl.');
+                const exitStatus = res[3];
+                const stdout = res[1];
+                if (exitStatus !== 0 && (!stdout || stdout.length === 0))
+                    return _('journalctl exited with status %d.').format(exitStatus);
+                return stdout ? new TextDecoder().decode(stdout) : '';
+            } catch (e) {
+                return _('Failed to read journal: %s').format(e.message);
+            }
+        };
+
+        const refreshLog = () => {
+            try {
+                const lineCounts = [200, 500, 1000, 2000];
+                const sel = linesDrop.selected;
+                const lines = (sel >= 0 && sel < lineCounts.length) ? lineCounts[sel] : 500;
+                const text = readLog(lines);
+                logView.buffer.text = text || _('(no matching entries)');
+            } catch (e) {
+                logView.buffer.text = _('Failed to read log: %s').format(e.message);
+            }
+        };
+
+        logRefreshBtn.connect('clicked', refreshLog);
+        keywordEntry.connect('activate', refreshLog);
+        logCopyBtn.connect('clicked', () => {
+            try {
+                const clipboard = Gdk.Display.get_default()?.get_clipboard();
+                if (clipboard)
+                    clipboard.set(logView.buffer.text);
+            } catch (e) {
+                console.warn(`Open Bar: clipboard copy failed: ${e.message}`);
+            }
+        });
+
+        // Initial population. Never let this abort the preferences window.
+        try {
+            this._refreshExtensionErrors(errTextView);
+        } catch (e) {
+            errTextView.buffer.text = _('Failed to read extension errors: %s').format(e.message);
+        }
+        refreshLog();
+    }
+
+    _refreshExtensionErrors(textView) {
+        if (!textView)
+            return;
+        try {
+            const bus = Gio.DBus.session;
+            if (!bus) {
+                textView.buffer.text = _('No session bus available.');
+                return;
+            }
+
+            const listReply = bus.call_sync(
+                'org.gnome.Shell', '/org/gnome/Shell',
+                'org.gnome.Shell.Extensions', 'ListExtensions',
+                null, null, Gio.DBusCallFlags.NONE, 3000, null);
+            const [extensions] = listReply.deep_unpack();
+            if (!extensions || typeof extensions !== 'object') {
+                textView.buffer.text = _('Unexpected reply from the shell.');
+                return;
+            }
+
+            const lines = [];
+            for (const uuid of Object.keys(extensions).sort()) {
+                const errors = this._getExtensionErrors(uuid);
+                if (!errors || errors.length === 0)
+                    continue;
+                lines.push(uuid);
+                for (const err of errors)
+                    lines.push(`    ${String(err)}`);
+                lines.push('');
+            }
+            textView.buffer.text = lines.length
+                ? lines.join('\n')
+                : _('No extension errors. Everything is clean.');
+        } catch (e) {
+            textView.buffer.text = _('Failed to read extension errors: %s').format(e.message);
+        }
+    }
+
+    _getExtensionErrors(uuid) {
+        if (typeof uuid !== 'string' || uuid.length === 0)
+            return [];
+        try {
+            const bus = Gio.DBus.session;
+            if (!bus)
+                return [];
+            const reply = bus.call_sync(
+                'org.gnome.Shell', '/org/gnome/Shell',
+                'org.gnome.Shell.Extensions', 'GetExtensionErrors',
+                new GLib.Variant('(s)', [uuid]), null,
+                Gio.DBusCallFlags.NONE, 3000, null);
+            const [errors] = reply.deep_unpack();
+            if (!Array.isArray(errors))
+                return [];
+            return errors.map(e => String(e));
+        } catch (e) {
+            // Some extensions legitimately have no errors entry; treat any D-Bus
+            // failure as "no errors" rather than aborting the whole listing.
+            console.warn(`Open Bar: GetExtensionErrors(${uuid}) failed: ${e.message}`);
+            return [];
+        }
     }
 
     resetSettingsDialog(window){
