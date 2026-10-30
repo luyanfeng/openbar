@@ -833,6 +833,16 @@ export class FullscreenEmptyWorkspace {
                     return;
                 }
                 this._maximized.set(win.get_id(), { originWs });
+                // Follow the window so the user actually sees the fullscreen
+                // window instead of staying on the workspace it left. Upstream
+                // leaves the view behind, which looks like "nothing happened".
+                try {
+                    const winWs = win.get_workspace();
+                    if (winWs && winWs.index() !== manager.get_active_workspace_index())
+                        winWs.activate(global.get_current_time());
+                } catch (e) {
+                    console.warn('Open Bar: could not switch to the window workspace: ' + e.message);
+                }
             } else {
                 if (free === -1)
                     return;
@@ -874,15 +884,22 @@ export class FullscreenEmptyWorkspace {
             const current = manager.get_active_workspace_index();
 
             // Preferred path: put the window back on the exact workspace it was
-            // on before. The recorded object is stable across reordering.
+            // on before. Meta.Workspace has no equal()/equals(); GJS returns the
+            // same wrapper for the same workspace, so compare by identity and
+            // fall back to the index.
             const originWs = record && record.originWs;
             if (originWs) {
-                // Move the window onto its origin workspace first, then pull that
-                // workspace back to the active position so the user sees the
-                // original arrangement.
-                if (!win.get_workspace()?.equal(originWs))
-                    win.change_workspace(originWs);
-                const originIndex = originWs.index();
+                const curWs = win.get_workspace();
+                const same = curWs === originWs ||
+                    (curWs && originWs.index && curWs.index() === originWs.index());
+                if (!same) {
+                    try {
+                        win.change_workspace(originWs);
+                    } catch (e) {
+                        console.warn('Open Bar: could not move window to origin workspace: ' + e.message);
+                    }
+                }
+                const originIndex = originWs.index?.();
                 if (originIndex >= 0 && originIndex !== current)
                     manager.reorder_workspace(originWs, current);
                 return;

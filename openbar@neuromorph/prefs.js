@@ -3450,10 +3450,36 @@ class OpenbarPrefs {
             const displayName = appNameFor(appId);
             const row = new Adw.ActionRow({
                 title: displayName || appId || _('(invalid)'),
-                subtitle: displayName
-                    ? _('Workspace %s · %s').format(ws ?? '?', appId)
-                    : _('Workspace %s').format(ws ?? '?'),
+                subtitle: displayName ? appId : '',
             });
+
+            // Editable workspace number, so a rule can be retargeted without
+            // deleting and re-adding it.
+            const wsSpin = new Gtk.SpinButton({
+                adjustment: new Gtk.Adjustment({
+                    lower: 1, upper: 36, step_increment: 1, page_increment: 1,
+                    value: Math.max(1, Math.min(36, parseInt(ws, 10) || 1)),
+                }),
+                valign: Gtk.Align.CENTER,
+                width_request: 80,
+            });
+            wsSpin.connect('value-changed', () => {
+                const value = Math.max(1, Math.min(36, wsSpin.get_value_as_int()));
+                const current = this._settings.get_strv('auto-move-list');
+                if (index < 0 || index >= current.length)
+                    return;
+                const [id] = current[index].split(':');
+                if (id !== appId)
+                    return;
+                const updated = `${appId}:${value}`;
+                if (current[index] === updated)
+                    return;
+                current[index] = updated;
+                this._settings.set_strv('auto-move-list', current);
+                row.subtitle = displayName ? appId : _('Workspace %s').format(value);
+            });
+            row.add_suffix(wsSpin);
+
             const removeBtn = new Gtk.Button({
                 icon_name: 'user-trash-symbolic',
                 valign: Gtk.Align.CENTER,
@@ -3503,7 +3529,15 @@ class OpenbarPrefs {
         try {
             appList = Gio.AppInfo.get_all()
                 .filter(a => a.should_show())
-                .map(a => ({ id: a.get_id(), name: a.get_display_name() }))
+                .map(a => {
+                    let iconName = 'application-x-executable-symbolic';
+                    try {
+                        const gicon = a.get_icon();
+                        if (gicon)
+                            iconName = gicon;
+                    } catch (e) {}
+                    return { id: a.get_id(), name: a.get_display_name(), icon: iconName };
+                })
                 .filter(a => a.id)
                 .sort((x, y) => x.name.localeCompare(y.name));
         } catch (e) {
@@ -3520,6 +3554,50 @@ class OpenbarPrefs {
             appModel.append(_('(no applications found)'));
         appCombo.model = appModel;
         appCombo.selected = 0;
+
+        // Custom factory so each entry shows the application icon alongside the
+        // name (Adw.ComboRow cannot do that with a plain StringList).
+        try {
+            const factory = new Gtk.SignalListItemFactory();
+            factory.connect('setup', (f, listItem) => {
+                const box = new Gtk.Box({
+                    orientation: Gtk.Orientation.HORIZONTAL,
+                    spacing: 8,
+                });
+                const img = new Gtk.Image({ icon_size: Gtk.IconSize.NORMAL });
+                const label = new Gtk.Label({ xalign: 0, hexpand: true });
+                box.append(img);
+                box.append(label);
+                listItem.set_child(box);
+            });
+            factory.connect('bind', (f, listItem) => {
+                const box = listItem.get_child();
+                const img = box.get_first_child();
+                const label = img.get_next_sibling();
+                // GTK4's ListItem has no get_position(); the model item is a
+                // Gtk.StringObject, so resolve the entry by its name.
+                let entry = null;
+                try {
+                    const name = listItem.get_item()?.get_string?.() ?? '';
+                    entry = appList.find(a => a.name === name) ?? null;
+                } catch (e) {
+                    entry = null;
+                }
+                label.set_text(entry ? entry.name : (listItem.get_item()?.get_string?.() ?? ''));
+                try {
+                    img.set_from_gicon(entry?.icon ??
+                        Gio.ThemedIcon.new('application-x-executable-symbolic'));
+                } catch (e) {
+                    try {
+                        img.set_from_gicon(Gio.ThemedIcon.new('application-x-executable-symbolic'));
+                    } catch (e2) {}
+                }
+            });
+            appCombo.set_factory(factory);
+        } catch (e) {
+            console.warn('Open Bar: could not install app icon factory: ' + e.message);
+        }
+
         autoMoveExp.add_row(appCombo);
 
         const wsAdjustment = new Gtk.Adjustment({
