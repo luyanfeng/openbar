@@ -39,6 +39,9 @@ msgstr "添加图片文件或文件夹。勾选后该来源会参与轮播。"
 msgid "Add one below."
 msgstr "请在下方添加。"
 
+msgid "Adds an icon to the status area when a drive is connected."
+msgstr "连接驱动器时在状态区显示图标。"
+
 msgid "Also for maximized windows"
 msgstr "最大化的窗口也移动"
 
@@ -53,9 +56,6 @@ msgstr "仅对启用之后打开的窗口生效。"
 
 msgid "Auto Move Windows"
 msgstr "自动移动窗口"
-
-msgid "Auto-hide Battery"
-msgstr "自动隐藏电池"
 
 msgid "Battery Indicator"
 msgstr "电池指示器"
@@ -92,9 +92,6 @@ msgstr "顶栏右侧各指示器之间的间距。"
 
 msgid "Eject"
 msgstr "弹出"
-
-msgid "Enable"
-msgstr "启用"
 
 msgid "Enable Auto Move"
 msgstr "启用自动移动"
@@ -171,9 +168,6 @@ msgstr "会话总线不可用。"
 msgid "Open Bar Settings"
 msgstr "Open Bar 设置"
 
-msgid "Override Spacing"
-msgstr "覆盖间距"
-
 msgid "Pause / Resume"
 msgstr "暂停 / 继续"
 
@@ -231,11 +225,17 @@ msgstr "单项功能"
 msgid "Slideshow"
 msgstr "幻灯片"
 
+msgid "Small features that used to need separate extensions."
+msgstr "以前需要单独安装扩展的小功能。"
+
 msgid "Status Area Spacing"
 msgstr "状态区间距"
 
 msgid "Stop automatic wallpaper changes. Previous / next / random still work."
 msgstr "停止自动更换壁纸。上一张 / 下一张 / 随机仍然可用。"
+
+msgid "Swaps the three-finger and four-finger gestures."
+msgstr "交换三指与四指手势。"
 
 msgid "Unexpected reply from the shell."
 msgstr "来自 Shell 的响应异常。"

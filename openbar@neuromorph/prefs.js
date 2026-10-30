@@ -3302,6 +3302,20 @@ class OpenbarPrefs {
 
     // ---- Integrated small extensions ----
 
+    // One expander per feature, so each block reads as its own framed section
+    // instead of a long undifferentiated list.
+    _makeFeatureExpander(group, { title, subtitle, enabledKey }) {
+        const expander = new Adw.ExpanderRow({ title, subtitle: subtitle ?? '' });
+        if (enabledKey) {
+            const toggle = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+            this._settings.bind(enabledKey, toggle, 'active',
+                Gio.SettingsBindFlags.DEFAULT);
+            expander.add_suffix(toggle);
+        }
+        group.add(expander);
+        return expander;
+    }
+
     buildExtensionsPage(window) {
         const page = new Adw.PreferencesPage({
             name: 'extensions',
@@ -3310,17 +3324,18 @@ class OpenbarPrefs {
         });
         window.add(page);
 
-        // --- Battery indicator ---
-        const batteryGroup = new Adw.PreferencesGroup({
-            title: _('Battery Indicator'),
-            description: _('Hide the battery/power indicator when it is charging or full.'),
+        const group = new Adw.PreferencesGroup({
+            title: _('Single Features'),
+            description: _('Small features that used to need separate extensions.'),
         });
-        page.add(batteryGroup);
+        page.add(group);
 
-        const batterySwitch = new Adw.SwitchRow({ title: _('Auto-hide Battery') });
-        this._settings.bind('battery-autohide', batterySwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        batteryGroup.add(batterySwitch);
+        // --- Battery indicator ---
+        const batteryExp = this._makeFeatureExpander(group, {
+            title: _('Battery Indicator'),
+            subtitle: _('Hide the battery/power indicator when it is charging or full.'),
+            enabledKey: 'battery-autohide',
+        });
 
         const batteryLevel = new Adw.SpinRow({
             title: _('Hide at or above'),
@@ -3331,7 +3346,7 @@ class OpenbarPrefs {
         });
         this._settings.bind('battery-hide-on', batteryLevel, 'value',
             Gio.SettingsBindFlags.DEFAULT);
-        batteryGroup.add(batteryLevel);
+        batteryExp.add_row(batteryLevel);
 
         const batteryAlways = new Adw.SwitchRow({
             title: _('Hide on any battery state'),
@@ -3339,19 +3354,14 @@ class OpenbarPrefs {
         });
         this._settings.bind('battery-hide-always', batteryAlways, 'active',
             Gio.SettingsBindFlags.DEFAULT);
-        batteryGroup.add(batteryAlways);
+        batteryExp.add_row(batteryAlways);
 
         // --- Status area spacing ---
-        const spacingGroup = new Adw.PreferencesGroup({
+        const spacingExp = this._makeFeatureExpander(group, {
             title: _('Status Area Spacing'),
-            description: _('Distance between the indicators on the right of the top bar.'),
+            subtitle: _('Distance between the indicators on the right of the top bar.'),
+            enabledKey: 'status-spacing-enabled',
         });
-        page.add(spacingGroup);
-
-        const spacingSwitch = new Adw.SwitchRow({ title: _('Override Spacing') });
-        this._settings.bind('status-spacing-enabled', spacingSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        spacingGroup.add(spacingSwitch);
 
         const spacingValue = new Adw.SpinRow({
             title: _('Horizontal Padding (px)'),
@@ -3362,52 +3372,48 @@ class OpenbarPrefs {
         });
         this._settings.bind('status-spacing', spacingValue, 'value',
             Gio.SettingsBindFlags.DEFAULT);
-        spacingGroup.add(spacingValue);
+        spacingExp.add_row(spacingValue);
 
         // --- Finger gestures ---
-        const gestureGroup = new Adw.PreferencesGroup({
+        const gestureExp = this._makeFeatureExpander(group, {
             title: _('Finger Gestures'),
-            description: _('Use a four-finger touchpad swipe to change workspace.'),
+            subtitle: _('Use a four-finger touchpad swipe to change workspace.'),
+            enabledKey: 'swap-finger-gestures',
         });
-        page.add(gestureGroup);
-
-        const gestureSwitch = new Adw.SwitchRow({ title: _('Four-finger Workspace Swipe') });
-        this._settings.bind('swap-finger-gestures', gestureSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        gestureGroup.add(gestureSwitch);
+        const gestureInfo = new Adw.ActionRow({
+            title: _('Four-finger Workspace Swipe'),
+            subtitle: _('Swaps the three-finger and four-finger gestures.'),
+        });
+        gestureInfo.activatable = false;
+        gestureExp.add_row(gestureInfo);
 
         // --- Drive menu ---
-        const driveGroup = new Adw.PreferencesGroup({
+        const driveExp = this._makeFeatureExpander(group, {
             title: _('Removable Drives'),
-            description: _('Show a top bar menu for removable drives and unmounting.'),
+            subtitle: _('Show a top bar menu for removable drives and unmounting.'),
+            enabledKey: 'drive-menu-enabled',
         });
-        page.add(driveGroup);
-
-        const driveSwitch = new Adw.SwitchRow({ title: _('Show Drive Menu') });
-        this._settings.bind('drive-menu-enabled', driveSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        driveGroup.add(driveSwitch);
+        const driveInfo = new Adw.ActionRow({
+            title: _('Show Drive Menu'),
+            subtitle: _('Adds an icon to the status area when a drive is connected.'),
+        });
+        driveInfo.activatable = false;
+        driveExp.add_row(driveInfo);
 
         // --- Fullscreen to empty workspace ---
-        const fsGroup = new Adw.PreferencesGroup({
+        const fsExp = this._makeFeatureExpander(group, {
             title: _('Fullscreen to Empty Workspace'),
-            description: _('Move a maximized or fullscreen window to a workspace that is ' +
+            subtitle: _('Move a maximized or fullscreen window to a workspace that is ' +
                 'empty on its monitor, and back when it is restored.'),
+            enabledKey: 'fullscreen-new-workspace',
         });
-        page.add(fsGroup);
-
-        const fsSwitch = new Adw.SwitchRow({ title: _('Enable') });
-        this._settings.bind('fullscreen-new-workspace', fsSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        fsGroup.add(fsSwitch);
-
         const fsMaxSwitch = new Adw.SwitchRow({
             title: _('Also for maximized windows'),
             subtitle: _('When off, only fullscreen windows are moved.'),
         });
         this._settings.bind('fullscreen-maximized-too', fsMaxSwitch, 'active',
             Gio.SettingsBindFlags.DEFAULT);
-        fsGroup.add(fsMaxSwitch);
+        fsExp.add_row(fsMaxSwitch);
 
         // --- Auto move windows ---
         const autoMoveGroup = new Adw.PreferencesGroup({
@@ -3416,13 +3422,12 @@ class OpenbarPrefs {
         });
         page.add(autoMoveGroup);
 
-        const autoMoveSwitch = new Adw.SwitchRow({
+        const autoMoveExp = this._makeFeatureExpander(autoMoveGroup, {
             title: _('Enable Auto Move'),
             subtitle: _('Applies to windows opened after this is enabled.'),
+            enabledKey: 'auto-move-windows',
         });
-        this._settings.bind('auto-move-windows', autoMoveSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        autoMoveGroup.add(autoMoveSwitch);
+        autoMoveExp.expanded = true;
 
         // Rules live in their own group so the list and the add-form do not
         // crowd the enable switch.

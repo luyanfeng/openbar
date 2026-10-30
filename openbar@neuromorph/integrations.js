@@ -257,41 +257,44 @@ export class StatusAreaSpacing {
         }
     }
 
-    // The panel-button class sits on the child, at most one level down.
-    _override(actor, secondTime) {
-        if (!actor)
-            return;
-        const isPanelButton = typeof actor.has_style_class_name === 'function' &&
-            actor.has_style_class_name('panel-button');
-        if (!isPanelButton) {
-            if (secondTime)
-                return;
-            const children = actor.get_children?.() ?? [];
-            if (children.length)
-                this._override(children[0], true);
-            return;
+    // The panel-button class is not always on the direct child: in GNOME 50 the
+    // status area holds St.Widget.button-container > St.Bin.container >
+    // ButtonBox.panel-button, so walk down a few levels instead of only one.
+    _findPanelButton(actor, depth = 0) {
+        if (!actor || depth > 3)
+            return null;
+        if (typeof actor.has_style_class_name === 'function' &&
+            actor.has_style_class_name('panel-button'))
+            return actor;
+        const children = actor.get_children?.() ?? [];
+        for (const child of children) {
+            const found = this._findPanelButton(child, depth + 1);
+            if (found)
+                return found;
         }
-        if (actor._openbarOriginalStyle === undefined)
-            actor._openbarOriginalStyle = actor.get_style();
-        actor.set_style(`${this._styleLine}; ${actor._openbarOriginalStyle || ''}`);
+        return null;
     }
 
-    _restore(actor, secondTime) {
+    _override(actor) {
         if (!actor)
             return;
-        const isPanelButton = typeof actor.has_style_class_name === 'function' &&
-            actor.has_style_class_name('panel-button');
-        if (!isPanelButton) {
-            if (secondTime)
-                return;
-            const children = actor.get_children?.() ?? [];
-            if (children.length)
-                this._restore(children[0], true);
+        const target = this._findPanelButton(actor);
+        if (!target)
             return;
-        }
-        if (actor._openbarOriginalStyle !== undefined) {
-            actor.set_style(actor._openbarOriginalStyle);
-            delete actor._openbarOriginalStyle;
+        if (target._openbarOriginalStyle === undefined)
+            target._openbarOriginalStyle = target.get_style();
+        target.set_style(`${this._styleLine}; ${target._openbarOriginalStyle || ''}`);
+    }
+
+    _restore(actor) {
+        if (!actor)
+            return;
+        const target = this._findPanelButton(actor);
+        if (!target)
+            return;
+        if (target._openbarOriginalStyle !== undefined) {
+            target.set_style(target._openbarOriginalStyle);
+            delete target._openbarOriginalStyle;
         }
     }
 }
@@ -868,6 +871,7 @@ export class FullscreenEmptyWorkspace {
             const monitor = win.get_monitor();
             const others = win.get_workspace().list_windows()
                 .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
+            console.log(`Open Bar[diag]: fullscreen _place monitor=${monitor} others=${others.length}`);
             if (others.length < 1)
                 return;
 
@@ -964,7 +968,10 @@ export class FullscreenEmptyWorkspace {
 
     _onMap(act) {
         const win = act?.meta_window;
-        if (this._shouldPlace(win))
+        const should = this._shouldPlace(win);
+        console.log(`Open Bar[diag]: fullscreen _onMap should=${should} ` +
+            `max=${win?.is_maximized?.()} fs=${win?.fullscreen}`);
+        if (should)
             this._place(win);
     }
 
