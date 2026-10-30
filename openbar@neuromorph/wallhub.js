@@ -281,7 +281,13 @@ export class WallhubManager {
         this._intervalItem.setSensitive(false);
 
         // Control bar: previous / next / random / settings.
-        this._controlItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        this._controlItem = new PopupMenu.PopupBaseMenuItem({
+            reactive: false,
+            style_class: 'wallhub-controls',
+        });
+        try {
+            this._controlItem.style = 'padding: 4px 6px;';
+        } catch (e) {}
         this.buildControls();
 
         this.indicator.menu.addMenuItem(this._intervalItem);
@@ -296,10 +302,11 @@ export class WallhubManager {
         // hoverPath: preview path to show while the pointer is over this button
         // (undefined = keep the default next-wallpaper preview).
         const makeButton = (iconName, tooltip, callback, hoverPath) => {
+            const ICON_SIZE = 22;
             const btnIcon = new St.Icon({
                 icon_name: iconName,
                 style_class: 'popup-menu-icon',
-                icon_size: 16,
+                icon_size: ICON_SIZE,
             });
             const btn = new St.Button({
                 style_class: 'ci-action-btn',
@@ -309,6 +316,10 @@ export class WallhubManager {
                 y_expand: true,
                 track_hover: true,
             });
+            // Larger hit area and icon than the default menu button.
+            const basePadding = 'padding: 8px 4px;';
+            btn.set_size(64, 44);
+            btn.style = basePadding;
             btn.connect('clicked', () => {
                 if (this.ext.disabling)
                     return;
@@ -322,8 +333,8 @@ export class WallhubManager {
                 const hovered = btn.hover;
                 try {
                     btn.style = hovered
-                        ? 'background-color: rgba(255,255,255,0.16); border-radius: 6px;'
-                        : '';
+                        ? `${basePadding} background-color: rgba(255,255,255,0.16); border-radius: 8px;`
+                        : basePadding;
                 } catch (e) {
                     // styling must never break interaction
                 }
