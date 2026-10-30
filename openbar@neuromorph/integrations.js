@@ -653,8 +653,37 @@ export class FullscreenEmptyWorkspace {
         this._signalIds = [];
         this._handles = [];
         this._mutterSettings = null;
-        this._maximized = new Map();   // window id -> 'reorder'
-        this._sizeChange = new Map();  // window id -> 'place' | 'back'
+
+        // winId -> { originWs, originIndex, dedicatedWs, created }
+        this._state = new Map();
+        // Pending size-change verdict per window, applied on 'size-changed'.
+        this._sizeChange = new Map();
+
+        // Re-entrancy guard. change_workspace() emits further size-change /
+        // map signals, so every workspace mutation runs under this lock or it
+        // would loop (fullscreen -> move -> event -> move -> ...).
+        // The lock is released on a short timer rather than immediately in
+        // finally, because the follow-up signals may be delivered on a later
+        // main-loop iteration; releasing synchronously would let them re-enter.
+        this._busy = false;
+        this._busyTimeoutId = 0;
+    }
+
+    // Take the guard and auto-release after a short delay. The delay matters:
+    // change_workspace() / activate() cause follow-up signals that may arrive on
+    // a later main-loop iteration, so releasing synchronously would let them
+    // re-enter and move the window again.
+    _lock() {
+        this._busy = true;
+        if (this._busyTimeoutId) {
+            try { GLib.source_remove(this._busyTimeoutId); } catch (e) {}
+            this._busyTimeoutId = 0;
+        }
+        this._busyTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
+            this._busyTimeoutId = 0;
+            this._busy = false;
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     enable() {
@@ -685,16 +714,13 @@ export class FullscreenEmptyWorkspace {
             }
         };
 
-        connect('unminimize', act => this._onMap(act));
-        connect('size-changed', act => this._onSizeChanged(act));
-        connect('minimize', act => this._restore(act));
         connect('map', act => this._onMap(act));
-        connect('destroy', act => this._restore(act));
+        connect('unminimize', act => this._onMap(act));
         connect('size-change', (act, change, rectOld) => this._onSizeChange(act, change, rectOld));
-
-        this._signalIds.push(this._settings.connect('changed::fullscreen-maximized-too', () => {
-            // Nothing to recompute; the flag is read on demand.
-        }));
+        connect('size-changed', act => this._onSizeChanged(act));
+        connect('minimize', act => this._onRestore(act));
+        // destroy: window is going away, only drop state, never touch workspaces.
+        connect('destroy', act => this._onDestroy(act));
     }
 
     disable() {
@@ -705,15 +731,19 @@ export class FullscreenEmptyWorkspace {
         this._signalIds = [];
 
         try {
-            const wm = global.window_manager;
             this._handles.forEach(h => {
-                try { wm.disconnect(h); } catch (e) {}
+                try { global.window_manager.disconnect(h); } catch (e) {}
             });
         } catch (e) {}
         this._handles = [];
-        this._maximized.clear();
+        this._state.clear();
         this._sizeChange.clear();
         this._mutterSettings = null;
+        if (this._busyTimeoutId) {
+            try { GLib.source_remove(this._busyTimeoutId); } catch (e) {}
+            this._busyTimeoutId = 0;
+        }
+        this._busy = false;
     }
 
     _sync() {
@@ -731,9 +761,30 @@ export class FullscreenEmptyWorkspace {
         }
     }
 
+    _primaryOnly() {
+        try {
+            return this._mutterSettings?.get_boolean('workspaces-only-on-primary') ?? true;
+        } catch (e) {
+            return true;
+        }
+    }
+
     _isNormal(win) {
-        return win && win.window_type === Meta.WindowType.NORMAL &&
+        return !!win && win.window_type === Meta.WindowType.NORMAL &&
             !win.is_always_on_all_workspaces();
+    }
+
+    // ---- guards -----------------------------------------------------------
+
+    // True when `ws` holds only `win` (ignoring always-on-all-workspaces ones).
+    _isAloneOn(ws, win) {
+        try {
+            return ws.list_windows()
+                .filter(w => w !== win && !w.is_always_on_all_workspaces())
+                .length === 0;
+        } catch (e) {
+            return false;
+        }
     }
 
     _shouldPlace(win) {
@@ -742,13 +793,16 @@ export class FullscreenEmptyWorkspace {
         return this._maximizedToo() ? win.is_maximized() : win.fullscreen;
     }
 
-    // Nearest workspace with no windows on this monitor. Prefers the closest
-    // index to `fromIndex` so the window does not jump further than necessary.
-    _firstFree(manager, monitor, fromIndex = 0) {
-        const n = manager.get_n_workspaces();
+    // ---- workspace helpers -------------------------------------------------
+
+    // Nearest workspace with no windows on `monitor`, or -1.
+    _firstFree(manager, monitor, fromIndex) {
         const free = [];
-        for (let i = 0; i < n; i++) {
-            const count = manager.get_workspace_by_index(i).list_windows()
+        for (let i = 0; i < manager.get_n_workspaces(); i++) {
+            const ws = manager.get_workspace_by_index(i);
+            if (!ws)
+                continue;
+            const count = ws.list_windows()
                 .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
             if (count < 1)
                 free.push(i);
@@ -759,209 +813,13 @@ export class FullscreenEmptyWorkspace {
         return free[0];
     }
 
-    // Last occupied workspace before/after the current one, or -1.
-    _lastOccupied(manager, current, monitor) {
-        for (let i = current - 1; i >= 0; i--) {
-            const count = manager.get_workspace_by_index(i).list_windows()
-                .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
-            if (count > 0)
-                return i;
-        }
-        const n = manager.get_n_workspaces();
-        for (let i = current + 1; i < n; i++) {
-            const count = manager.get_workspace_by_index(i).list_windows()
-                .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
-            if (count > 0)
-                return i;
-        }
-        return -1;
-    }
-
-    _primaryOnly() {
-        try {
-            return this._mutterSettings?.get_boolean('workspaces-only-on-primary') ?? true;
-        } catch (e) {
-            return true;
-        }
-    }
-
-    _place(win) {
-        try {
-            const monitor = win.get_monitor();
-            const others = win.get_workspace().list_windows()
-                .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
-            if (others.length < 1)
-                return;
-
-            const manager = win.get_display().get_workspace_manager();
-            const current = manager.get_active_workspace_index();
-            const primaryOnly = this._primaryOnly();
-            let free = this._firstFree(manager, monitor, current);
-
-            // With dynamic workspaces there may be no empty workspace yet: the
-            // last one is only created on demand. Create one instead of giving
-            // up, so a window on a full workspace still gets its own space.
-            if (free === -1) {
-                try {
-                    const newIndex = manager.get_n_workspaces();
-                    manager.append_new_workspace(false, global.get_current_time());
-                    if (manager.get_n_workspaces() > newIndex)
-                        free = newIndex;
-                } catch (e) {
-                    console.warn('Open Bar: could not create workspace: ' + e.message);
-                }
-            }
-
-            const primary = win.get_display().get_primary_monitor();
-
-            if (primaryOnly) {
-                if (monitor !== primary)
-                    return;
-                if (free === -1)
-                    return;
-                // Record the origin before touching anything.
-                const originRecord = this._rememberOrigin(win);
-                // Move the window itself onto the empty workspace. Reordering
-                // earlier only moved the whole workspace around and left the
-                // window on its origin workspace, which is why the feature
-                // appeared to do nothing.
-                const targetWs = manager.get_workspace_by_index(free);
-                if (!targetWs)
-                    return;
-                win.change_workspace(targetWs);
-                this._maximized.set(win.get_id(), originRecord);
-                console.log(`Open Bar[place]: originIdx=${originRecord?.index} ` +
-                    `current=${current} free=${free} ` +
-                    `winNowIdx=${win.get_workspace()?.index()}`);
-                // Follow the window so the user sees the fullscreen window.
-                try {
-                    const winWs = win.get_workspace();
-                    if (winWs && winWs.index() !== manager.get_active_workspace_index())
-                        winWs.activate(global.get_current_time());
-                } catch (e) {
-                    console.warn('Open Bar: could not switch to the window workspace: ' + e.message);
-                }
-            } else {
-                if (free === -1)
-                    return;
-                const originRecord2 = this._rememberOrigin(win);
-                // Move the window itself to the empty workspace, same as the
-                // primary-only path.
-                const targetWs = manager.get_workspace_by_index(free);
-                if (!targetWs) {
-                    this._maximized.set(win.get_id(), originRecord2);
-                    return;
-                }
-                win.change_workspace(targetWs);
-                this._maximized.set(win.get_id(), originRecord2);
-            }
-        } catch (e) {
-            console.warn('Open Bar: could not place window on empty workspace: ' + e.message);
-        }
-    }
-
-    // Record where the window lived so _restore can put it back precisely.
-    // Storing the index as well as the object matters: with dynamic workspaces
-    // the object can be merged away, but the index always resolves.
-    _rememberOrigin(win) {
-        try {
-            const ws = win.get_workspace();
-            if (!ws)
-                return null;
-            return { ws, index: ws.index() };
-        } catch (e) {
-            return null;
-        }
-    }
-
-    _restore(act) {
-        try {
-            const win = act?.meta_window;
-            if (!win || !this._isNormal(win))
-                return;
-            const id = win.get_id();
-            if (!this._maximized.has(id))
-                return;
-            const record = this._maximized.get(id);
-            this._maximized.delete(id);
-
-            const manager = win.get_display().get_workspace_manager();
-
-            // Move the window back to the workspace it came from. _place() no
-            // longer reorders workspaces, so both the object and its index stay
-            // stable; the index is only a fallback if the object was merged away
-            // by dynamic-workspace management.
-            const originWs = record?.ws;
-            const originIndex = record?.index;
-            if (originWs || Number.isInteger(originIndex)) {
-                let target = null;
-                try {
-                    if (originWs && originWs.index() >= 0)
-                        target = originWs;
-                } catch (e) {
-                    target = null;
-                }
-                if (!target && Number.isInteger(originIndex) &&
-                    originIndex >= 0 && originIndex < manager.get_n_workspaces())
-                    target = manager.get_workspace_by_index(originIndex);
-
-                if (target) {
-                    try {
-                        if (win.get_workspace()?.index() !== target.index())
-                            win.change_workspace(target);
-                    } catch (e) {
-                        console.warn('Open Bar: could not move window back: ' + e.message);
-                    }
-                    console.log(`Open Bar[restore]: originIdx=${originIndex} ` +
-                        `targetIdx=${target.index()} winIdx=${win.get_workspace()?.index()}`);
-                    try {
-                        if (target.index() !== manager.get_active_workspace_index())
-                            target.activate(global.get_current_time());
-                    } catch (e) {}
-                    return;
-                }
-            }
-
-            // Fallback (no record): merge with the nearest workspace that still
-            // has windows on this monitor.
-            const current = manager.get_active_workspace_index();
-            const monitor = win.get_monitor();
-            const others = win.get_workspace().list_windows()
-                .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
-            if (others.length !== 0)
-                return;
-
-            const last = this._lastOccupied(manager, current, monitor);
-            if (last === -1)
-                return;
-
-            if (this._primaryOnly()) {
-                if (monitor !== win.get_display().get_primary_monitor())
-                    return;
-                const lastList = manager.get_workspace_by_index(last).list_windows()
-                    .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
-                manager.reorder_workspace(manager.get_workspace_by_index(current), last);
-                lastList.forEach(w => w.change_workspace_by_index(last, false));
-            } else {
-                const currentList = win.get_workspace().list_windows()
-                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
-                if (currentList.length > 0)
-                    return;
-                const lastList = manager.get_workspace_by_index(last).list_windows()
-                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
-                manager.reorder_workspace(manager.get_workspace_by_index(current), last);
-                lastList.forEach(w => w.change_workspace_by_index(last, false));
-            }
-        } catch (e) {
-            console.warn('Open Bar: could not restore window workspace: ' + e.message);
-        }
-    }
+    // ---- event handlers ----------------------------------------------------
 
     _onMap(act) {
         const win = act?.meta_window;
-        const should = this._shouldPlace(win);
-        if (should)
-            this._place(win);
+        if (!this._shouldPlace(win))
+            return;
+        this._place(win);
     }
 
     _onSizeChange(act, change, rectOld) {
@@ -969,15 +827,22 @@ export class FullscreenEmptyWorkspace {
         if (!this._isNormal(win))
             return;
         const id = win.get_id();
-        if ((this._maximizedToo() && change === Meta.SizeChange.MAXIMIZE && win.is_maximized()) ||
+        const too = this._maximizedToo();
+
+        if ((too && change === Meta.SizeChange.MAXIMIZE && win.is_maximized()) ||
             change === Meta.SizeChange.FULLSCREEN) {
             this._sizeChange.set(id, 'place');
             return;
         }
-        const rectMax = win.get_work_area_for_monitor(win.get_monitor());
-        const wasFullMax = rectMax.equal(rectOld);
-        if ((this._maximizedToo() && change === Meta.SizeChange.UNMAXIMIZE && wasFullMax) ||
-            (change === Meta.SizeChange.UNFULLSCREEN && (this._maximizedToo() ? !win.is_maximized() : true))) {
+
+        let wasFullyMaximized = false;
+        try {
+            wasFullyMaximized = win.get_work_area_for_monitor(win.get_monitor()).equal(rectOld);
+        } catch (e) {
+            wasFullyMaximized = false;
+        }
+        if ((too && change === Meta.SizeChange.UNMAXIMIZE && wasFullyMaximized) ||
+            (change === Meta.SizeChange.UNFULLSCREEN && (too ? !win.is_maximized() : true))) {
             this._sizeChange.set(id, 'back');
         }
     }
@@ -987,14 +852,210 @@ export class FullscreenEmptyWorkspace {
         if (!win)
             return;
         const id = win.get_id();
-        const pending = this._sizeChange.get(id);
-        if (!pending)
+        const verdict = this._sizeChange.get(id);
+        if (!verdict)
             return;
-        if (pending === 'place')
-            this._place(win);
-        else if (pending === 'back')
-            this._restore(act);
         this._sizeChange.delete(id);
+        if (verdict === 'place') {
+            if (this._shouldPlace(win))
+                this._place(win);
+        } else {
+            this._restore(act);
+        }
+    }
+
+    _onRestore(act) {
+        this._restore(act);
+    }
+
+    // Window is being destroyed: drop bookkeeping only. Never move windows or
+    // workspaces here (the MetaWindow is already going away).
+    _onDestroy(act) {
+        try {
+            const win = act?.meta_window;
+            if (!win)
+                return;
+            const id = win.get_id();
+            const st = this._state.get(id);
+            if (!st)
+                return;
+            this._state.delete(id);
+            this._sizeChange.delete(id);
+            // Bring the user back to where the window came from, without
+            // touching the workspace list.
+            const manager = global.workspace_manager;
+            if (st.originIndex >= 0 && st.originIndex < manager.get_n_workspaces()) {
+                const ws = manager.get_workspace_by_index(st.originIndex);
+                if (ws && ws.index() !== manager.get_active_workspace_index())
+                    ws.activate(global.get_current_time());
+            }
+        } catch (e) {
+            console.warn('Open Bar: fullscreen-workspace destroy cleanup failed: ' + e.message);
+        }
+    }
+
+    // ---- placement ---------------------------------------------------------
+
+    _place(win) {
+        if (this._busy)
+            return;
+
+        try {
+            const id = win.get_id();
+            const existing = this._state.get(id);
+            // Already isolated: nothing to do. This is the main idempotency
+            // guard that stops repeated size-change events from re-moving.
+            if (existing && this._isAloneOn(win.get_workspace(), win))
+                return;
+
+            const monitor = win.get_monitor();
+            const manager = win.get_display().get_workspace_manager();
+            const current = manager.get_active_workspace_index();
+
+            if (this._primaryOnly() && monitor !== win.get_display().get_primary_monitor())
+                return;
+
+            // If there are no other windows there is nothing to escape from.
+            if (this._isAloneOn(win.get_workspace(), win))
+                return;
+
+            this._lock();
+            const originWs = win.get_workspace();
+            if (!originWs)
+                return;
+
+            const originIndex = originWs.index();
+            let dedicatedWs = null;
+            let created = false;
+
+            const free = this._firstFree(manager, monitor, current);
+            if (free !== -1) {
+                dedicatedWs = manager.get_workspace_by_index(free);
+            } else {
+                // All workspaces busy: create one, but only when AutoMove is
+                // off (it hooks _checkWorkspaces and keeps trailing workspaces
+                // alive, which conflicts with creating/removing them here).
+                if (this._settings.get_boolean('auto-move-windows'))
+                    return;
+                try {
+                    const before = manager.get_n_workspaces();
+                    manager.append_new_workspace(false, global.get_current_time());
+                    if (manager.get_n_workspaces() > before) {
+                        const appended = manager.get_workspace_by_index(before);
+                        const desired = Math.min(current + 1, manager.get_n_workspaces() - 1);
+                        if (appended && appended.index() !== desired)
+                            manager.reorder_workspace(appended, desired);
+                        dedicatedWs = manager.get_workspace_by_index(desired);
+                        created = true;
+                    }
+                } catch (e) {
+                    console.warn('Open Bar: could not create a workspace: ' + e.message);
+                }
+            }
+            if (!dedicatedWs)
+                return;
+
+            this._state.set(id, { originWs, originIndex, dedicatedWs, created });
+            win.change_workspace(dedicatedWs);
+
+            try {
+                const now = win.get_workspace();
+                if (now && now.index() !== manager.get_active_workspace_index())
+                    now.activate(global.get_current_time());
+            } catch (e) {
+                console.warn('Open Bar: could not switch to the window workspace: ' + e.message);
+            }
+        } catch (e) {
+            console.warn('Open Bar: could not place window on a dedicated workspace: ' + e.message);
+        } finally {
+            // The guard is released by its own timer; nothing to do here.
+        }
+    }
+
+    // ---- restore -----------------------------------------------------------
+
+    _restore(act) {
+        if (this._busy)
+            return;
+
+        try {
+            const win = act?.meta_window;
+            if (!win)
+                return;
+            const id = win.get_id();
+            const st = this._state.get(id);
+            // No record means we never moved it - ignore completely. This keeps
+            // us from reacting to events caused by other extensions.
+            if (!st)
+                return;
+
+            // Drop the record first so a re-entrant event finds nothing to do.
+            this._state.delete(id);
+            this._sizeChange.delete(id);
+
+            if (!this._isNormal(win))
+                return;
+
+            this._lock();
+
+            const manager = win.get_display().get_workspace_manager();
+            const dedicatedWs = st.dedicatedWs;
+
+            // Move the window back to its origin workspace.
+            let target = null;
+            try {
+                if (st.originWs && st.originWs.index() >= 0)
+                    target = st.originWs;
+            } catch (e) {
+                target = null;
+            }
+            if (!target && Number.isInteger(st.originIndex) &&
+                st.originIndex >= 0 && st.originIndex < manager.get_n_workspaces())
+                target = manager.get_workspace_by_index(st.originIndex);
+
+            if (!target) {
+                return;
+            }
+
+            if (win.get_workspace()?.index() !== target.index())
+                win.change_workspace(target);
+
+            // Only drop the dedicated workspace when we created it, it is now
+            // empty, and we would stay above mutter's minimum of 2.
+            // In fixed-workspace mode gnome-shell's _checkWorkspaces() returns
+            // early and never manages workspaces itself, so remove_workspace()
+            // there is untested territory: skip the deletion and let the empty
+            // workspace stay, which is harmless with a fixed workspace count.
+            let dynamicWorkspaces = false;
+            try {
+                dynamicWorkspaces = this._mutterSettings?.get_boolean('dynamic-workspaces') ?? false;
+            } catch (e) {
+                dynamicWorkspaces = false;
+            }
+
+            if (st.created && dedicatedWs && dynamicWorkspaces &&
+                manager.get_n_workspaces() > 2) {
+                try {
+                    const stillAlone = this._isAloneOn(dedicatedWs, win);
+                    if (stillAlone && dedicatedWs.index() >= 0)
+                        manager.remove_workspace(dedicatedWs, global.get_current_time());
+                } catch (e) {
+                    // Keeping an empty workspace is harmless; never let cleanup
+                    // break the restore.
+                    console.warn('Open Bar: could not remove dedicated workspace: ' + e.message);
+                }
+            }
+
+            try {
+                if (target.index() >= 0 &&
+                    target.index() !== manager.get_active_workspace_index())
+                    target.activate(global.get_current_time());
+            } catch (e) {}
+        } catch (e) {
+            console.warn('Open Bar: could not restore window workspace: ' + e.message);
+        } finally {
+            // The guard is released by its own timer; nothing to do here.
+        }
     }
 }
 
