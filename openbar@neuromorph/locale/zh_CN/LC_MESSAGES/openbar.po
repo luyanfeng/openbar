@@ -39,6 +39,9 @@ msgstr "添加图片文件或文件夹。勾选后该来源会参与轮播。"
 msgid "Add one below."
 msgstr "请在下方添加。"
 
+msgid "Also for maximized windows"
+msgstr "最大化的窗口也移动"
+
 msgid "Application ID"
 msgstr "应用 ID"
 
@@ -90,6 +93,9 @@ msgstr "顶栏右侧各指示器之间的间距。"
 msgid "Eject"
 msgstr "弹出"
 
+msgid "Enable"
+msgstr "启用"
+
 msgid "Enable Auto Move"
 msgstr "启用自动移动"
 
@@ -113,6 +119,9 @@ msgstr "手势"
 
 msgid "Four-finger Workspace Swipe"
 msgstr "四指切换工作区"
+
+msgid "Fullscreen to Empty Workspace"
+msgstr "全屏时移到空工作区"
 
 msgid "Hide at or above"
 msgstr "达到此电量及以上时隐藏"
@@ -242,6 +251,9 @@ msgstr "壁纸幻灯片"
 
 msgid "Wallpaper Sources"
 msgstr "壁纸来源"
+
+msgid "When off, only fullscreen windows are moved."
+msgstr "关闭时仅移动全屏窗口。"
 
 msgid "Workspace"
 msgstr "工作区"

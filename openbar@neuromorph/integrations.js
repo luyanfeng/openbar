@@ -20,6 +20,7 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import GObject from 'gi://GObject';
+import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import UPower from 'gi://UPowerGlib';
@@ -721,8 +722,287 @@ export class DriveMenu {
 }
 
 // ---------------------------------------------------------------------------
-// Manager: owns the five integrations and reacts to setting changes.
+// 6. Fullscreen to Empty Workspace
+//
+// When a window becomes maximized/fullscreen, reorder workspaces so that window
+// sits on a workspace that is empty for its monitor; restore on unmaximize,
+// minimize or destroy. Ported from fullscreen-to-empty-workspace2@corgijan.dev.
 // ---------------------------------------------------------------------------
+export class FullscreenEmptyWorkspace {
+    constructor(ext) {
+        this.ext = ext;
+        this._settings = ext._settings;
+        this._enabled = false;
+        this._signalIds = [];
+        this._handles = [];
+        this._mutterSettings = null;
+        this._maximized = new Map();   // window id -> 'reorder'
+        this._sizeChange = new Map();  // window id -> 'place' | 'back'
+    }
+
+    enable() {
+        if (this._enabled)
+            return;
+        this._enabled = true;
+
+        try {
+            this._mutterSettings = new Gio.Settings({ schema_id: 'org.gnome.mutter' });
+        } catch (e) {
+            this._mutterSettings = null;
+        }
+
+        const wm = global.window_manager;
+        const connect = (sig, fn) => {
+            try {
+                this._handles.push(wm.connect(sig, (_, ...args) => {
+                    if (this.ext.disabling || !this._enabled)
+                        return;
+                    try {
+                        fn(...args);
+                    } catch (e) {
+                        console.warn(`Open Bar: fullscreen-workspace ${sig} failed: ${e.message}`);
+                    }
+                }));
+            } catch (e) {
+                console.warn(`Open Bar: could not connect ${sig}: ${e.message}`);
+            }
+        };
+
+        connect('unminimize', act => this._onMap(act));
+        connect('size-changed', act => this._onSizeChanged(act));
+        connect('minimize', act => this._restore(act));
+        connect('map', act => this._onMap(act));
+        connect('destroy', act => this._restore(act));
+        connect('size-change', (act, change, rectOld) => this._onSizeChange(act, change, rectOld));
+
+        this._signalIds.push(this._settings.connect('changed::fullscreen-maximized-too', () => {
+            // Nothing to recompute; the flag is read on demand.
+        }));
+    }
+
+    disable() {
+        this._enabled = false;
+        this._signalIds.forEach(id => {
+            try { this._settings.disconnect(id); } catch (e) {}
+        });
+        this._signalIds = [];
+
+        try {
+            const wm = global.window_manager;
+            this._handles.forEach(h => {
+                try { wm.disconnect(h); } catch (e) {}
+            });
+        } catch (e) {}
+        this._handles = [];
+        this._maximized.clear();
+        this._sizeChange.clear();
+        this._mutterSettings = null;
+    }
+
+    _sync() {
+        if (this._settings.get_boolean('fullscreen-new-workspace'))
+            this.enable();
+        else
+            this.disable();
+    }
+
+    _maximizedToo() {
+        try {
+            return this._settings.get_boolean('fullscreen-maximized-too');
+        } catch (e) {
+            return true;
+        }
+    }
+
+    _isNormal(win) {
+        return win && win.window_type === Meta.WindowType.NORMAL &&
+            !win.is_always_on_all_workspaces();
+    }
+
+    _shouldPlace(win) {
+        if (!this._isNormal(win))
+            return false;
+        return this._maximizedToo() ? win.is_maximized() : win.fullscreen;
+    }
+
+    // First workspace with no windows on this monitor, or -1.
+    _firstFree(manager, monitor) {
+        const n = manager.get_n_workspaces();
+        for (let i = 0; i < n; i++) {
+            const count = manager.get_workspace_by_index(i).list_windows()
+                .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
+            if (count < 1)
+                return i;
+        }
+        return -1;
+    }
+
+    // Last occupied workspace before/after the current one, or -1.
+    _lastOccupied(manager, current, monitor) {
+        for (let i = current - 1; i >= 0; i--) {
+            const count = manager.get_workspace_by_index(i).list_windows()
+                .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
+            if (count > 0)
+                return i;
+        }
+        const n = manager.get_n_workspaces();
+        for (let i = current + 1; i < n; i++) {
+            const count = manager.get_workspace_by_index(i).list_windows()
+                .filter(w => !w.is_always_on_all_workspaces() && w.get_monitor() === monitor).length;
+            if (count > 0)
+                return i;
+        }
+        return -1;
+    }
+
+    _primaryOnly() {
+        try {
+            return this._mutterSettings?.get_boolean('workspaces-only-on-primary') ?? true;
+        } catch (e) {
+            return true;
+        }
+    }
+
+    _place(win) {
+        try {
+            const monitor = win.get_monitor();
+            const others = win.get_workspace().list_windows()
+                .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
+            if (others.length < 1)
+                return;
+
+            const manager = win.get_display().get_workspace_manager();
+            const current = manager.get_active_workspace_index();
+
+            if (this._primaryOnly()) {
+                const primary = win.get_display().get_primary_monitor();
+                if (monitor !== primary)
+                    return;
+                const free = this._firstFree(manager, monitor);
+                if (free === -1)
+                    return;
+                if (current < free) {
+                    manager.reorder_workspace(manager.get_workspace_by_index(free), current);
+                    others.forEach(w => w.change_workspace_by_index(current, false));
+                    this._maximized.set(win.get_id(), 'reorder');
+                } else if (current > free) {
+                    manager.reorder_workspace(manager.get_workspace_by_index(current), free);
+                    manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
+                    others.forEach(w => w.change_workspace_by_index(current, false));
+                    this._maximized.set(win.get_id(), 'reorder');
+                }
+            } else {
+                const free = this._firstFree(manager, monitor);
+                if (free === -1)
+                    return;
+                const currentList = win.get_workspace().list_windows()
+                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
+                const freeList = manager.get_workspace_by_index(free).list_windows()
+                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
+                if (current < free) {
+                    manager.reorder_workspace(manager.get_workspace_by_index(free), current);
+                    manager.reorder_workspace(manager.get_workspace_by_index(current + 1), free);
+                    currentList.forEach(w => w.change_workspace_by_index(current, false));
+                    freeList.forEach(w => w.change_workspace_by_index(free, false));
+                    this._maximized.set(win.get_id(), 'reorder');
+                } else if (current > free) {
+                    manager.reorder_workspace(manager.get_workspace_by_index(current), free);
+                    manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
+                    currentList.forEach(w => w.change_workspace_by_index(current, false));
+                    freeList.forEach(w => w.change_workspace_by_index(free, false));
+                    this._maximized.set(win.get_id(), 'reorder');
+                }
+            }
+        } catch (e) {
+            console.warn('Open Bar: could not place window on empty workspace: ' + e.message);
+        }
+    }
+
+    _restore(act) {
+        try {
+            const win = act?.meta_window;
+            if (!win || !this._isNormal(win))
+                return;
+            const id = win.get_id();
+            if (!this._maximized.has(id))
+                return;
+            this._maximized.delete(id);
+
+            const monitor = win.get_monitor();
+            const others = win.get_workspace().list_windows()
+                .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
+            if (others.length !== 0)
+                return;
+
+            const manager = win.get_display().get_workspace_manager();
+            const current = manager.get_active_workspace_index();
+            const last = this._lastOccupied(manager, current, monitor);
+            if (last === -1)
+                return;
+
+            if (this._primaryOnly()) {
+                if (monitor !== win.get_display().get_primary_monitor())
+                    return;
+                const lastList = manager.get_workspace_by_index(last).list_windows()
+                    .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
+                manager.reorder_workspace(manager.get_workspace_by_index(current), last);
+                lastList.forEach(w => w.change_workspace_by_index(last, false));
+            } else {
+                const currentList = win.get_workspace().list_windows()
+                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
+                if (currentList.length > 0)
+                    return;
+                const lastList = manager.get_workspace_by_index(last).list_windows()
+                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
+                manager.reorder_workspace(manager.get_workspace_by_index(current), last);
+                lastList.forEach(w => w.change_workspace_by_index(last, false));
+            }
+        } catch (e) {
+            console.warn('Open Bar: could not restore window workspace: ' + e.message);
+        }
+    }
+
+    _onMap(act) {
+        const win = act?.meta_window;
+        if (this._shouldPlace(win))
+            this._place(win);
+    }
+
+    _onSizeChange(act, change, rectOld) {
+        const win = act?.meta_window;
+        if (!this._isNormal(win))
+            return;
+        const id = win.get_id();
+        if ((this._maximizedToo() && change === Meta.SizeChange.MAXIMIZE && win.is_maximized()) ||
+            change === Meta.SizeChange.FULLSCREEN) {
+            this._sizeChange.set(id, 'place');
+            return;
+        }
+        const rectMax = win.get_work_area_for_monitor(win.get_monitor());
+        const wasFullMax = rectMax.equal(rectOld);
+        if ((this._maximizedToo() && change === Meta.SizeChange.UNMAXIMIZE && wasFullMax) ||
+            (change === Meta.SizeChange.UNFULLSCREEN && (this._maximizedToo() ? !win.is_maximized() : true))) {
+            this._sizeChange.set(id, 'back');
+        }
+    }
+
+    _onSizeChanged(act) {
+        const win = act?.meta_window;
+        if (!win)
+            return;
+        const id = win.get_id();
+        const pending = this._sizeChange.get(id);
+        if (!pending)
+            return;
+        if (pending === 'place')
+            this._place(win);
+        else if (pending === 'back')
+            this._restore(act);
+        this._sizeChange.delete(id);
+    }
+}
+
+
 export class IntegrationsManager {
     constructor(ext) {
         this.ext = ext;
@@ -735,6 +1015,7 @@ export class IntegrationsManager {
             automove: new AutoMoveWindows(ext),
             gestures: new SwapFingerGestures(ext),
             drives: new DriveMenu(ext),
+            fullscreen: new FullscreenEmptyWorkspace(ext),
         };
     }
 
@@ -749,6 +1030,7 @@ export class IntegrationsManager {
             'auto-move-windows': ['automove', 'auto-move-windows'],
             'swap-finger-gestures': ['gestures', 'swap-finger-gestures'],
             'drive-menu-enabled': ['drives', 'drive-menu-enabled'],
+            'fullscreen-new-workspace': ['fullscreen', 'fullscreen-new-workspace'],
         };
 
         for (const [key, [name, settingKey]] of Object.entries(map)) {

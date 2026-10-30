@@ -3388,6 +3388,27 @@ class OpenbarPrefs {
             Gio.SettingsBindFlags.DEFAULT);
         driveGroup.add(driveSwitch);
 
+        // --- Fullscreen to empty workspace ---
+        const fsGroup = new Adw.PreferencesGroup({
+            title: _('Fullscreen to Empty Workspace'),
+            description: _('Move a maximized or fullscreen window to a workspace that is ' +
+                'empty on its monitor, and back when it is restored.'),
+        });
+        page.add(fsGroup);
+
+        const fsSwitch = new Adw.SwitchRow({ title: _('Enable') });
+        this._settings.bind('fullscreen-new-workspace', fsSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        fsGroup.add(fsSwitch);
+
+        const fsMaxSwitch = new Adw.SwitchRow({
+            title: _('Also for maximized windows'),
+            subtitle: _('When off, only fullscreen windows are moved.'),
+        });
+        this._settings.bind('fullscreen-maximized-too', fsMaxSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        fsGroup.add(fsMaxSwitch);
+
         // --- Auto move windows ---
         const autoMoveGroup = new Adw.PreferencesGroup({
             title: _('Auto Move Windows'),

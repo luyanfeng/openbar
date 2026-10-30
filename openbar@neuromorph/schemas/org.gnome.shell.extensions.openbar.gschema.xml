@@ -1512,5 +1512,15 @@
       <summary>Show the removable drive menu</summary>
       <description>Add a status area menu listing removable drives and allowing unmount.</description>
     </key>
+    <key type="b" name="fullscreen-new-workspace">
+      <default>false</default>
+      <summary>Move maximized/fullscreen windows to an empty workspace</summary>
+      <description>When a window is maximized or goes fullscreen, move it to a workspace that is empty on its monitor.</description>
+    </key>
+    <key type="b" name="fullscreen-maximized-too">
+      <default>true</default>
+      <summary>Also do this for maximized windows</summary>
+      <description>When false, only fullscreen (not merely maximized) windows are moved.</description>
+    </key>
   </schema>
 </schemalist>
