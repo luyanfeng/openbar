@@ -757,10 +757,27 @@ export class DedicatedWorkspaceGuard {
             if (!win || win._openbarWorkspaceWatched)
                 return;
             win._openbarWorkspaceWatched = true;
+            // Remember where the window was, so the handler can tell which way
+            // it was travelling. 'workspace-changed' carries no direction.
+            try {
+                win._openbarLastWs = win.get_workspace();
+            } catch (e) {
+                win._openbarLastWs = null;
+            }
             const id = win.connect('workspace-changed', () => {
-                if (this._internalMoves > 0 || !this._enabled)
+                if (!this._enabled)
                     return;
-                this._evict(win);
+                let now = null;
+                try {
+                    now = win.get_workspace();
+                } catch (e) {
+                    return;
+                }
+                const prev = win._openbarLastWs ?? null;
+                win._openbarLastWs = now;
+                if (this._internalMoves > 0)
+                    return;
+                this._evict(win, prev, now);
             });
             this._globalWindowIds.push({ win, id });
         } catch (e) {
@@ -781,40 +798,81 @@ export class DedicatedWorkspaceGuard {
         this._winCreatedId = 0;
     }
 
-    // A window landed on a dedicated workspace it does not own: move it back out.
-    _evict(win) {
+    // A window landed on a dedicated workspace it does not own: send it on to
+    // the next acceptable workspace in the direction it was travelling, so a
+    // keyboard move behaves as a skip rather than a bounce-back.
+    _evict(win, prevWs, nowWs) {
         try {
             if (!win || win.window_type !== Meta.WindowType.NORMAL)
                 return;
             if (win.is_always_on_all_workspaces())
                 return;
-            const ws = win.get_workspace();
-            if (!this.isDedicated(ws))
-                return;
-            if (this._ownerOf(ws) === win)
-                return;
+
             const manager = global.workspace_manager;
-            // Nearest workspace that is neither dedicated nor the one we are on.
-            const current = ws.index();
-            let target = null;
-            for (let d = 1; d < manager.get_n_workspaces(); d++) {
-                for (const i of [current - d, current + d]) {
-                    if (i < 0 || i >= manager.get_n_workspaces())
-                        continue;
-                    const cand = manager.get_workspace_by_index(i);
-                    if (cand && !this.isDedicated(cand)) {
-                        target = cand;
-                        break;
-                    }
+            const now = nowWs ?? win.get_workspace();
+            const prev = prevWs ?? null;
+
+            // Case 1: the owner left its own dedicated workspace while still
+            // fullscreen. macOS treats a fullscreen Space and its window as one
+            // unit, so there is nothing to "move out" - put it back.
+            const prevDedicated = prev && this.isDedicated(prev);
+            if (prevDedicated && this._ownerOf(prev) === win &&
+                now && !this.isDedicated(now) && win.fullscreen) {
+                this._internalMoves++;
+                try {
+                    win.change_workspace(prev);
+                    win._openbarLastWs = prev;
+                } finally {
+                    this._internalMoves--;
                 }
-                if (target)
+                return;
+            }
+
+            // Case 2: an intruder landed on a dedicated workspace. Skip past it
+            // in the direction it was travelling, so a keyboard move reads as a
+            // skip rather than a bounce-back.
+            if (!this.isDedicated(now))
+                return;
+            if (this._ownerOf(now) === win)
+                return;
+
+            const n = manager.get_n_workspaces();
+            const here = now.index();
+
+            // Direction of travel: +1 moving right/forward, -1 left/backward.
+            let step = 1;
+            let prevIndex = -1;
+            try {
+                prevIndex = prevWs ? prevWs.index() : -1;
+            } catch (e) {
+                prevIndex = -1;
+            }
+            if (prevIndex >= 0 && prevIndex !== here)
+                step = here > prevIndex ? 1 : -1;
+
+            // Walk on in the same direction; if we run out of workspaces fall
+            // back to the opposite side.
+            const candidates = [];
+            for (let i = here + step; i >= 0 && i < n; i += step)
+                candidates.push(i);
+            for (let i = here - step; i >= 0 && i < n; i -= step)
+                candidates.push(i);
+
+            let target = null;
+            for (const i of candidates) {
+                const cand = manager.get_workspace_by_index(i);
+                if (cand && !this.isDedicated(cand)) {
+                    target = cand;
                     break;
+                }
             }
             if (!target)
                 return;
+
             this._internalMoves++;
             try {
                 win.change_workspace(target);
+                win._openbarLastWs = target;
             } finally {
                 this._internalMoves--;
             }
@@ -838,6 +896,13 @@ export class DedicatedWorkspaceGuard {
 
     // Drag & drop rejection: patch the thumbnail box once we can reach it, so a
     // drop onto a dedicated workspace is refused outright.
+    // Reject drops onto a dedicated workspace.
+    //
+    // ThumbnailsBox.acceptDrop decides which thumbnail receives the drop via
+    // its own _dropWorkspace index, then delegates to that thumbnail's
+    // acceptDropInternal. Patching the box's acceptDrop is therefore the right
+    // seam: WorkspaceThumbnail.acceptDropInternal has no idea which workspace
+    // owns the box-level drop target.
     installDropGuard() {
         try {
             const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
@@ -845,74 +910,30 @@ export class DedicatedWorkspaceGuard {
                 const box = view?._thumbnails;
                 if (!box || box._openbarDropPatched)
                     continue;
-                const original = box.acceptDropInternal;
+                const original = box.acceptDrop;
                 if (typeof original !== 'function')
                     continue;
-                box.acceptDropInternal = (source, actor, time) => {
-                    if (source?.metaWindow) {
+                box.acceptDrop = (source, actor, x, y, time) => {
+                    try {
                         const idx = box._dropWorkspace;
                         const manager = global.workspace_manager;
-                        const ws = (idx >= 0 && idx < manager.get_n_workspaces())
-                            ? manager.get_workspace_by_index(idx) : null;
-                        if (ws && this.isDedicated(ws))
-                            return false;
-                    }
-                    return original.call(box, source, actor, time);
+                        if (idx >= 0 && idx < manager.get_n_workspaces()) {
+                            const ws = manager.get_workspace_by_index(idx);
+                            // Refuse to move a normal window into a dedicated
+                            // workspace owned by another window.
+                            if (ws && this.isDedicated(ws) &&
+                                source?.metaWindow &&
+                                this._ownerOf(ws) !== source.metaWindow)
+                                return false;
+                        }
+                    } catch (e) {}
+                    return original.call(box, source, actor, x, y, time);
                 };
                 box._openbarDropPatched = true;
             }
         } catch (e) {
             console.warn('Open Bar: could not install drop guard: ' + e.message);
         }
-    }
-
-    // Decide which workspace a move should really go to.
-    _redirectIndex(win, index) {
-        if (this._internalMoves > 0 || !this._enabled || this._dedicated.size === 0)
-            return index;
-        try {
-            const manager = global.workspace_manager;
-            const n = manager.get_n_workspaces();
-            if (index < 0 || index >= n)
-                return index;
-            const ws = manager.get_workspace_by_index(index);
-            if (!this.isDedicated(ws))
-                return index;
-            // Skip past dedicated workspaces in the direction of travel.
-            const current = win.get_workspace()?.index() ?? 0;
-            const step = index >= current ? 1 : -1;
-            for (let i = index; i >= 0 && i < n; i += step) {
-                if (!this.isDedicated(manager.get_workspace_by_index(i)))
-                    return i;
-            }
-            return index;
-        } catch (e) {
-            return index;
-        }
-    }
-
-    _redirectWorkspace(win, workspace) {
-        if (!workspace)
-            return null;
-        if (this._internalMoves > 0 || !this._enabled || this._dedicated.size === 0)
-            return workspace;
-        if (!this.isDedicated(workspace))
-            return workspace;
-        try {
-            const manager = global.workspace_manager;
-            const n = manager.get_n_workspaces();
-            const current = win.get_workspace()?.index() ?? 0;
-            const target = workspace.index();
-            const step = target >= current ? 1 : -1;
-            for (let i = target; i >= 0 && i < n; i += step) {
-                const ws = manager.get_workspace_by_index(i);
-                if (!this.isDedicated(ws))
-                    return ws;
-            }
-        } catch (e) {
-            return workspace;
-        }
-        return workspace;
     }
 
     // ---- overview thumbnails ----------------------------------------------
