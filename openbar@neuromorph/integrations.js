@@ -658,6 +658,7 @@ export class DriveMenu {
 // ---------------------------------------------------------------------------
 export class DedicatedWorkspaceGuard {
     constructor() {
+        this._originalBeginWindowDrag = null;
         this._dedicated = new Set();
         // Marks our own moves so the guards let them through.
         this._internalMoves = 0;
@@ -692,6 +693,11 @@ export class DedicatedWorkspaceGuard {
             console.warn('Open Bar: could not restore workspace methods: ' + e.message);
         }
         this._unwatchWindows();
+        try {
+            if (this._originalBeginWindowDrag)
+                Main.overview.beginWindowDrag = this._originalBeginWindowDrag;
+        } catch (e) {}
+        this._originalBeginWindowDrag = null;
         this._injectionManager = null;
         this._owners = new Map();
         try {
@@ -761,6 +767,31 @@ export class DedicatedWorkspaceGuard {
             }
         } catch (e) {
             console.warn('Open Bar: could not watch window moves: ' + e.message);
+        }
+
+        // Refuse a drag that starts on a window living in a dedicated
+        // workspace. WindowPreview objects are recreated whenever the overview
+        // opens, so disabling _draggable on them is futile - the instance we
+        // touched is gone by the time the user drags. Every preview calls
+        // Main.overview.beginWindowDrag(metaWindow) on drag start, which
+        // survives recreation and is the reliable seam.
+        try {
+            const overview = Main.overview;
+            this._originalBeginWindowDrag = overview.beginWindowDrag;
+            overview.beginWindowDrag = metaWindow => {
+                try {
+                    const ws = metaWindow?.get_workspace?.();
+                    if (ws && this.isDedicated(ws) && this._ownerOf(ws) === metaWindow) {
+                        this.showMessage(
+                            _('A fullscreen window cannot be moved to another workspace. ' +
+                              'Leave fullscreen first.'));
+                        return;
+                    }
+                } catch (e) {}
+                return this._originalBeginWindowDrag.call(overview, metaWindow);
+            };
+        } catch (e) {
+            console.warn('Open Bar: could not patch beginWindowDrag: ' + e.message);
         }
     }
 
