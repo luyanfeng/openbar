@@ -1277,10 +1277,13 @@ export class FullscreenEmptyWorkspace {
         }
     }
 
+    // Fullscreen always qualifies; maximized is opt-in via
+    // 'fullscreen-maximized-too'. A fullscreen window is not necessarily
+    // maximized, so testing is_maximized() alone would exclude it.
     _shouldPlace(win) {
         if (!this._isNormal(win))
             return false;
-        return this._maximizedToo() ? win.is_maximized() : win.fullscreen;
+        return win.fullscreen || (this._maximizedToo() && win.is_maximized());
     }
 
     // ---- workspace helpers -------------------------------------------------
