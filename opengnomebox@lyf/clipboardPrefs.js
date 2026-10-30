@@ -3,7 +3,9 @@ import Gtk from 'gi://Gtk';
 import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 
-const DISPLAY_MODE_OPTIONS = ['Icon', 'Clipboard Content', 'Both', 'Neither'];
+// Filled by buildClipboardPrefsPage(): the gettext function is only known at
+// call time, and this module is imported before any translation is bound.
+let DISPLAY_MODE_OPTIONS = [];
 
 function makeGroup(title) {
     return new Adw.PreferencesGroup({ title });
@@ -39,79 +41,79 @@ function addIntSpinRow(group, settings, key, title, subtitle, lower, upper, step
     return row;
 }
 
-function buildUiGroup(settings) {
+function buildUiGroup(settings, _) {
     const group = makeGroup('UI');
     addIntSpinRow(group, settings, 'preview-size',
         'Preview Size (characters)',
-        'Number of characters shown per entry in the history menu',
+        _('Number of characters shown per entry in the history menu'),
         10, 100, 1);
     addSwitchRow(group, settings, 'confirm-clear',
-        'Prompt for confirmation on Clear History',
-        'Ask before deleting all clipboard entries');
+        _('Prompt for confirmation on Clear History'),
+        _('Ask before deleting all clipboard entries'));
     addSwitchRow(group, settings, 'confirm-pinned-delete',
-        'Prompt before deleting pinned item',
-        'Ask for confirmation before deleting a pinned item');
+        _('Prompt before deleting pinned item'),
+        _('Ask for confirmation before deleting a pinned item'));
     addSwitchRow(group, settings, 'pinned-on-bottom',
-        'Place the pinned section on the bottom',
-        'Move the pinned section to the bottom of the menu. Requires re-login');
+        _('Place the pinned section on the bottom'),
+        _('Move the pinned section to the bottom of the menu. Requires re-login'));
     addSwitchRow(group, settings, 'show-search-bar',
-        'Show Search Bar',
-        'Display a search field at the top of the clipboard menu');
+        _('Show Search Bar'),
+        _('Display a search field at the top of the clipboard menu'));
     addSwitchRow(group, settings, 'show-private-mode',
-        'Show Private Mode',
-        'Display the private mode toggle in the clipboard menu');
+        _('Show Private Mode'),
+        _('Display the private mode toggle in the clipboard menu'));
     addSwitchRow(group, settings, 'show-settings-button',
-        'Show Settings Button',
-        'Display a shortcut to these settings in the clipboard menu');
+        _('Show Settings Button'),
+        _('Display a shortcut to these settings in the clipboard menu'));
     addSwitchRow(group, settings, 'show-clear-history-button',
-        'Show Clear History Button',
-        'Display the clear history button in the clipboard menu');
+        _('Show Clear History Button'),
+        _('Display the clear history button in the clipboard menu'));
     return group;
 }
 
-function buildItemActionsGroup(settings) {
-    const group = makeGroup('Item Actions');
+function buildItemActionsGroup(settings, _) {
+    const group = makeGroup(_('Item Actions'));
     addSwitchRow(group, settings, 'show-delete-button',
-        'Delete', 'Show the delete button on each item');
+        _('Delete'), _('Show the delete button on each item'));
     addSwitchRow(group, settings, 'show-tag-button',
-        'Tag', 'Show the tag button on each item');
+        _('Tag'), _('Show the tag button on each item'));
     addSwitchRow(group, settings, 'paste-button',
-        'Paste', 'Show the paste button on each item');
+        _('Paste'), _('Show the paste button on each item'));
     addSwitchRow(group, settings, 'show-pin-button',
-        'Pin', 'Show the pin/favorite button on each item');
+        _('Pin'), _('Show the pin/favorite button on each item'));
     addSwitchRow(group, settings, 'show-edit-button',
-        'Edit', 'Show the edit button on each text item');
+        _('Edit'), _('Show the edit button on each text item'));
     addSwitchRow(group, settings, 'show-preview-button',
-        'Preview', 'Show the preview button on each image item');
+        _('Preview'), _('Show the preview button on each image item'));
     return group;
 }
 
-function buildBehaviorGroup(settings) {
-    const group = makeGroup('Behavior');
+function buildBehaviorGroup(settings, _) {
+    const group = makeGroup(_('Behavior'));
     addSwitchRow(group, settings, 'strip-text',
-        'Remove whitespace around text',
-        'Strip leading and trailing whitespace from text entries on copy');
+        _('Remove whitespace around text'),
+        _('Strip leading and trailing whitespace from text entries on copy'));
     addSwitchRow(group, settings, 'move-item-first',
-        'Move item to the top after selection',
-        'When selecting an entry, bring it to the top of the history');
+        _('Move item to the top after selection'),
+        _('When selecting an entry, bring it to the top of the history'));
     addSwitchRow(group, settings, 'keep-selected-on-clear',
-        'Keep selected entry after Clear History',
-        'The currently active clipboard entry will not be removed when clearing history');
+        _('Keep selected entry after Clear History'),
+        _('The currently active clipboard entry will not be removed when clearing history'));
     addSwitchRow(group, settings, 'open-at-cursor',
-        'Open menu at cursor',
-        'When using the keyboard shortcut, open the menu at the cursor position');
+        _('Open menu at cursor'),
+        _('When using the keyboard shortcut, open the menu at the cursor position'));
     addSwitchRow(group, settings, 'paste-on-select',
-        'Paste on select',
-        'Automatically paste the entry into the active window when selected');
+        _('Paste on select'),
+        _('Automatically paste the entry into the active window when selected'));
     addSwitchRow(group, settings, 'cache-images',
-        'Cache images',
-        'Save copied images to clipboard history');
+        _('Cache images'),
+        _('Save copied images to clipboard history'));
     addSwitchRow(group, settings, 'clear-on-boot',
-        'Clear clipboard history on system reboot',
-        'Delete all cached clipboard entries when the system starts');
+        _('Clear clipboard history on system reboot'),
+        _('Delete all cached clipboard entries when the system starts'));
     const intervalSwitch = addSwitchRow(group, settings, 'clear-history-on-interval',
-        'Clear clipboard history on interval',
-        'Automatically clear clipboard history at a recurring interval');
+        _('Clear clipboard history on interval'),
+        _('Automatically clear clipboard history at a recurring interval'));
     const intervalRow = addIntSpinRow(group, settings, 'clear-history-interval',
         'History clear interval (in minutes)',
         null,
@@ -123,34 +125,34 @@ function buildBehaviorGroup(settings) {
     return group;
 }
 
-function buildSearchGroup(settings) {
-    const group = makeGroup('Search');
+function buildSearchGroup(settings, _) {
+    const group = makeGroup(_('Search'));
     addSwitchRow(group, settings, 'case-sensitive-search',
-        'Case-sensitive',
-        'Match uppercase and lowercase letters exactly when searching');
+        _('Case-sensitive'),
+        _('Match uppercase and lowercase letters exactly when searching'));
     addSwitchRow(group, settings, 'regex-search',
-        'Regular expressions',
-        'Allow regular expressions to filter clipboard entries');
+        _('Regular expressions'),
+        _('Allow regular expressions to filter clipboard entries'));
     return group;
 }
 
-function buildLimitsGroup(settings) {
-    const group = makeGroup('Limits');
+function buildLimitsGroup(settings, _) {
+    const group = makeGroup(_('Limits'));
     addIntSpinRow(group, settings, 'history-size',
-        'History Size',
-        'Maximum number of entries to keep in clipboard history',
+        _('History Size'),
+        _('Maximum number of entries to keep in clipboard history'),
         1, 10000, 1);
     addIntSpinRow(group, settings, 'cache-size',
         'Max cache file size (MB)',
-        'Maximum disk space used for caching clipboard data',
+        _('Maximum disk space used for caching clipboard data'),
         1, 1024, 1);
     addSwitchRow(group, settings, 'cache-only-favorites',
-        'Cache only pinned items',
+        _('Cache only pinned items'),
         'Only save pinned (favorite) entries to disk');
     return group;
 }
 
-function createAppPickerButton(entry) {
+function createAppPickerButton(entry, _) {
     const popover = new Gtk.Popover();
 
     const box = new Gtk.Box({
@@ -162,7 +164,7 @@ function createAppPickerButton(entry) {
     });
 
     const searchEntry = new Gtk.SearchEntry({
-        placeholder_text: 'Search applications...',
+        placeholder_text: _('Search applications...'),
         margin_bottom: 6,
     });
 
@@ -241,18 +243,18 @@ function createAppPickerButton(entry) {
         cssClasses: ['flat'],
         valign: Gtk.Align.CENTER,
         halign: Gtk.Align.CENTER,
-        tooltip_text: 'Choose from installed applications',
+        tooltip_text: _('Choose from installed applications'),
     });
     button.set_popover(popover);
     return button;
 }
 
-function buildExclusionGroup(settings) {
-    const group = makeGroup('Exclusion');
+function buildExclusionGroup(settings, _) {
+    const group = makeGroup(_('Exclusion'));
 
     const expander = new Adw.ExpanderRow({
-        title: 'Excluded Apps',
-        subtitle: 'Content copied will not be saved while these apps are in focus',
+        title: _('Excluded Apps'),
+        subtitle: _('Content copied will not be saved while these apps are in focus'),
     });
 
     const addButton = new Gtk.Button({
@@ -297,7 +299,7 @@ function buildExclusionGroup(settings) {
         const row = new Adw.ActionRow();
 
         const entry = new Gtk.Entry({
-            placeholderText: 'Window class name, e.g. "KeePassXC"',
+            placeholderText: _('Window class name, e.g. "KeePassXC"'),
             halign: Gtk.Align.FILL,
             valign: Gtk.Align.CENTER,
             hexpand: true,
@@ -339,7 +341,7 @@ function buildExclusionGroup(settings) {
         });
 
         row.add_prefix(entry);
-        row.add_suffix(createAppPickerButton(entry));
+        row.add_suffix(createAppPickerButton(entry, _));
         row.add_suffix(okButton);
         row.add_suffix(cancelButton);
         return row;
@@ -361,15 +363,15 @@ function buildExclusionGroup(settings) {
     return group;
 }
 
-function buildTopbarGroup(settings) {
-    const group = makeGroup('Topbar');
+function buildTopbarGroup(settings, _) {
+    const group = makeGroup(_('Topbar'));
 
     const displayModes = new Gtk.StringList();
     for (const option of DISPLAY_MODE_OPTIONS)
         displayModes.append(option);
 
     const displayModeRow = new Adw.ComboRow({
-        title: 'What to show in top bar',
+        title: _('What to show in top bar'),
         model: displayModes,
     });
     displayModeRow.selected = settings.get_int('display-mode');
@@ -380,33 +382,33 @@ function buildTopbarGroup(settings) {
     group.add(displayModeRow);
 
     addIntSpinRow(group, settings, 'topbar-preview-size',
-        'Number of characters in top bar',
-        'Length of the clipboard content preview shown in the panel',
+        _('Number of characters in top bar'),
+        _('Length of the clipboard content preview shown in the panel'),
         1, 100, 1);
     addSwitchRow(group, settings, 'disable-down-arrow',
-        'Remove down arrow in top bar',
-        'Hide the dropdown arrow next to the clipboard indicator');
+        _('Remove down arrow in top bar'),
+        _('Hide the dropdown arrow next to the clipboard indicator'));
     addSwitchRow(group, settings, 'blink-icon-on-copy',
-        'Blink icon on copy',
-        'Briefly flash the indicator icon when something is copied');
+        _('Blink icon on copy'),
+        _('Briefly flash the indicator icon when something is copied'));
     return group;
 }
 
-function buildNotificationsGroup(settings) {
-    const group = makeGroup('Notifications');
+function buildNotificationsGroup(settings, _) {
+    const group = makeGroup(_('Notifications'));
     addSwitchRow(group, settings, 'notify-on-copy',
-        'Show notification on copy',
-        'Display a notification each time text is copied');
+        _('Show notification on copy'),
+        _('Display a notification each time text is copied'));
     addSwitchRow(group, settings, 'notify-on-cycle',
-        'Show notification on cycle',
-        'Display a notification when cycling through entries with shortcuts');
+        _('Show notification on cycle'),
+        _('Display a notification when cycling through entries with shortcuts'));
     addSwitchRow(group, settings, 'notify-on-clear',
-        'Show notification on Clear History',
-        'Display a notification when clipboard history is cleared');
+        _('Show notification on Clear History'),
+        _('Display a notification when clipboard history is cleared'));
     return group;
 }
 
-function createShortcutButton(settings, key) {
+function createShortcutButton(settings, key, _) {
     const button = new Gtk.Button({ has_frame: false });
 
     let controller = null;
@@ -415,7 +417,7 @@ function createShortcutButton(settings, key) {
 
     const setLabelFromSettings = () => {
         const accelerator = settings.get_strv(key)[0];
-        button.set_label(accelerator || 'Disabled');
+        button.set_label(accelerator || _('Disabled'));
     };
 
     const stopEditing = () => {
@@ -450,7 +452,7 @@ function createShortcutButton(settings, key) {
         }
 
         labelBeforeEdit = button.label;
-        button.set_label('Enter shortcut');
+        button.set_label(_('Enter shortcut'));
 
         controller = new Gtk.EventControllerKey();
         button.add_controller(controller);
@@ -487,36 +489,41 @@ function createShortcutButton(settings, key) {
     return button;
 }
 
-function buildShortcutsGroup(settings) {
-    const group = makeGroup('Shortcuts');
+function buildShortcutsGroup(settings, _) {
+    const group = makeGroup(_('Shortcuts'));
 
-    addSwitchRow(group, settings, 'enable-keybindings', 'Enable shortcuts', null);
+    addSwitchRow(group, settings, 'enable-keybindings', _('Enable shortcuts'), null);
 
     const shortcuts = [
-        ['private-mode-binding', 'Private mode'],
-        ['toggle-menu', 'Toggle the menu'],
-        ['clear-history', 'Clear history'],
-        ['prev-entry', 'Previous entry'],
-        ['next-entry', 'Next entry'],
+        ['private-mode-binding', _('Private mode')],
+        ['toggle-menu', _('Toggle the menu')],
+        ['clear-history', _('Clear history')],
+        ['prev-entry', _('Previous entry')],
+        ['next-entry', _('Next entry')],
     ];
 
     for (const [key, title] of shortcuts) {
         const row = new Adw.ActionRow({ title });
-        row.add_suffix(createShortcutButton(settings, key));
+        row.add_suffix(createShortcutButton(settings, key, _));
         group.add(row);
     }
 
     return group;
 }
 
-export function buildClipboardPrefsPage(page, settings) {
-    page.add(buildUiGroup(settings));
-    page.add(buildItemActionsGroup(settings));
-    page.add(buildBehaviorGroup(settings));
-    page.add(buildSearchGroup(settings));
-    page.add(buildLimitsGroup(settings));
-    page.add(buildExclusionGroup(settings));
-    page.add(buildTopbarGroup(settings));
-    page.add(buildNotificationsGroup(settings));
-    page.add(buildShortcutsGroup(settings));
+export function buildClipboardPrefsPage(page, settings, _) {
+    if (typeof _ !== 'function')
+        throw new Error('buildClipboardPrefsPage needs the gettext function');
+
+    DISPLAY_MODE_OPTIONS = [_('Icon'), _('Clipboard Content'), _('Both'), _('Neither')];
+
+    page.add(buildUiGroup(settings, _));
+    page.add(buildItemActionsGroup(settings, _));
+    page.add(buildBehaviorGroup(settings, _));
+    page.add(buildSearchGroup(settings, _));
+    page.add(buildLimitsGroup(settings, _));
+    page.add(buildExclusionGroup(settings, _));
+    page.add(buildTopbarGroup(settings, _));
+    page.add(buildNotificationsGroup(settings, _));
+    page.add(buildShortcutsGroup(settings, _));
 }

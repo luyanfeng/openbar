@@ -3455,7 +3455,7 @@ class OpenbarPrefs {
         masterRow.add_suffix(masterSwitch);
         masterGroup.add(masterRow);
 
-        buildClipboardPrefsPage(page, this._settings);
+        buildClipboardPrefsPage(page, this._settings, _);
     }
 
     buildExtensionsPage(window) {
