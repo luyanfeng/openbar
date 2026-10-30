@@ -818,21 +818,21 @@ export class FullscreenEmptyWorkspace {
                     return;
                 if (free === -1)
                     return;
-                // Reorder the empty workspace into the active position, then move
-                // the other windows back to `current`. After reorder_workspace the
-                // windows that were on `current` travel with that workspace to
-                // `free`, so they must be moved back explicitly. This mirrors the
-                // upstream implementation.
+                // Remember where the window came from so it can be put back on
+                // exactly that workspace (not merely merged into whichever
+                // workspace happens to hold windows).
+                const originWs = win.get_workspace();
                 if (current < free) {
                     manager.reorder_workspace(manager.get_workspace_by_index(free), current);
                     others.forEach(w => w.change_workspace_by_index(current, false));
-                    this._maximized.set(win.get_id(), 'reorder');
                 } else if (current > free) {
                     manager.reorder_workspace(manager.get_workspace_by_index(current), free);
                     manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
                     others.forEach(w => w.change_workspace_by_index(current, false));
-                    this._maximized.set(win.get_id(), 'reorder');
+                } else {
+                    return;
                 }
+                this._maximized.set(win.get_id(), { originWs });
             } else {
                 if (free === -1)
                     return;
@@ -867,16 +867,35 @@ export class FullscreenEmptyWorkspace {
             const id = win.get_id();
             if (!this._maximized.has(id))
                 return;
+            const record = this._maximized.get(id);
             this._maximized.delete(id);
 
+            const manager = win.get_display().get_workspace_manager();
+            const current = manager.get_active_workspace_index();
+
+            // Preferred path: put the window back on the exact workspace it was
+            // on before. The recorded object is stable across reordering.
+            const originWs = record && record.originWs;
+            if (originWs) {
+                // Move the window onto its origin workspace first, then pull that
+                // workspace back to the active position so the user sees the
+                // original arrangement.
+                if (!win.get_workspace()?.equal(originWs))
+                    win.change_workspace(originWs);
+                const originIndex = originWs.index();
+                if (originIndex >= 0 && originIndex !== current)
+                    manager.reorder_workspace(originWs, current);
+                return;
+            }
+
+            // Fallback (no record, or already back): merge with the nearest
+            // workspace that still has windows on this monitor.
             const monitor = win.get_monitor();
             const others = win.get_workspace().list_windows()
                 .filter(w => w !== win && !w.is_always_on_all_workspaces() && w.get_monitor() === monitor);
             if (others.length !== 0)
                 return;
 
-            const manager = win.get_display().get_workspace_manager();
-            const current = manager.get_active_workspace_index();
             const last = this._lastOccupied(manager, current, monitor);
             if (last === -1)
                 return;
