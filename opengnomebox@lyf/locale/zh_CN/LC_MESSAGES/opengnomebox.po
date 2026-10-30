@@ -266,3 +266,29 @@ msgstr "工作区 %s"
 
 msgid "journalctl exited with status %d."
 msgstr "journalctl 退出状态为 %d。"
+
+msgid "Auto Move Windows"
+msgstr "自动移动窗口"
+
+msgid "Removable Drive Menu"
+msgstr "可移动驱动器菜单"
+
+msgid "Only one can be enabled"
+msgstr "只能启用其中一个"
+
+msgid ""
+"The extension “%s” already provides this feature and is currently enabled. "
+"Enabling the built-in copy will turn that extension off."
+msgstr "扩展“%s”已提供此功能且当前已启用。启用内置副本会停用该扩展。"
+
+msgid "Enable Built-in"
+msgstr "启用内置"
+
+msgid "Could not disable “%s”"
+msgstr "无法停用“%s”"
+
+msgid ""
+"The standalone extension is still enabled, so the built-in copy was left off "
+"to avoid running the feature twice. Disable it from the Extensions app and "
+"try again."
+msgstr "独立扩展仍在启用中，因此内置副本保持关闭，以免功能重复运行。请在「扩展」应用中停用它后重试。"

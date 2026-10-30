@@ -33,6 +33,10 @@ import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 import * as StyleSheets from './stylesheets.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { InjectionManager } from 'resource:///org/gnome/shell/extensions/extension.js';
+import {
+    CONFLICTING_EXTENSIONS,
+    conflictingExtensionEnabled,
+} from './conflicts.js';
 
 // ---------------------------------------------------------------------------
 // 1. Autohide Battery
@@ -1574,6 +1578,12 @@ export class IntegrationsManager {
                 if (this.ext.disabling)
                     return;
                 const on = this._settings.get_boolean(settingKey);
+                // Turning on a feature whose standalone extension is also
+                // running: the standalone copy wins by default and we keep ours
+                // off, so the two never fight. The preference window asks first
+                // and disables the standalone one before writing the key.
+                if (on && this._takeOver(settingKey) === false)
+                    return;
                 try {
                     if (on)
                         this.integrations[name].enable();
@@ -1584,6 +1594,8 @@ export class IntegrationsManager {
                 }
             }));
             if (this._settings.get_boolean(settingKey)) {
+                if (this._takeOver(settingKey) === false)
+                    continue;
                 try {
                     this.integrations[name].enable();
                 } catch (e) {
@@ -1591,6 +1603,30 @@ export class IntegrationsManager {
                 }
             }
         }
+    }
+
+    // Decide whether our built-in copy may run for a feature that a standalone
+    // extension also provides.
+    //
+    // Returns true when our copy may run, false when the standalone extension
+    // keeps the feature. This never disables the other extension: disarming
+    // someone else's extension is only ever done from the preference window,
+    // after the user picked one in the confirmation dialog. Anywhere else
+    // (startup, an external gsettings write) we yield and put the key back so
+    // the two copies cannot run at the same time.
+    _takeOver(settingKey) {
+        if (!CONFLICTING_EXTENSIONS[settingKey])
+            return true;
+        if (!conflictingExtensionEnabled(settingKey))
+            return true;
+
+        console.warn(`Open Gnome Box: built-in ${
+            CONFLICTING_EXTENSIONS[settingKey].label} stays off; the standalone ` +
+            'extension providing it is enabled. Pick one in the preferences.');
+        try {
+            this._settings.set_boolean(settingKey, false);
+        } catch (e) {}
+        return false;
     }
 
     disable() {

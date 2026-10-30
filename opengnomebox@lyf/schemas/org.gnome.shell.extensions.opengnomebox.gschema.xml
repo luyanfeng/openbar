@@ -1495,7 +1495,7 @@
     <key type="b" name="auto-move-windows">
       <default>false</default>
       <summary>Auto move windows</summary>
-      <description>Move application windows to a configured workspace when they open.</description>
+      <description>Move application windows to a configured workspace when they open. If the standalone "Auto Move Windows" extension is enabled, this stays off and the preferences offer to disable that extension instead, so windows are only moved once.</description>
     </key>
     <key type="as" name="auto-move-list">
       <default>[]</default>
@@ -1510,7 +1510,7 @@
     <key type="b" name="drive-menu-enabled">
       <default>false</default>
       <summary>Show the removable drive menu</summary>
-      <description>Add a status area menu listing removable drives and allowing unmount.</description>
+      <description>Add a status area menu listing removable drives and allowing unmount. If the standalone "Removable Drive Menu" extension is enabled, this stays off and the preferences offer to disable that extension instead, so only one drive icon is shown.</description>
     </key>
     <key type="b" name="fullscreen-new-workspace">
       <default>false</default>

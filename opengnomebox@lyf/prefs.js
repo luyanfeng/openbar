@@ -25,6 +25,11 @@ import Gdk from 'gi://Gdk';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {ExtensionPreferences, gettext as _, pgettext} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import {
+    CONFLICTING_EXTENSIONS,
+    conflictingExtensionEnabled,
+    disableConflictingExtension,
+} from './conflicts.js';
 
 // Retain compatibility with GLib < 2.80, which lacks GioUnix (from GSConnect extension)
 let GioUnix;
@@ -385,6 +390,8 @@ class OpenbarPrefs {
 
         // Get the settings object
         this._settings = openbar.getSettings();
+        // Needed as the transient parent of the conflict confirmation dialog.
+        this._window = window;
 
         let mWidth = this._settings.get_int('monitor-width');
         let mHeight = this._settings.get_int('monitor-height');
@@ -3308,12 +3315,101 @@ class OpenbarPrefs {
         const expander = new Adw.ExpanderRow({ title, subtitle: subtitle ?? '' });
         if (enabledKey) {
             const toggle = new Gtk.Switch({ valign: Gtk.Align.CENTER });
-            this._settings.bind(enabledKey, toggle, 'active',
-                Gio.SettingsBindFlags.DEFAULT);
+            // Features that a standalone extension also provides go through
+            // _bindConflictingFeature: the user is asked before two copies of
+            // the same hook end up running at once.
+            if (CONFLICTING_EXTENSIONS[enabledKey]) {
+                this._bindConflictingFeature(enabledKey, toggle);
+            } else {
+                this._settings.bind(enabledKey, toggle, 'active',
+                    Gio.SettingsBindFlags.DEFAULT);
+            }
             expander.add_suffix(toggle);
         }
         group.add(expander);
         return expander;
+    }
+
+    // Bind a switch whose feature has a standalone counterpart.
+    //
+    // Turning it on while the standalone extension is enabled asks first. Only
+    // on confirmation is the standalone extension disabled and the key written,
+    // so the setting never claims both are on and cancelling changes nothing.
+    _bindConflictingFeature(key, toggle) {
+        // Settings -> switch, without letting the write-back handler run.
+        const syncFromSettings = () => {
+            const active = this._settings.get_boolean(key);
+            if (toggle.active === active)
+                return;
+            toggle.block_signal_handler(toggle._openbarToggledId);
+            toggle.active = active;
+            toggle.unblock_signal_handler(toggle._openbarToggledId);
+        };
+
+        toggle._openbarToggledId = toggle.connect('state-set', () => {
+            const wantOn = !this._settings.get_boolean(key);
+
+            if (!wantOn) {
+                this._settings.set_boolean(key, false);
+                return false;
+            }
+
+            // No standalone copy in the way: nothing to ask about.
+            if (!conflictingExtensionEnabled(key)) {
+                this._settings.set_boolean(key, true);
+                return false;
+            }
+
+            // Two copies would fight, so let the user pick one. The switch stays
+            // off until they confirm; the key is what drives the real state.
+            const entry = CONFLICTING_EXTENSIONS[key];
+            toggle.block_signal_handler(toggle._openbarToggledId);
+            toggle.active = false;
+            toggle.unblock_signal_handler(toggle._openbarToggledId);
+
+            const dialog = new Adw.MessageDialog({
+                transient_for: this._window,
+                modal: true,
+                heading: _('Only one can be enabled'),
+                body: _('The extension “%s” already provides this feature and is ' +
+                    'currently enabled. Enabling the built-in copy will turn that ' +
+                    'extension off.').format(entry.label),
+            });
+            dialog.add_response('cancel', _('Cancel'));
+            dialog.add_response('takeover', _('Enable Built-in'));
+            dialog.set_response_appearance('takeover', Adw.ResponseAppearance.SUGGESTED);
+            dialog.set_default_response('takeover');
+            dialog.set_close_response('cancel');
+            dialog.connect('response', (dlg, response) => {
+                if (response !== 'takeover')
+                    return;
+                if (!disableConflictingExtension(key)) {
+                    this._reportConflictFailure(entry.label);
+                    return;
+                }
+                this._settings.set_boolean(key, true);
+            });
+            dialog.present();
+
+            // Keep the switch off; the response handler sets the real value.
+            return true;
+        });
+
+        this._settings.connect(`changed::${key}`, syncFromSettings);
+        syncFromSettings();
+    }
+
+    _reportConflictFailure(label) {
+        const dialog = new Adw.MessageDialog({
+            transient_for: this._window,
+            modal: true,
+            heading: _('Could not disable “%s”').format(label),
+            body: _('The standalone extension is still enabled, so the built-in ' +
+                'copy was left off to avoid running the feature twice. Disable it ' +
+                'from the Extensions app and try again.'),
+        });
+        dialog.add_response('close', _('Close'));
+        dialog.present();
     }
 
     buildExtensionsPage(window) {
