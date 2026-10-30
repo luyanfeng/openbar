@@ -7,8 +7,26 @@ import Gio from 'gi://Gio';
 // call time, and this module is imported before any translation is bound.
 let DISPLAY_MODE_OPTIONS = [];
 
-function makeGroup(title) {
-    return new Adw.PreferencesGroup({ title });
+// Each clipboard section is a collapsible card: the settings list is long
+// enough that showing all of it at once is hard to scan.
+function makeGroup(title, subtitle, expanded = false) {
+    const row = new Adw.ExpanderRow({
+        title,
+        subtitle: subtitle ?? '',
+        expanded,
+    });
+    row.set_enable_expansion(true);
+    return row;
+}
+
+// Rows go into either an Adw.PreferencesGroup (add) or an Adw.ExpanderRow
+// (add_row); the builders below are shared by both.
+function addRow(container, row) {
+    if (typeof container.add_row === 'function')
+        container.add_row(row);
+    else
+        container.add(row);
+    return row;
 }
 
 function addSwitchRow(group, settings, key, title, subtitle) {
@@ -16,8 +34,7 @@ function addSwitchRow(group, settings, key, title, subtitle) {
     if (subtitle)
         row.subtitle = subtitle;
     settings.bind(key, row, 'active', Gio.SettingsBindFlags.DEFAULT);
-    group.add(row);
-    return row;
+    return addRow(group, row);
 }
 
 // Gio.Settings.bind cannot target SpinRow.value: the keys are ints while the
@@ -37,12 +54,11 @@ function addIntSpinRow(group, settings, key, title, subtitle, lower, upper, step
         if (settings.get_int(key) !== value)
             settings.set_int(key, value);
     });
-    group.add(row);
-    return row;
+    return addRow(group, row);
 }
 
 function buildUiGroup(settings, _) {
-    const group = makeGroup('UI');
+    const group = makeGroup(_('UI'), _('Menu contents and what the top bar shows'), true);
     addIntSpinRow(group, settings, 'preview-size',
         'Preview Size (characters)',
         _('Number of characters shown per entry in the history menu'),
@@ -72,7 +88,7 @@ function buildUiGroup(settings, _) {
 }
 
 function buildItemActionsGroup(settings, _) {
-    const group = makeGroup(_('Item Actions'));
+    const group = makeGroup(_('Item Actions'), _('Buttons shown on every history entry'), false);
     addSwitchRow(group, settings, 'show-delete-button',
         _('Delete'), _('Show the delete button on each item'));
     addSwitchRow(group, settings, 'show-tag-button',
@@ -89,7 +105,7 @@ function buildItemActionsGroup(settings, _) {
 }
 
 function buildBehaviorGroup(settings, _) {
-    const group = makeGroup(_('Behavior'));
+    const group = makeGroup(_('Behavior'), _('How entries are recorded, ordered and pasted'), true);
     addSwitchRow(group, settings, 'strip-text',
         _('Remove whitespace around text'),
         _('Strip leading and trailing whitespace from text entries on copy'));
@@ -126,7 +142,7 @@ function buildBehaviorGroup(settings, _) {
 }
 
 function buildSearchGroup(settings, _) {
-    const group = makeGroup(_('Search'));
+    const group = makeGroup(_('Search'), _('How the search field matches entries'), false);
     addSwitchRow(group, settings, 'case-sensitive-search',
         _('Case-sensitive'),
         _('Match uppercase and lowercase letters exactly when searching'));
@@ -137,7 +153,7 @@ function buildSearchGroup(settings, _) {
 }
 
 function buildLimitsGroup(settings, _) {
-    const group = makeGroup(_('Limits'));
+    const group = makeGroup(_('Limits'), _('History size and disk usage'), true);
     addIntSpinRow(group, settings, 'history-size',
         _('History Size'),
         _('Maximum number of entries to keep in clipboard history'),
@@ -250,7 +266,7 @@ function createAppPickerButton(entry, _) {
 }
 
 function buildExclusionGroup(settings, _) {
-    const group = makeGroup(_('Exclusion'));
+    const group = makeGroup(_('Exclusion'), _('Applications whose copies are ignored'), false);
 
     const expander = new Adw.ExpanderRow({
         title: _('Excluded Apps'),
@@ -264,7 +280,7 @@ function buildExclusionGroup(settings, _) {
         halign: Gtk.Align.CENTER,
     });
     expander.add_suffix(addButton);
-    group.add(expander);
+    addRow(group, expander);
 
     let rowCount = 0;
 
@@ -364,7 +380,7 @@ function buildExclusionGroup(settings, _) {
 }
 
 function buildTopbarGroup(settings, _) {
-    const group = makeGroup(_('Topbar'));
+    const group = makeGroup(_('Topbar'), _('What the panel indicator displays'), false);
 
     const displayModes = new Gtk.StringList();
     for (const option of DISPLAY_MODE_OPTIONS)
@@ -379,7 +395,7 @@ function buildTopbarGroup(settings, _) {
         if (settings.get_int('display-mode') !== displayModeRow.selected)
             settings.set_int('display-mode', displayModeRow.selected);
     });
-    group.add(displayModeRow);
+    addRow(group, displayModeRow);
 
     addIntSpinRow(group, settings, 'topbar-preview-size',
         _('Number of characters in top bar'),
@@ -395,7 +411,7 @@ function buildTopbarGroup(settings, _) {
 }
 
 function buildNotificationsGroup(settings, _) {
-    const group = makeGroup(_('Notifications'));
+    const group = makeGroup(_('Notifications'), _('Banners shown for clipboard events'), false);
     addSwitchRow(group, settings, 'notify-on-copy',
         _('Show notification on copy'),
         _('Display a notification each time text is copied'));
@@ -490,7 +506,7 @@ function createShortcutButton(settings, key, _) {
 }
 
 function buildShortcutsGroup(settings, _) {
-    const group = makeGroup(_('Shortcuts'));
+    const group = makeGroup(_('Shortcuts'), _('Keyboard bindings for clipboard actions'), false);
 
     addSwitchRow(group, settings, 'enable-keybindings', _('Enable shortcuts'), null);
 
@@ -505,7 +521,7 @@ function buildShortcutsGroup(settings, _) {
     for (const [key, title] of shortcuts) {
         const row = new Adw.ActionRow({ title });
         row.add_suffix(createShortcutButton(settings, key, _));
-        group.add(row);
+        addRow(group, row);
     }
 
     return group;
@@ -517,13 +533,25 @@ export function buildClipboardPrefsPage(page, settings, _) {
 
     DISPLAY_MODE_OPTIONS = [_('Icon'), _('Clipboard Content'), _('Both'), _('Neither')];
 
-    page.add(buildUiGroup(settings, _));
-    page.add(buildItemActionsGroup(settings, _));
-    page.add(buildBehaviorGroup(settings, _));
-    page.add(buildSearchGroup(settings, _));
-    page.add(buildLimitsGroup(settings, _));
-    page.add(buildExclusionGroup(settings, _));
-    page.add(buildTopbarGroup(settings, _));
-    page.add(buildNotificationsGroup(settings, _));
-    page.add(buildShortcutsGroup(settings, _));
+    page.add(buildClipboardSection(settings, _));
+}
+
+// The sections live inside one group so they read as cards of a single page.
+function buildClipboardSection(settings, _) {
+    const section = new Adw.PreferencesGroup();
+
+    for (const build of [
+        buildUiGroup,
+        buildItemActionsGroup,
+        buildBehaviorGroup,
+        buildSearchGroup,
+        buildLimitsGroup,
+        buildExclusionGroup,
+        buildTopbarGroup,
+        buildNotificationsGroup,
+        buildShortcutsGroup,
+    ])
+        section.add(build(settings, _));
+
+    return section;
 }

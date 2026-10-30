@@ -604,3 +604,34 @@ msgstr "使用快捷键时在光标位置打开菜单"
 
 msgid "Window class name, e.g. \"KeePassXC\""
 msgstr "窗口类名，例如 \"KeePassXC\""
+
+msgid "UI"
+msgstr "界面"
+
+msgid "Menu contents and what the top bar shows"
+msgstr "菜单内容与顶栏显示"
+
+msgid "Buttons shown on every history entry"
+msgstr "每个历史条目上显示的按钮"
+
+msgid "How entries are recorded, ordered and pasted"
+msgstr "条目如何记录、排序与粘贴"
+
+msgid "How the search field matches entries"
+msgstr "搜索框如何匹配条目"
+
+msgid "History size and disk usage"
+msgstr "历史条数与磁盘占用"
+
+msgid "Applications whose copies are ignored"
+msgstr "这些应用中被复制的内容将被忽略"
+
+msgid "What the panel indicator displays"
+msgstr "面板指示器显示的内容"
+
+msgid "Banners shown for clipboard events"
+msgstr "剪贴板事件弹出的横幅通知"
+
+msgid "Keyboard bindings for clipboard actions"
+msgstr "剪贴板操作的键盘快捷键"
+
