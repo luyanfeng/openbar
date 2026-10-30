@@ -37,5 +37,13 @@ Phase 3: 修复（已完成）；Phase 4: 验证与交付（进行中）
 - [x] 全量 JS 语法检查
 - [x] gschema --strict 校验
 - [x] gjs 逻辑单测 + has_key 校验
-- [ ] 提交修复（待执行）
+- [x] 提交修复（已提交并推送到 main）
+- **Status:** complete
+
+## 结项说明
+
+质量审查已完成并交付。后续在真机测试中发现的问题（Status Area Spacing 不生效、
+Fullscreen 工作区行为、AutoMove UI 等）已转入独立计划
+`2026-10-30-fullscreen-dedicated-workspace` 及其后续提交继续处理。
+
 - **Status:** in_progress
