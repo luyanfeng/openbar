@@ -92,6 +92,11 @@ export class WallhubManager {
         this.slideshowIntervalUnit = this.settings.get_enum('slideshow-interval-unit');
         this.slideshowInterval = this.settings.get_uint('slideshow-interval');
 
+        // First run with no configured sources: seed the system wallpaper
+        // directory so the slideshow works out of the box and is visible in prefs.
+        if (this.wallpaperPaths.length === 0)
+            this.seedDefaultPaths();
+
         this._signalIds.push(this.settings.connect('changed::wallpaper-paths', () => {
             this.wallpaperPaths = this.settings.get_strv('wallpaper-paths');
         }));
@@ -113,6 +118,30 @@ export class WallhubManager {
         this.updateQueue()
             .then(this.startLoop.bind(this))
             .catch(e => console.error('Wallhub: updateQueue failed: ' + e));
+    }
+
+    // Populate wallpaper-paths with the system backgrounds directory on first run.
+    seedDefaultPaths() {
+        const candidates = [
+            '/usr/share/backgrounds',
+            '/usr/share/wallpapers',
+            GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_PICTURES),
+        ];
+        for (const dir of candidates) {
+            if (!dir)
+                continue;
+            const file = Gio.File.new_for_path(dir);
+            if (file.query_exists(null) &&
+                file.query_file_type(Gio.FileQueryInfoFlags.NONE, null) === Gio.FileType.DIRECTORY) {
+                this.settings.set_strv('wallpaper-paths', [dir]);
+                // Select the single seeded source (bit 0).
+                this.settings.set_int('wallpaper-paths-selected', 1);
+                this.wallpaperPaths = [dir];
+                this.wallpaperPathsSelected = 1;
+                console.log('Wallhub: seeded default wallpaper directory: ' + dir);
+                return;
+            }
+        }
     }
 
     disable() {
@@ -275,7 +304,15 @@ export class WallhubManager {
             if (fileInfos.length === 0)
                 break;
             for (const fileInfo of fileInfos) {
-                const file = directory.get_child(fileInfo.get_name());
+                const name = fileInfo.get_name();
+                // Skip hidden files and unsupported formats (e.g. SVG, which the
+                // GNOME background does not support).
+                if (name.startsWith('.'))
+                    continue;
+                const lower = name.toLowerCase();
+                if (lower.endsWith('.svg'))
+                    continue;
+                const file = directory.get_child(name);
                 const fileType = fileInfo.get_file_type();
                 if (fileType === Gio.FileType.REGULAR) {
                     wallpapers.push(file.get_path());
@@ -313,6 +350,11 @@ export class WallhubManager {
         }
         const extension = path.split('.').pop().toLowerCase();
         if (extension === 'xml') {
+            // GNOME-native dynamic wallpapers use the <background> schema and are
+            // played automatically by GNOME's own background manager when set as
+            // picture-uri — no manual time-based switching is needed. Only fall
+            // back to Wallhub's own dwp format (<name>/<filename>/<filename-dark>)
+            // if the file is not a GNOME native dynamic wallpaper.
             let xmlBytes;
             try {
                 const file = Gio.File.new_for_path(path);
@@ -328,6 +370,13 @@ export class WallhubManager {
             }
             const decoder = new TextDecoder();
             const xml = decoder.decode(xmlBytes);
+            if (xml.includes('<background>')) {
+                // GNOME native dynamic wallpaper: set directly and let GNOME
+                // handle the time-based transitions.
+                this.bgSettings.set_string('picture-uri', 'file://' + path);
+                this.bgSettings.set_string('picture-uri-dark', 'file://' + path);
+                return;
+            }
             const dwpConfig = parseDynamicWallpaper(xml);
             if (dwpConfig == null) {
                 console.error('Wallhub: Failed to parse dynamic wallpaper: ' + path);
@@ -335,6 +384,9 @@ export class WallhubManager {
             }
             this.bgSettings.set_string('picture-uri', 'file:///' + dwpConfig.lightBg);
             this.bgSettings.set_string('picture-uri-dark', 'file:///' + dwpConfig.darkBg);
+        } else if (extension === 'svg') {
+            // GNOME background does not support SVG; skip to avoid a broken set.
+            console.warn('Wallhub: skipping unsupported SVG wallpaper: ' + path);
         } else {
             this.bgSettings.set_string('picture-uri', 'file:///' + path);
             this.bgSettings.set_string('picture-uri-dark', 'file:///' + path);
