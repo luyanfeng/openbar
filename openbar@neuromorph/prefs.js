@@ -3163,7 +3163,20 @@ class OpenbarPrefs {
                 const stdout = res[1];
                 if (exitStatus !== 0 && (!stdout || stdout.length === 0))
                     return _('journalctl exited with status %d.').format(exitStatus);
-                return stdout ? new TextDecoder().decode(stdout) : '';
+                if (!stdout)
+                    return '';
+                let text = new TextDecoder().decode(stdout);
+                // Guard against runaway logging filling the buffer: a chatty
+                // shell can emit far more than the page can usefully display.
+                const MAX_CHARS = 1024 * 1024; // ~1 MB
+                if (text.length > MAX_CHARS) {
+                    text = text.slice(text.length - MAX_CHARS);
+                    const cut = text.indexOf('\n');
+                    if (cut >= 0)
+                        text = text.slice(cut + 1);
+                    text = _('(log truncated to the last ~1 MB; use the filter to narrow it down)\n') + text;
+                }
+                return text;
             } catch (e) {
                 return _('Failed to read journal: %s').format(e.message);
             }
