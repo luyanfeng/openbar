@@ -97,7 +97,10 @@ GNOME 无法实现、已反复试错确认的边界。
 - 全屏/最大化 → 用 `append_new_workspace` + `reorder_workspace` 在相邻位置建
   一个专用工作区，窗口移入并激活视图。
 - 退出 → 窗口回原工作区，**显式** `remove_workspace` 删除专用工作区。
-- 键盘移动跳过专用工作区；概览拖入被拒（`NO_DROP` + 红边框）；拖出被弹回并提示。
+- 键盘移动/菜单移动跳过专用工作区（`_evict` 沿方向找下一个非专用区）。
+- 全屏窗口从自己的专用区被移走 → 直接弹回原区并提示（`_evict` Case 1）。
+- 专用工作区缩略图在概览中置灰 + 红框（`_refreshThumbnails`）——**仅视觉标记，
+  不代表拖放被拒**。
 - 缩略图置灰必须用 `_contents.opacity`，`set_style('opacity: …')` 无效。
 
 **必须遵守**
@@ -115,11 +118,15 @@ GNOME 无法实现、已反复试错确认的边界。
   全屏功能完全失效）。
 
 **已确认做不到（不要再试）**
-- **专用工作区里的窗口在概览中仍可发起拖拽**，松手才弹回并提示。纯视觉问题，
-  操作本身无法成功。试过三种方案都无效，根因是 `Workspace._addWindowClone`
-  每次打开概览都 `new WindowPreview(...)`，禁用到的永远是上一个实例；
-  而 patch `Main.overview.beginWindowDrag`（实例与原型都试过）在此版本 shell
-  没有被走到。除非找到新的稳定入口，否则接受现状。
+- **拖放阶段无法拒绝**：概览里把窗口拖到专用工作区上不会显示禁止光标，也没有红边框
+  实时反馈 —— 拖拽照常成功，事后再由 `_evict` Case 2 把窗口沿行进方向挪到下一个非专用
+  工作区。同理拖出全屏窗口自己的专用区只能在松手后弹回（`_evict` Case 1）。
+  - `045674f` 已把曾经尝试过的 `NO_DROP` / `acceptDropInternal` /
+    `handleDragOverInternal` / `beginWindowDrag` patch 全部删除，代码里**一点不剩**。
+    不要再以为「拖入拒绝」还在，也不要照旧文档去找这些函数。
+  - 根因：`Workspace._addWindowClone` 每次打开概览都 `new WindowPreview(...)`，
+    禁用到的永远是上一个实例；patch `Main.overview.beginWindowDrag`（实例与原型
+    都试过）在此版本 shell 没有被走到。除非找到新的稳定入口，否则接受现状。
 - 真正的「白名单」（任何窗口/任何途径都无法进入）没有对应 API：GNOME 没有任何
   工作区级访问控制，只能事后用 `Meta.Window` 的 `workspace-changed` 纠正。
 

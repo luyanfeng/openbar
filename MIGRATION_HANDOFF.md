@@ -22,24 +22,21 @@ GNOME Shell 扩展，纯 GJS，无构建系统、无 lint、无测试框架。CI
 **如果新目录里还是 `openbar@neuromorph/`，说明用户的移动没成功或移动错了版本，
 先确认再动手，别假设。**
 
-## 3. Git 状态（迁移前的确切状态）
+## 3. Git 状态
 
 ```
-HEAD = 70f0094  refactor: rename to Open Gnome Box (opengnomebox@lyf)
+HEAD = 466a5a5  feat(integrations): refuse to run alongside the standalone extension
 工作树干净
 ```
 
-remotes：
+remotes（**已按用户要求调整完毕**）：
 
 | remote | 仓库 | 说明 |
 |---|---|---|
-| `origin` | `https://github.com/luyanfeng/openbar.git` | 原插件仓库，最后提交是改名前的 `f071211` |
-| `newbox` | `https://github.com/luyanfeng/openGnomeBox.git` | **新插件仓库，`main` 已推送（含 70f0094）** |
+| `origin` | `https://github.com/luyanfeng/openGnomeBox.git` | **新插件仓库，主力。`main` 已跟踪 `origin/main`** |
+| `oldbar` | `https://github.com/luyanfeng/openbar.git` | 原插件仓库，仅留作参考 |
 
-**注意**：`origin` 指向旧仓库，`newbox` 指向新仓库。默认 push 会去 `origin`
-（旧仓库）——**推代码前务必确认推到哪个**，别把新代码推到旧仓库。
-
-用户可能希望：把 `origin` 改成新仓库，或继续用 `newbox`。**先问，别自己改 remote。**
+裸 `git push` 现在直接进新仓库。`oldbar` 只读参考，不要再往里推。
 
 ## 4. 改名改了什么（已完成，不要重做）
 
@@ -61,21 +58,26 @@ remotes：
 - `/*** Open Bar GTK CSS ***/ ` 标记。写入和检测都用这个字符串，改名会让**已安装
   用户的 gtk.css 备份无法被识别还原**。
 
-## 5. 本地安装状态（重要）
+## 5. 本地安装状态
 
-- **旧插件仍安装并启用**：`~/.local/share/gnome-shell/extensions/openbar@neuromorph`，
-  在 `enabled-extensions` 里。
-- **新插件尚未安装**：`~/.local/share/gnome-shell/extensions/opengnomebox@lyf` 不存在。
+- **新插件已安装并启用**：`~/.local/share/gnome-shell/extensions/opengnomebox@lyf`，
+  在 `enabled-extensions` 里，状态 ACTIVE。
+- **旧插件已不存在**：`openbar@neuromorph` 目录在重登后已消失，`disabled-extensions`
+  里的残留项已清掉。旧插件的 dconf 配置仍在 `/org/gnome/shell/extensions/openbar/`，
+  **已全量迁移**到 `/org/gnome/shell/extensions/opengnomebox/`（133 项，key 与类型
+  完全一致，无缺失）。备份在 `~/.config/dconf-backup-openbar-to-opengnomebox-*/`。
 
-所以用户现在跑的还是旧的 Open Bar。要测新插件必须安装：
+改完代码后同步到安装目录（**代码 + schema 必须同一批**）：
 ```bash
-cd <新工作目录>/opengnomebox@lyf
+cd <工作目录>/opengnomebox@lyf
 glib-compile-schemas schemas/
-cp -r . ~/.local/share/gnome-shell/extensions/opengnomebox@lyf
-gnome-extensions enable opengnomebox@lyf
+D=~/.local/share/gnome-shell/extensions/opengnomebox@lyf
+cp *.js "$D/"
+cp schemas/*.xml schemas/gschemas.compiled "$D/schemas/"
+cp locale/zh_CN/LC_MESSAGES/opengnomebox.{po,mo} "$D/locale/zh_CN/LC_MESSAGES/"
+diff -rq . "$D" | grep -v 'Only in'   # 应为空
 ```
-**两个插件可以共存**（uuid 不同），但都改 panel 样式，同时启用会打架，
-建议测新插件时先禁用旧的。
+`prefs.js` / schema / 翻译改完重开偏好窗口即可；**`*.js`（extension 侧）必须注销重登**。
 
 ## 6. 绝对不能忘的教训（都踩过）
 
@@ -139,16 +141,32 @@ gnome-extensions enable opengnomebox@lyf
    - Auto Move 的「应用」用下拉选（`Gio.AppInfo.get_all()`），规则工作区可编辑
 3. **全屏专用工作区**（macOS Space 风格）
    - 全屏 → 新建相邻专用工作区；退出 → 回原工作区并删除专用区
-   - 键盘移动跳过专用区；概览拖入被拒（`NO_DROP` + 红边框）；拖出被弹回 + 提示
-   - 缩略图置灰用 `_contents.opacity`（`set_style('opacity')` 无效）
-   - **已知无法实现**：专用区窗口在概览中仍能发起拖拽（`WindowPreview` 每次开概览
-     重建，禁用到的是旧实例；patch `beginWindowDrag` 也无效）。纯视觉问题。
+   - 键盘/菜单移动跳过专用区；全屏窗口被移出自己的专用区 → 弹回原区 + 提示
+   - 缩略图置灰 + 红框用 `_contents.opacity`（`set_style('opacity')` 无效），
+     **只是视觉标记，不代表拖放被拒**
+   - **已知无法实现**：拖放阶段无法拒绝（无禁止光标、无红框反馈），拖拽本身会成功，
+     事后由 `_evict` 沿行进方向把窗口挪到下一个非专用区；拖出全屏窗口的专用区也只能
+     松手后弹回。`045674f` 已把 `NO_DROP` / `acceptDropInternal` /
+     `handleDragOverInternal` / `beginWindowDrag` patch 全部删除，**代码里没有残留**。
+     根因：`WindowPreview` 每次开概览重建，禁用到的是旧实例。
 4. **日志页**（偏好页）
    - 扩展错误：`Gio.DBus` 调 `ListExtensions` + `GetExtensionErrors`
    - Shell 日志：`journalctl -b _COMM=gnome-shell`，带过滤、行数选择、复制
    - 超过约 1MB 自动截断
-5. **中文翻译**：`locale/zh_CN/LC_MESSAGES/opengnomebox.{po,mo}`，88 条，
-   在 `fillPreferencesWindow()` 和 `enable()` 里显式调 `initTranslations()`
+5. **中文翻译**：`locale/zh_CN/LC_MESSAGES/opengnomebox.{po,mo}`，95 条，
+   在 `fillPreferencesWindow()` 和 `enable()` 里显式调 `initTranslations()`。
+   **本机没有 `msgfmt`**，用 `python3` 的纯标准库脚本编译 `.mo`
+   （GNU MO 格式很小，脚本见下）；改完 `.po` 必须重编 `.mo` 并同步到安装目录。
+6. **与独立扩展互斥**（`conflicts.js`）
+   - Ubuntu 26.04 把 gnome-shell-extensions 套装作为**系统级**扩展装在
+     `/usr/share/gnome-shell/extensions`，所以「Auto Move Windows」「Removable
+     Drive Menu」可能已从系统侧启用。
+   - `conflicts.js` 存「设置键 → 独立扩展 uuid」映射，仅依赖 Gio/GLib
+     （prefs 在独立 gjs 进程里，不能导入 shell UI 模块）。
+   - 偏好页：拨开关时若独立扩展已启用 → 弹窗「只能启用其中一个」；取消则不写 key，
+     确认则先 `DisableExtension` 并**确认真的停用**才写 key。
+   - 运行时：**一律让位**，绝不停用别人的扩展。key 为 true 但独立扩展也开着
+     （启动时/外部 gsettings 写入）→ 把 key 写回 false 并告警。
 
 ## 8. 关键架构约束（改代码前必读）
 
@@ -195,12 +213,19 @@ gnome-extensions info opengnomebox@lyf
 - 不确定就查证，不要猜（本轮因猜 API 反复返工）。
 - `.planning/` 已加入 `.gitignore`，pwf 计划文件不入库。
 
-## 11. 迁移后第一件事
+## 11. 迁移已完成（本节的检查清单已执行完毕）
 
-用户改名目录并重启会话后，建议按顺序确认：
+以下均已完成，仅留作记录：
 
-1. `pwd` 确认新路径，`ls` 确认有 `opengnomebox@lyf/`
-2. `git log --oneline -1` 确认还是 `70f0094`
-3. `git remote -v` — **确认推代码前目标仓库正确**（`origin` 是旧仓库！）
-4. `git status` 确认工作树干净
-5. 问用户接下来做什么（安装新插件测试？继续开发？）
+1. 工作目录已在 `~/IdeaProjects/lyf/ai/openGnomeBox`（`~/IdeaProjects` 是
+   `Documents/IdeaProjects` 的软链接，同一目录）。
+2. 扩展代码目录为 `opengnomebox@lyf/`。
+3. remote 已整理：`origin` = 新仓库，`oldbar` = 旧仓库（只读参考）。
+4. 新插件已安装、已启用、旧插件已移除。
+5. dconf 配置已全量迁移（133 项）。
+6. 已修 `integrations.js` 里 `045674f` 遗留的失效调用，以及 `_shouldPlace()` 的
+   `fullscreen-maximized-too` 反向逻辑。
+7. 已加 `conflicts.js`：与系统级 Auto Move Windows / Removable Drive Menu 互斥。
+
+**新会话开始时只需**：读 AGENTS.md 的「数据流」「必须知道的坑」「全屏专用工作区」
+三节，然后确认 `git status` 干净、`git log --oneline -1` 与远端一致即可开工。
