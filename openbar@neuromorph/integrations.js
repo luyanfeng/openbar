@@ -28,6 +28,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as ShellMountOperation from 'resource:///org/gnome/shell/ui/shellMountOperation.js';
+import * as StyleSheets from './stylesheets.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // ---------------------------------------------------------------------------
@@ -174,20 +175,32 @@ export class StatusAreaSpacing {
         this._settings = ext._settings;
         this._enabled = false;
         this._signalIds = [];
-        this._actorAddedId = 0;
-        this._styleLine = '';
     }
 
     enable() {
         if (this._enabled)
             return;
         this._enabled = true;
-        this._apply();
+        // The spacing is applied through OpenBar's generated stylesheet
+        // (#panel.openbar .panel-button), so changing it must regenerate and
+        // reload the sheet. An inline style would be overridden on reload and
+        // needs an extension restart to show up.
         this._signalIds.push(this._settings.connect('changed::status-spacing', () => {
-            this._remove();
-            this._apply();
+            this._reloadStyles();
         }));
-        this._signalIds.push(this._settings.connect('changed::status-spacing-enabled', () => this._sync()));
+        this._signalIds.push(this._settings.connect('changed::status-spacing-enabled', () => {
+            this._reloadStyles();
+        }));
+    }
+
+    _reloadStyles() {
+        try {
+            const ext = this.ext;
+            if (ext && typeof StyleSheets !== 'undefined' && StyleSheets.reloadStyle)
+                StyleSheets.reloadStyle(ext, ext);
+        } catch (e) {
+            console.warn('Open Bar: could not reload stylesheet for spacing: ' + e.message);
+        }
     }
 
     disable() {
@@ -196,102 +209,8 @@ export class StatusAreaSpacing {
             try { this._settings.disconnect(id); } catch (e) {}
         });
         this._signalIds = [];
-        this._remove();
     }
 
-    _sync() {
-        if (this._settings.get_boolean('status-spacing-enabled'))
-            this.enable();
-        else
-            this.disable();
-    }
-
-    _rightBox() {
-        try {
-            return Main.panel?._rightBox ?? null;
-        } catch (e) {
-            return null;
-        }
-    }
-
-    _apply() {
-        try {
-            const rightBox = this._rightBox();
-            if (!rightBox)
-                return;
-            const padding = this._settings.get_int('status-spacing');
-            this._styleLine = `-natural-hpadding: ${padding}px`;
-            if (padding < 6)
-                this._styleLine += `; -minimum-hpadding: ${padding}px`;
-
-            for (const child of rightBox.get_children())
-                this._override(child, false);
-
-            this._actorAddedId = rightBox.connect('child-added', (container, actor) => {
-                if (!this.ext.disabling)
-                    this._override(actor, false);
-            });
-        } catch (e) {
-            console.warn('Open Bar: status spacing apply failed: ' + e.message);
-        }
-    }
-
-    _remove() {
-        try {
-            const rightBox = this._rightBox();
-            if (this._actorAddedId && rightBox) {
-                rightBox.disconnect(this._actorAddedId);
-            }
-            this._actorAddedId = 0;
-            if (rightBox) {
-                for (const child of rightBox.get_children())
-                    this._restore(child);
-            }
-        } catch (e) {
-            console.warn('Open Bar: status spacing remove failed: ' + e.message);
-        }
-    }
-
-    // The panel-button class is not always on the direct child: in GNOME 50 the
-    // status area holds St.Widget.button-container > St.Bin.container >
-    // ButtonBox.panel-button, so walk down a few levels instead of only one.
-    _findPanelButton(actor, depth = 0) {
-        if (!actor || depth > 3)
-            return null;
-        if (typeof actor.has_style_class_name === 'function' &&
-            actor.has_style_class_name('panel-button'))
-            return actor;
-        const children = actor.get_children?.() ?? [];
-        for (const child of children) {
-            const found = this._findPanelButton(child, depth + 1);
-            if (found)
-                return found;
-        }
-        return null;
-    }
-
-    _override(actor) {
-        if (!actor)
-            return;
-        const target = this._findPanelButton(actor);
-        if (!target)
-            return;
-        if (target._openbarOriginalStyle === undefined)
-            target._openbarOriginalStyle = target.get_style();
-        target.set_style(`${this._styleLine}; ${target._openbarOriginalStyle || ''}`);
-    }
-
-    _restore(actor) {
-        if (!actor)
-            return;
-        const target = this._findPanelButton(actor);
-        if (!target)
-            return;
-        if (target._openbarOriginalStyle !== undefined) {
-            target.set_style(target._openbarOriginalStyle);
-            delete target._openbarOriginalStyle;
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -899,14 +818,16 @@ export class FullscreenEmptyWorkspace {
                     return;
                 if (free === -1)
                     return;
+                // Swap the empty workspace into the active position so the window
+                // ends up on an otherwise empty workspace. The other windows are
+                // already on `current`, which after the swap is where `free` was,
+                // so they must NOT be moved again.
                 if (current < free) {
                     manager.reorder_workspace(manager.get_workspace_by_index(free), current);
-                    others.forEach(w => w.change_workspace_by_index(current, false));
                     this._maximized.set(win.get_id(), 'reorder');
                 } else if (current > free) {
                     manager.reorder_workspace(manager.get_workspace_by_index(current), free);
                     manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
-                    others.forEach(w => w.change_workspace_by_index(current, false));
                     this._maximized.set(win.get_id(), 'reorder');
                 }
             } else {

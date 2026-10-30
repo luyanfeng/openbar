@@ -3431,7 +3431,6 @@ class OpenbarPrefs {
             subtitle: _('Send an application to a workspace whenever it opens a window.'),
             enabledKey: 'auto-move-windows',
         });
-        autoMoveExp.expanded = true;
 
         this._autoMoveRows = [];
 

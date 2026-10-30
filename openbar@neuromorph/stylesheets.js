@@ -1119,6 +1119,11 @@ function getStylesheet(obar, Me) {
     let hAlpha = obar._settings.get_double('halpha');
     let hPad = obar._settings.get_double('hpad');
     let vPad = obar._settings.get_double('vpad');
+    // Status area spacing override: emitted as a style rule below so it applies
+    // together with the rest of the generated stylesheet (an inline style on the
+    // panel buttons would be overridden whenever this sheet is reloaded).
+    let statusSpacingEnabled = obar._settings.get_boolean('status-spacing-enabled');
+    let statusSpacing = obar._settings.get_int('status-spacing');
     let hovereffect = obar._settings.get_boolean('heffect');
     let mfgColor = obar._settings.get_strv('mfgcolor');
     let mfgAlpha = obar._settings.get_double('mfgalpha');
@@ -2034,6 +2039,11 @@ function getStylesheet(obar, Me) {
             color: rgba(${fgred},${fggreen},${fgblue},${fgalpha});
             ${unlockStyle}
         }
+        ${statusSpacingEnabled ? `
+        #panel${openbarClass} .panel-button {
+            -natural-hpadding: ${statusSpacing}px;
+            ${statusSpacing < 6 ? `-minimum-hpadding: ${statusSpacing}px;` : ''}
+        }` : ''}
         #panel${openbarClass}:windowmax .panel-button {
             ${btnBgWMax? '': 'background-color: transparent !important;'}
             ${borderWMax? '': `border-color: rgba(${bgredwmax},${bggreenwmax},${bgbluewmax},${bgalphaWMax});`}
