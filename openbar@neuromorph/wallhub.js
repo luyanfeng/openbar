@@ -81,6 +81,12 @@ export class WallhubManager {
     }
 
     enable() {
+        if (this._enabled) {
+            console.warn('Wallhub: enable() called while already enabled; skipping');
+            return;
+        }
+        this._enabled = true;
+
         this.wallpaperPaths = this.settings.get_strv('wallpaper-paths');
         this.wallpaperPathsSelected = this.settings.get_int('wallpaper-paths-selected');
         this.slideshowIntervalUnit = this.settings.get_enum('slideshow-interval-unit');
@@ -91,7 +97,8 @@ export class WallhubManager {
         }));
         this._signalIds.push(this.settings.connect('changed::wallpaper-paths-selected', () => {
             this.wallpaperPathsSelected = this.settings.get_int('wallpaper-paths-selected');
-            this.updateQueue();
+            this.updateQueue()
+                .catch(e => console.error('Wallhub: updateQueue failed: ' + e));
         }));
         this._signalIds.push(this.settings.connect('changed::slideshow-interval-unit', () => {
             this.slideshowIntervalUnit = this.settings.get_enum('slideshow-interval-unit');
@@ -109,6 +116,7 @@ export class WallhubManager {
     }
 
     disable() {
+        this._enabled = false;
         this._signalIds.forEach(id => {
             try { this.settings.disconnect(id); } catch (e) {}
         });
@@ -136,7 +144,10 @@ export class WallhubManager {
             return;
         // _addBackgroundMenu is called when a BackgroundManager is created;
         // hook after the original so the menu already exists.
-        this.ext._injectToFunction(
+        // Store the original method in _injections so that _removeInjection
+        // can restore it on disable; otherwise the injected wrapper would be
+        // deleted and the original lost (breaking background menu on reload).
+        this.ext._injections['_addBackgroundMenu'] = this.ext._injectToFunction(
             Main.layoutManager,
             '_addBackgroundMenu',
             (bgManager) => {
@@ -211,7 +222,8 @@ export class WallhubManager {
             }
             const wallpaper = this.wallpaperQueue.dequeue();
             if (wallpaper != null) {
-                this.setWallpaper(wallpaper);
+                this.setWallpaper(wallpaper)
+                    .catch(e => console.error('Wallhub: setWallpaper failed: ' + e));
                 return GLib.SOURCE_CONTINUE;
             }
             this.loopSourceId = null;
@@ -221,10 +233,17 @@ export class WallhubManager {
 
     async updateQueue() {
         this.wallpaperQueue.clear();
+        if (!this.wallpaperPaths || this.wallpaperPaths.length === 0)
+            return;
+
         for (let i = 0; i < this.wallpaperPaths.length; i++) {
             const path = this.wallpaperPaths[i];
             if (!isBitSet(this.wallpaperPathsSelected, i))
                 continue;
+            if (!path) {
+                console.error('Wallhub: Empty path at index ' + i);
+                continue;
+            }
             const file = Gio.File.new_for_path(path);
             const fileType = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
             if (fileType === Gio.FileType.REGULAR) {
@@ -288,6 +307,10 @@ export class WallhubManager {
     }
 
     async setWallpaper(path) {
+        if (!path) {
+            console.error('Wallhub: setWallpaper called with empty path');
+            return;
+        }
         const extension = path.split('.').pop().toLowerCase();
         if (extension === 'xml') {
             let xmlBytes;
