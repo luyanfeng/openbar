@@ -267,9 +267,6 @@ msgstr "工作区 %s"
 msgid "journalctl exited with status %d."
 msgstr "journalctl 退出状态为 %d。"
 
-msgid "Auto Move Windows"
-msgstr "自动移动窗口"
-
 msgid "Removable Drive Menu"
 msgstr "可移动驱动器菜单"
 
