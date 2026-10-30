@@ -1522,5 +1522,10 @@
       <summary>Also do this for maximized windows</summary>
       <description>When false, only fullscreen (not merely maximized) windows are moved.</description>
     </key>
+    <key type="b" name="fullscreen-guard-workspaces">
+      <default>false</default>
+      <summary>Protect dedicated workspaces</summary>
+      <description>Skip dedicated workspaces when moving windows with the keyboard, and refuse to drop windows onto them in the overview. The dedicated workspace is dimmed in the overview.</description>
+    </key>
   </schema>
 </schemalist>

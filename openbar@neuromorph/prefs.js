@@ -3425,6 +3425,15 @@ class OpenbarPrefs {
             Gio.SettingsBindFlags.DEFAULT);
         fsExp.add_row(fsMaxSwitch);
 
+        const fsGuardSwitch = new Adw.SwitchRow({
+            title: _('Protect the dedicated workspace'),
+            subtitle: _('Moving a window with the keyboard skips it, dragging onto it in ' +
+                'the overview is refused, and it is dimmed there.'),
+        });
+        this._settings.bind('fullscreen-guard-workspaces', fsGuardSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        fsExp.add_row(fsGuardSwitch);
+
         // --- Auto move windows (same framed expander style as the others) ---
         const autoMoveExp = this._makeFeatureExpander(group, {
             title: _('Auto Move Windows'),

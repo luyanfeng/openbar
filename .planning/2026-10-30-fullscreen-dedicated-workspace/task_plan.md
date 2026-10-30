@@ -36,3 +36,28 @@ Phase 3（验证）
 - [x] 防循环模拟测试（5 次事件风暴 → 2 次移动，state 清空）
 - [ ] 真机行为验证（待用户重登）
 - **Status:** in_progress
+
+### Phase 4: 白名单式独占（macOS Auxiliary 对齐）
+用户诉求：不硬拒绝，而是「跳过 + 置灰」——快捷键移动时跳过专用工作区，
+概览拖拽时专用工作区显示为灰色且不可放入。
+
+- [ ] 维护专用工作区集合（`Set<Meta.Workspace>`）
+- [ ] 拦截 `Meta.Window.prototype.change_workspace_by_index`：跳过专用工作区
+- [ ] 拦截 `Meta.Window.prototype.change_workspace`：同上
+- [ ] 拦截拖拽落点（`ThumbnailsBox.acceptDropInternal` 或
+      `Main.moveWindowToMonitorAndWorkspace`）：拒绝放入专用工作区
+- [ ] 专用工作区缩略图置灰（`thumbnail.metaWorkspace` 匹配 → set_style）
+- [ ] 内部移动豁免标记（我们自己的 `_place`/`_restore` 必须放行）
+- [ ] 用官方 `InjectionManager` 存取原始方法，保证可正确 restore
+- [ ] 做成设置开关（默认关闭，因为是侵入性行为）
+- **Status:** pending
+
+### 关键技术结论（Phase 4 预研）
+- `InjectionManager._installMethod` 直接写 `prototype[methodName] = method`，可 patch
+- 快捷键移动：`Main.wm.actionMoveWindow` → `window.change_workspace(ws)`
+- 概览拖拽：`WorkspaceThumbnail.acceptDropInternal` →
+  `Main.moveWindowToMonitorAndWorkspace(win, monitor, index)`
+- 缩略图对象可从 `WorkspaceThumbnail.metaWorkspace` 反查，**不依赖私有字段**
+- 风险：与其他 patch 同一方法的扩展可能相互影响；置灰依赖
+  `_workspacesViews`/`_thumbnails` 私有层级，GNOME 升级可能失效
+

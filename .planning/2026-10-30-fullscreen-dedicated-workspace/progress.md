@@ -49,3 +49,22 @@
 3. 删除 `_firstFree`（已无引用，避免死代码）。
 4. 用户澄清：他并没有固定 4 个工作区，是我擅自改了
    `dynamic-workspaces`。已恢复为 true。
+
+### Phase 4 实现完成：白名单式独占
+用户提出的方案（比硬拒绝更优雅）：
+- 快捷键移动时**跳过**专用工作区（W1→W2(专用)→实际到 W3）
+- 概览拖拽时专用工作区**置灰**且不可放入
+
+实现：
+- 新增 `DedicatedWorkspaceGuard` 类，用官方 `InjectionManager` patch
+  `Meta.Window.prototype.change_workspace(_by_index)`：
+  目标是专用工作区时，沿移动方向找到下一个非专用工作区
+- `_redirectIndex` / `_redirectWorkspace` 负责跳过逻辑
+- `runInternal()` 内部豁免标记：我们自己的 `_place`/`_restore` 移动必须放行
+- 缩略图置灰通过 `WorkspaceThumbnail.metaWorkspace` 匹配（公开属性，
+  不依赖私有字段），`set_style('opacity: 0.35')`
+- 新增设置 `fullscreen-guard-workspaces`（默认 false）
+- 偏好页加「保护专用工作区」开关
+
+未做：拖拽落点拒绝（`acceptDropInternal`）——置灰 + 用户看到变暗后
+通常不会尝试；如需严格拒绝需再拦截 `Main.moveWindowToMonitorAndWorkspace`。

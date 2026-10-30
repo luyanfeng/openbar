@@ -30,6 +30,7 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as ShellMountOperation from 'resource:///org/gnome/shell/ui/shellMountOperation.js';
 import * as StyleSheets from './stylesheets.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+import { InjectionManager } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // ---------------------------------------------------------------------------
 // 1. Autohide Battery
@@ -639,6 +640,222 @@ export class DriveMenu {
 }
 
 // ---------------------------------------------------------------------------
+// Dedicated-workspace guard
+//
+// Keeps a set of "dedicated" (fullscreen-owned) workspaces and makes them behave
+// like macOS fullscreen Spaces from the user's point of view:
+//
+//   - Keyboard/menu moves skip them instead of being refused, so Super+Shift+→
+//     from W1 lands on W3 when W2 is dedicated.
+//   - Dragging a window onto one in the overview is rejected, and the thumbnail
+//     is dimmed so the block is visible rather than mysterious.
+//
+// Everything is expressed by patching Meta.Window's workspace methods through
+// the shell's own InjectionManager, which stores the originals so disable()
+// restores them cleanly.
+// ---------------------------------------------------------------------------
+export class DedicatedWorkspaceGuard {
+    constructor() {
+        this._dedicated = new Set();
+        // Marks our own moves so the guards let them through.
+        this._internalMoves = 0;
+        this._injectionManager = null;
+        this._originalChangeWorkspace = null;
+        this._originalChangeWorkspaceByIndex = null;
+        this._thumbnailsChangedId = 0;
+        this._enabled = false;
+    }
+
+    enable() {
+        if (this._enabled)
+            return;
+        this._enabled = true;
+        this._install();
+        this._refreshThumbnails();
+    }
+
+    disable() {
+        this._enabled = false;
+        this._dedicated.clear();
+        this._clearThumbnails();
+        try {
+            this._injectionManager?.clear();
+        } catch (e) {
+            console.warn('Open Bar: could not restore workspace methods: ' + e.message);
+        }
+        this._injectionManager = null;
+        this._originalChangeWorkspace = null;
+        this._originalChangeWorkspaceByIndex = null;
+        try {
+            if (this._thumbnailsChangedId)
+                global.workspace_manager.disconnect(this._thumbnailsChangedId);
+        } catch (e) {}
+        this._thumbnailsChangedId = 0;
+    }
+
+    // ---- dedicated set -----------------------------------------------------
+
+    add(workspace) {
+        if (!workspace)
+            return;
+        this._dedicated.add(workspace);
+        this._refreshThumbnails();
+    }
+
+    remove(workspace) {
+        if (!workspace)
+            return;
+        this._dedicated.delete(workspace);
+        this._refreshThumbnails();
+    }
+
+    isDedicated(workspace) {
+        return !!workspace && this._dedicated.has(workspace);
+    }
+
+    // Run `fn` with the guards bypassed, for our own placement/restore moves.
+    runInternal(fn) {
+        this._internalMoves++;
+        try {
+            return fn();
+        } finally {
+            this._internalMoves--;
+        }
+    }
+
+    // ---- patching ----------------------------------------------------------
+
+    _install() {
+        try {
+            this._injectionManager = new InjectionManager();
+        } catch (e) {
+            console.warn('Open Bar: InjectionManager unavailable: ' + e.message);
+            return;
+        }
+
+        // Index-based moves (keyboard shortcuts, extension helpers).
+        this._injectionManager.overrideMethod(
+            Meta.Window.prototype, 'change_workspace_by_index',
+            original => {
+                this._originalChangeWorkspaceByIndex = original;
+                return (index, append) => {
+                    const real = this._redirectIndex(this, index);
+                    return original.call(this, real, append);
+                };
+            });
+
+        // Object-based moves.
+        this._injectionManager.overrideMethod(
+            Meta.Window.prototype, 'change_workspace',
+            original => {
+                this._originalChangeWorkspace = original;
+                return workspace => {
+                    const target = this._redirectWorkspace(this, workspace);
+                    if (!target)
+                        return;
+                    return original.call(this, target);
+                };
+            });
+    }
+
+    // Decide which workspace a move should really go to.
+    _redirectIndex(win, index) {
+        if (this._internalMoves > 0 || !this._enabled || this._dedicated.size === 0)
+            return index;
+        try {
+            const manager = global.workspace_manager;
+            const n = manager.get_n_workspaces();
+            if (index < 0 || index >= n)
+                return index;
+            const ws = manager.get_workspace_by_index(index);
+            if (!this.isDedicated(ws))
+                return index;
+            // Skip past dedicated workspaces in the direction of travel.
+            const current = win.get_workspace()?.index() ?? 0;
+            const step = index >= current ? 1 : -1;
+            for (let i = index; i >= 0 && i < n; i += step) {
+                if (!this.isDedicated(manager.get_workspace_by_index(i)))
+                    return i;
+            }
+            return index;
+        } catch (e) {
+            return index;
+        }
+    }
+
+    _redirectWorkspace(win, workspace) {
+        if (!workspace)
+            return null;
+        if (this._internalMoves > 0 || !this._enabled || this._dedicated.size === 0)
+            return workspace;
+        if (!this.isDedicated(workspace))
+            return workspace;
+        try {
+            const manager = global.workspace_manager;
+            const n = manager.get_n_workspaces();
+            const current = win.get_workspace()?.index() ?? 0;
+            const target = workspace.index();
+            const step = target >= current ? 1 : -1;
+            for (let i = target; i >= 0 && i < n; i += step) {
+                const ws = manager.get_workspace_by_index(i);
+                if (!this.isDedicated(ws))
+                    return ws;
+            }
+        } catch (e) {
+            return workspace;
+        }
+        return workspace;
+    }
+
+    // ---- overview thumbnails ----------------------------------------------
+
+    // Walk the workspaces views and dim dedicated thumbnails. The thumbnail
+    // exposes `metaWorkspace`, so matching does not rely on private fields.
+    _refreshThumbnails() {
+        try {
+            const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
+            for (const view of views) {
+                const box = view?._thumbnails;
+                const thumbs = box?._thumbnails ?? [];
+                for (const thumb of thumbs) {
+                    if (!thumb || !thumb.metaWorkspace)
+                        continue;
+                    if (this.isDedicated(thumb.metaWorkspace))
+                        thumb.set_style('opacity: 0.35;');
+                    else
+                        thumb.set_style(null);
+                }
+            }
+        } catch (e) {
+            // Purely cosmetic: never let it break anything.
+        }
+    }
+
+    _clearThumbnails() {
+        try {
+            const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
+            for (const view of views) {
+                const thumbs = view?._thumbnails?._thumbnails ?? [];
+                for (const thumb of thumbs) {
+                    try { thumb?.set_style(null); } catch (e) {}
+                }
+            }
+        } catch (e) {}
+    }
+
+    // Re-dim after the thumbnail strip is rebuilt.
+    watchThumbnails() {
+        try {
+            if (this._thumbnailsChangedId)
+                return;
+            this._thumbnailsChangedId = global.workspace_manager.connect(
+                'notify::n-workspaces', () => this._refreshThumbnails());
+        } catch (e) {}
+    }
+}
+
+
+// ---------------------------------------------------------------------------
 // 6. Fullscreen to Empty Workspace
 //
 // When a window becomes maximized/fullscreen, reorder workspaces so that window
@@ -667,6 +884,11 @@ export class FullscreenEmptyWorkspace {
         // main-loop iteration; releasing synchronously would let them re-enter.
         this._busy = false;
         this._busyTimeoutId = 0;
+
+        // Guards dedicated workspaces against manual/foreign window moves.
+        // Enabled only when the corresponding setting is on.
+        this._guard = new DedicatedWorkspaceGuard();
+        this._guardEnabled = false;
     }
 
     // Take the guard and auto-release after a short delay. The delay matters:
@@ -721,6 +943,38 @@ export class FullscreenEmptyWorkspace {
         connect('minimize', act => this._onRestore(act));
         // destroy: window is going away, only drop state, never touch workspaces.
         connect('destroy', act => this._onDestroy(act));
+
+        // Dedicated-workspace guard is a separate, opt-in behaviour.
+        this._signalIds.push(this._settings.connect('changed::fullscreen-guard-workspaces',
+            () => this._syncGuard()));
+        this._syncGuard();
+    }
+
+    _syncGuard() {
+        let wanted = false;
+        try {
+            wanted = this._settings.get_boolean('fullscreen-guard-workspaces');
+        } catch (e) {
+            wanted = false;
+        }
+        if (wanted === this._guardEnabled)
+            return;
+        this._guardEnabled = wanted;
+        try {
+            if (wanted) {
+                this._guard.enable();
+                this._guard.watchThumbnails();
+                // Re-register workspaces we already own.
+                for (const st of this._state.values()) {
+                    if (st?.dedicatedWs)
+                        this._guard.add(st.dedicatedWs);
+                }
+            } else {
+                this._guard.disable();
+            }
+        } catch (e) {
+            console.warn('Open Bar: could not toggle workspace guard: ' + e.message);
+        }
     }
 
     disable() {
@@ -739,6 +993,10 @@ export class FullscreenEmptyWorkspace {
         this._state.clear();
         this._sizeChange.clear();
         this._mutterSettings = null;
+        try {
+            this._guard.disable();
+            this._guardEnabled = false;
+        } catch (e) {}
         if (this._busyTimeoutId) {
             try { GLib.source_remove(this._busyTimeoutId); } catch (e) {}
             this._busyTimeoutId = 0;
@@ -936,7 +1194,11 @@ export class FullscreenEmptyWorkspace {
                 return;
 
             this._state.set(id, { originWs, originIndex, dedicatedWs, created });
-            win.change_workspace(dedicatedWs);
+            // Register before moving so the guard already knows this workspace
+            // is off-limits; the move itself runs with the guard bypassed.
+            if (this._guardEnabled)
+                this._guard.add(dedicatedWs);
+            this._guard.runInternal(() => win.change_workspace(dedicatedWs));
 
             try {
                 const now = win.get_workspace();
@@ -998,7 +1260,7 @@ export class FullscreenEmptyWorkspace {
             }
 
             if (win.get_workspace()?.index() !== target.index())
-                win.change_workspace(target);
+                this._guard.runInternal(() => win.change_workspace(target));
 
             // Switch the view back BEFORE removing anything: mutter treats the
             // active workspace as non-empty and would refuse to remove it, and
@@ -1009,6 +1271,10 @@ export class FullscreenEmptyWorkspace {
                     target.index() !== manager.get_active_workspace_index())
                     target.activate(global.get_current_time());
             } catch (e) {}
+
+            // The workspace is no longer off-limits once the owner has left.
+            if (this._guardEnabled && dedicatedWs)
+                this._guard.remove(dedicatedWs);
 
             // Remove the workspace we created for this window. Do not rely on
             // mutter's automatic cleanup: it only reliably removes trailing
