@@ -873,7 +873,22 @@ export class FullscreenEmptyWorkspace {
             const manager = win.get_display().get_workspace_manager();
             const current = manager.get_active_workspace_index();
             const primaryOnly = this._primaryOnly();
-            const free = this._firstFree(manager, monitor);
+            let free = this._firstFree(manager, monitor);
+
+            // With dynamic workspaces there may be no empty workspace yet: the
+            // last one is only created on demand. Create one instead of giving
+            // up, so a window on a full workspace still gets its own space.
+            if (free === -1) {
+                try {
+                    const newIndex = manager.get_n_workspaces();
+                    manager.append_new_workspace(false, global.get_current_time());
+                    if (manager.get_n_workspaces() > newIndex)
+                        free = newIndex;
+                } catch (e) {
+                    console.warn('Open Bar: could not create workspace: ' + e.message);
+                }
+            }
+
             const primary = win.get_display().get_primary_monitor();
             console.log(`Open Bar[diag]: _place current=${current} free=${free} ` +
                 `primaryOnly=${primaryOnly} monitor=${monitor} primary=${primary} ` +
