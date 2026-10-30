@@ -996,13 +996,22 @@ export class DedicatedWorkspaceGuard {
             // St.Label has no text_align property (that is GTK); St uses
             // ClutterText.justify. Set only what exists, so a wrong property
             // name cannot make the whole hint fail to appear.
+            // St ignores CSS font-size in some themes; ClutterText accepts an
+            // explicit pixel size, which is what actually renders bigger.
             const label = new St.Label({
                 text,
                 style_class: 'openbar-space-hint',
-                style: 'background-color: rgba(0,0,0,0.45); color: #ffffff; ' +
-                    'padding: 8px 18px; border-radius: 6px; font-size: 15px;',
+                style: 'background-color: rgba(0,0,0,0.5); color: #ffffff; ' +
+                    'padding: 10px 22px; border-radius: 8px;',
                 x_align: Clutter.ActorAlign.CENTER,
             });
+            try {
+                label.clutter_text.set_font_size(20 * 1024);   // 20px
+                label.clutter_text.set_line_wrap(true);
+                label.clutter_text.set_ellipsize(0);            // Pango.EllipsizeMode.NONE
+            } catch (e) {
+                console.warn('Open Bar: could not size hint text: ' + e.message);
+            }
             // A full-stage container pinned by layout constraints is more
             // reliable than setting an explicit size (which is 0 before the
             // first allocation).
@@ -1054,11 +1063,20 @@ export class DedicatedWorkspaceGuard {
                 // Mark for the drag-over handler and for identification.
                 thumb._openbarDedicated = dedicated;
                 try {
-                    if (dedicated)
-                        thumb.set_style('opacity: 0.35;');
-                    else
-                        thumb.set_style(null);
-                } catch (e) {}
+                    // Use the actor opacity rather than CSS: WorkspaceThumbnail
+                    // clips to its allocation and its style is re-derived by the
+                    // theme, so an inline style on the thumbnail itself is not
+                    // reliably visible. Setting opacity on the contents child
+                    // dims what the user actually sees.
+                    const target = thumb._contents ?? thumb;
+                    target.opacity = dedicated ? 90 : 255;
+                    // A tinted border makes the state obvious in the overview.
+                    thumb.set_style(dedicated
+                        ? 'border: 2px solid rgba(224,27,36,0.85); border-radius: 4px;'
+                        : null);
+                } catch (e) {
+                    console.warn('Open Bar: could not dim thumbnail: ' + e.message);
+                }
             }
         } catch (e) {
             // Purely cosmetic: never let it break anything.
@@ -1127,6 +1145,8 @@ export class DedicatedWorkspaceGuard {
         for (const thumb of this._allThumbnails()) {
             try {
                 thumb.set_style(null);
+                const target = thumb._contents ?? thumb;
+                target.opacity = 255;
                 thumb._openbarDedicated = false;
             } catch (e) {}
         }
