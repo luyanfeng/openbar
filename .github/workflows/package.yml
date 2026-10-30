@@ -43,7 +43,9 @@ jobs:
           unzip -l "$ZIP"
           NAMES=$(unzip -Z1 "$ZIP" | sed 's#/$##')
           for required in metadata.json extension.js prefs.js stylesheets.js \
-                           autothemes.js quantize.js utils.js prefs.css media; do
+                           autothemes.js quantize.js utils.js wallhub.js \
+                           integrations.js prefs.css media \
+                           locale/zh_CN/LC_MESSAGES/openbar.mo; do
             if ! echo "$NAMES" | grep -qx "$required"; then
               echo "::error::Missing required entry: $required"
               exit 1

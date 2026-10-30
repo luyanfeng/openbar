@@ -44,6 +44,13 @@ const SCHEMA_PATH = '/org/gnome/shell/extensions/openbar/';
 export default class OpenbarPreferences extends ExtensionPreferences {
 
     fillPreferencesWindow(window) {
+        // Bind the gettext domain before any _() call so the preference window
+        // follows the system language (locale/<lang>/LC_MESSAGES/openbar.mo).
+        try {
+            this.initTranslations();
+        } catch (e) {
+            console.warn('Open Bar: could not initialise translations: ' + e.message);
+        }
         let prefs = new OpenbarPrefs();
         prefs.fillOpenbarPrefs(window, this);
     }
@@ -3388,63 +3395,111 @@ class OpenbarPrefs {
         });
         page.add(autoMoveGroup);
 
-        const autoMoveSwitch = new Adw.SwitchRow({ title: _('Enable Auto Move') });
+        const autoMoveSwitch = new Adw.SwitchRow({
+            title: _('Enable Auto Move'),
+            subtitle: _('Applies to windows opened after this is enabled.'),
+        });
         this._settings.bind('auto-move-windows', autoMoveSwitch, 'active',
             Gio.SettingsBindFlags.DEFAULT);
         autoMoveGroup.add(autoMoveSwitch);
 
-        // Rule list: "app-id:workspace"
+        // Rules live in their own group so the list and the add-form do not
+        // crowd the enable switch.
+        const rulesGroup = new Adw.PreferencesGroup({
+            title: _('Rules'),
+            description: _('Application desktop id and the workspace it should open on.'),
+        });
+        page.add(rulesGroup);
+
         this._autoMoveRows = [];
-        this._autoMoveRulesGroup = autoMoveGroup;
+
+        const makeRuleRow = (appId, ws, index) => {
+            const row = new Adw.ActionRow({
+                title: appId || _('(invalid)'),
+                subtitle: _('Workspace %s').format(ws ?? '?'),
+            });
+            const removeBtn = new Gtk.Button({
+                icon_name: 'user-trash-symbolic',
+                valign: Gtk.Align.CENTER,
+                css_classes: ['flat', 'circular'],
+                tooltip_text: _('Remove rule'),
+            });
+            removeBtn.connect('clicked', () => {
+                const current = this._settings.get_strv('auto-move-list');
+                if (index >= 0 && index < current.length) {
+                    current.splice(index, 1);
+                    this._settings.set_strv('auto-move-list', current);
+                    refreshRules();
+                }
+            });
+            row.add_suffix(removeBtn);
+            return row;
+        };
 
         const refreshRules = () => {
             try {
-                this._autoMoveRows.forEach(r => autoMoveGroup.remove(r));
+                this._autoMoveRows.forEach(r => rulesGroup.remove(r));
                 this._autoMoveRows = [];
                 const rules = this._settings.get_strv('auto-move-list');
-                rules.forEach((rule, index) => {
-                    const [appId, ws] = rule.split(':');
-                    const row = new Adw.ActionRow({
-                        title: appId || _('(invalid)'),
-                        subtitle: _('Workspace %s').format(ws ?? '?'),
-                    });
-                    const removeBtn = new Gtk.Button({
-                        icon_name: 'user-trash-symbolic',
-                        valign: Gtk.Align.CENTER,
-                        css_classes: ['flat', 'circular'],
-                    });
-                    removeBtn.connect('clicked', () => {
-                        const current = this._settings.get_strv('auto-move-list');
-                        current.splice(index, 1);
-                        this._settings.set_strv('auto-move-list', current);
-                        refreshRules();
-                    });
-                    row.add_suffix(removeBtn);
-                    autoMoveGroup.add(row);
+                for (let i = 0; i < rules.length; i++) {
+                    const [appId, ws] = rules[i].split(':');
+                    const row = makeRuleRow(appId, ws, i);
+                    rulesGroup.add(row);
                     this._autoMoveRows.push(row);
-                });
+                }
+                if (rules.length === 0) {
+                    const empty = new Adw.ActionRow({
+                        title: _('No rules yet'),
+                        subtitle: _('Add one below.'),
+                    });
+                    empty.setSensitive(false);
+                    rulesGroup.add(empty);
+                    this._autoMoveRows.push(empty);
+                }
             } catch (e) {
                 console.warn('Open Bar: could not render auto-move rules: ' + e.message);
             }
         };
 
-        const addRuleBox = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 8,
-        });
+        // Add-rule form, in its own group.
+        const addGroup = new Adw.PreferencesGroup({ title: _('Add a Rule') });
+        page.add(addGroup);
+
         const appEntry = new Gtk.Entry({
-            placeholder_text: _('Application id (e.g. org.gnome.Nautilus.desktop)'),
+            placeholder_text: _('org.gnome.Nautilus.desktop'),
             hexpand: true,
+            valign: Gtk.Align.CENTER,
         });
+        const appRow = new Adw.ActionRow({ title: _('Application ID') });
+        appRow.add_suffix(appEntry);
+        appRow.activatable = false;
+        addGroup.add(appRow);
+
         const wsAdjustment = new Gtk.Adjustment({
             lower: 1, upper: 36, step_increment: 1, page_increment: 1, value: 1,
         });
-        const wsSpin = new Gtk.SpinButton({ adjustment: wsAdjustment, valign: Gtk.Align.CENTER });
-        const addRuleBtn = new Gtk.Button({
-            label: _('Add'),
-            css_classes: ['pill'],
+        const wsSpin = new Gtk.SpinButton({
+            adjustment: wsAdjustment,
             valign: Gtk.Align.CENTER,
+            width_request: 80,
         });
+        const wsRow = new Adw.ActionRow({ title: _('Workspace') });
+        wsRow.add_suffix(wsSpin);
+        wsRow.activatable = false;
+        addGroup.add(wsRow);
+
+        const addRuleBtn = new Gtk.Button({
+            label: _('Add Rule'),
+            css_classes: ['pill'],
+            halign: Gtk.Align.START,
+            margin_top: 4,
+            margin_bottom: 4,
+        });
+        const btnRow = new Adw.ActionRow();
+        btnRow.activatable = false;
+        btnRow.add_suffix(addRuleBtn);
+        addGroup.add(btnRow);
+
         addRuleBtn.connect('clicked', () => {
             const appId = appEntry.get_text().trim();
             if (!appId)
@@ -3459,10 +3514,6 @@ class OpenbarPrefs {
             wsSpin.set_value(1);
             refreshRules();
         });
-        addRuleBox.append(appEntry);
-        addRuleBox.append(wsSpin);
-        addRuleBox.append(addRuleBtn);
-        autoMoveGroup.add(addRuleBox);
 
         refreshRules();
     }

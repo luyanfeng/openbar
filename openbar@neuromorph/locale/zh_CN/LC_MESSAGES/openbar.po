@@ -1,0 +1,256 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: openbar\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+
+msgid "%s lines"
+msgstr "%s 行"
+
+msgid "(invalid)"
+msgstr "（无效）"
+
+msgid "(log truncated to the last ~1 MB; use the filter to narrow it down)\\n"
+msgstr "（日志已截断为最后约 1 MB，请用过滤条件缩小范围）\\n"
+
+msgid "(no matching entries)"
+msgstr "（没有匹配的记录）"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Add Folder…"
+msgstr "添加文件夹…"
+
+msgid "Add Image…"
+msgstr "添加图片…"
+
+msgid "Add Rule"
+msgstr "添加规则"
+
+msgid "Add a Rule"
+msgstr "添加规则"
+
+msgid "Add image files or folders. Check the box to include a source in the rotation."
+msgstr "添加图片文件或文件夹。勾选后该来源会参与轮播。"
+
+msgid "Add one below."
+msgstr "请在下方添加。"
+
+msgid "Application ID"
+msgstr "应用 ID"
+
+msgid "Application desktop id and the workspace it should open on."
+msgstr "应用的桌面文件 ID，以及它应当在哪个工作区打开。"
+
+msgid "Applies to windows opened after this is enabled."
+msgstr "仅对启用之后打开的窗口生效。"
+
+msgid "Auto Move Windows"
+msgstr "自动移动窗口"
+
+msgid "Auto-hide Battery"
+msgstr "自动隐藏电池"
+
+msgid "Battery Indicator"
+msgstr "电池指示器"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Changes every %d hours"
+msgstr "每 %d 小时切换"
+
+msgid "Changes every %d minutes"
+msgstr "每 %d 分钟切换"
+
+msgid "Changes every %d seconds"
+msgstr "每 %d 秒切换"
+
+msgid "Changes every hour"
+msgstr "每小时切换"
+
+msgid "Changes every minute"
+msgstr "每分钟切换"
+
+msgid "Changes every second"
+msgstr "每秒切换"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Could not run journalctl."
+msgstr "无法执行 journalctl。"
+
+msgid "Distance between the indicators on the right of the top bar."
+msgstr "顶栏右侧各指示器之间的间距。"
+
+msgid "Eject"
+msgstr "弹出"
+
+msgid "Enable Auto Move"
+msgstr "启用自动移动"
+
+msgid "Extension Errors"
+msgstr "扩展错误"
+
+msgid "Failed to read extension errors: %s"
+msgstr "读取扩展错误失败：%s"
+
+msgid "Failed to read journal: %s"
+msgstr "读取日志失败：%s"
+
+msgid "Failed to read log: %s"
+msgstr "读取日志失败：%s"
+
+msgid "Filter text (e.g. openbar, JS ERROR)"
+msgstr "过滤关键字（例如 openbar、JS ERROR）"
+
+msgid "Finger Gestures"
+msgstr "手势"
+
+msgid "Four-finger Workspace Swipe"
+msgstr "四指切换工作区"
+
+msgid "Hide at or above"
+msgstr "达到此电量及以上时隐藏"
+
+msgid "Hide on any battery state"
+msgstr "任意电池状态下都隐藏"
+
+msgid "Hide the battery/power indicator when it is charging or full."
+msgstr "充电中或充满时隐藏电池/电源指示器。"
+
+msgid "Horizontal Padding (px)"
+msgstr "水平间距（像素）"
+
+msgid "Hours"
+msgstr "小时"
+
+msgid "Ignore whether it is discharging."
+msgstr "忽略是否正在放电。"
+
+msgid "Interval"
+msgstr "间隔"
+
+msgid "Interval Unit"
+msgstr "间隔单位"
+
+msgid "Logs"
+msgstr "日志"
+
+msgid "Minutes"
+msgstr "分钟"
+
+msgid "Next"
+msgstr "下一张"
+
+msgid "No extension errors. Everything is clean."
+msgstr "没有扩展错误，一切正常。"
+
+msgid "No removable drives"
+msgstr "没有可移动驱动器"
+
+msgid "No rules yet"
+msgstr "暂无规则"
+
+msgid "No session bus available."
+msgstr "会话总线不可用。"
+
+msgid "Open Bar Settings"
+msgstr "Open Bar 设置"
+
+msgid "Override Spacing"
+msgstr "覆盖间距"
+
+msgid "Pause / Resume"
+msgstr "暂停 / 继续"
+
+msgid "Pause Rotation"
+msgstr "暂停轮播"
+
+msgid "Previous"
+msgstr "上一张"
+
+msgid "Random"
+msgstr "随机"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Removable Drives"
+msgstr "可移动驱动器"
+
+msgid "Remove rule"
+msgstr "删除规则"
+
+msgid "Rotate desktop background through a set of images or folders."
+msgstr "在一组图片或文件夹之间轮换桌面壁纸。"
+
+msgid "Rules"
+msgstr "规则"
+
+msgid "Seconds"
+msgstr "秒"
+
+msgid "Select Wallpaper Folder"
+msgstr "选择壁纸文件夹"
+
+msgid "Select Wallpaper Image"
+msgstr "选择壁纸图片"
+
+msgid "Send an application to a workspace whenever it opens a window."
+msgstr "应用打开窗口时自动把它送到指定工作区。"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Shell Log"
+msgstr "Shell 日志"
+
+msgid "Show Drive Menu"
+msgstr "显示驱动器菜单"
+
+msgid "Show a top bar menu for removable drives and unmounting."
+msgstr "在顶栏显示可移动驱动器菜单，可弹出/卸载。"
+
+msgid "Single Features"
+msgstr "单项功能"
+
+msgid "Slideshow"
+msgstr "幻灯片"
+
+msgid "Status Area Spacing"
+msgstr "状态区间距"
+
+msgid "Stop automatic wallpaper changes. Previous / next / random still work."
+msgstr "停止自动更换壁纸。上一张 / 下一张 / 随机仍然可用。"
+
+msgid "Unexpected reply from the shell."
+msgstr "来自 Shell 的响应异常。"
+
+msgid "Use a four-finger touchpad swipe to change workspace."
+msgstr "用四指触控板滑动来切换工作区。"
+
+msgid "Version:"
+msgstr "版本："
+
+msgid "Wallpaper Slideshow"
+msgstr "壁纸幻灯片"
+
+msgid "Wallpaper Sources"
+msgstr "壁纸来源"
+
+msgid "Workspace"
+msgstr "工作区"
+
+msgid "Workspace %s"
+msgstr "工作区 %s"
+
+msgid "journalctl exited with status %d."
+msgstr "journalctl 退出状态为 %d。"
+
+msgid "org.gnome.Nautilus.desktop"
+msgstr "org.gnome.Nautilus.desktop"

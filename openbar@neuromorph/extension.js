@@ -1446,6 +1446,14 @@ export default class Openbar extends Extension {
     }
 
     enable() {
+        // Bind the gettext domain so indicator menu strings follow the system
+        // language (locale/<lang>/LC_MESSAGES/openbar.mo).
+        try {
+            this.initTranslations();
+        } catch (e) {
+            console.warn('Open Bar: could not initialise translations: ' + e.message);
+        }
+
         // Get Gnome version
         const [major, minor] = Config.PACKAGE_VERSION.split('.').map(s => Number(s));
         this.gnomeVersion = major;

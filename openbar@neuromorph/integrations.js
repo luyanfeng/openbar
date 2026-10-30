@@ -216,6 +216,7 @@ export class StatusAreaSpacing {
     _apply() {
         try {
             const rightBox = this._rightBox();
+            console.log(`Open Bar[diag]: spacing apply, rightBox=${!!rightBox}`);
             if (!rightBox)
                 return;
             const padding = this._settings.get_int('status-spacing');
@@ -223,7 +224,11 @@ export class StatusAreaSpacing {
             if (padding < 6)
                 this._styleLine += `; -minimum-hpadding: ${padding}px`;
 
-            for (const child of rightBox.get_children())
+            const children = rightBox.get_children();
+            console.log(`Open Bar[diag]: spacing children=${children.length}, ` +
+                `classes=[${children.map(c => c.get_style_class_name?.() ?? '?').join(' | ')}]`);
+
+            for (const child of children)
                 this._override(child, false);
 
             this._actorAddedId = rightBox.connect('child-added', (container, actor) => {
