@@ -671,7 +671,6 @@ export class DedicatedWorkspaceGuard {
         this._toastActor = null;
         this._toastTimeoutId = 0;
         this._overviewShowingId = 0;
-        this._thumbnailsRebuiltId = 0;
     }
 
     enable() {
@@ -1081,8 +1080,6 @@ export class DedicatedWorkspaceGuard {
             if (!this._overviewShowingId) {
                 this._overviewShowingId = Main.overview.connect('showing', () => {
                     this._refreshThumbnails();
-                    for (const t of this._allThumbnails())
-                        this._patchThumbnailDnD(t);
                 });
             }
         } catch (e) {}
@@ -1199,7 +1196,6 @@ export class FullscreenEmptyWorkspace {
             if (wanted) {
                 this._guard.enable();
                 this._guard.watchThumbnails();
-                this._guard.installDropGuard();
                 // Re-register workspaces we already own.
                 for (const st of this._state.values()) {
                     if (st?.dedicatedWs)
@@ -1434,7 +1430,6 @@ export class FullscreenEmptyWorkspace {
             if (this._guardEnabled) {
                 this._guard.add(dedicatedWs);
                 this._guard.setOwner(dedicatedWs, win);
-                this._guard.installDropGuard();
             }
             this._guard.runInternal(() => win.change_workspace(dedicatedWs));
 
