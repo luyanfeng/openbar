@@ -104,6 +104,8 @@ export class WallhubManager {
         this.indicator = null;
         this._previewItem = null;
         this._previewBox = null;
+        this._previewImage = null;
+        this._lastPreviewPath = null;
         this._intervalItem = null;
         this._controlItem = null;
         this._randomIdx = null;
@@ -216,6 +218,8 @@ export class WallhubManager {
         }
         this._previewItem = null;
         this._previewBox = null;
+        this._previewImage = null;
+        this._lastPreviewPath = null;
         this._intervalItem = null;
         this._controlItem = null;
         this._randomIdx = null;
@@ -243,6 +247,9 @@ export class WallhubManager {
         });
         this._previewItem.setSensitive(false);
 
+        // Margin container. Inside it a plain St.Widget carries the
+        // St.ImageContent (St.Bin.child only accepts ClutterActors, and
+        // ImageContent is not one).
         this._previewBox = new St.Bin({
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
@@ -250,6 +257,11 @@ export class WallhubManager {
             x_expand: true,
             y_expand: true,
         });
+        this._previewImage = new St.Widget({
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        this._previewBox.set_child(this._previewImage);
         this._previewItem.add_child(this._previewBox);
 
         // Interval caption, e.g. "Every 10 seconds".
@@ -409,7 +421,7 @@ export class WallhubManager {
     // Show the preview for a specific queue path (or the default next one when
     // path is undefined). Used for hover feedback on the control buttons.
     _showPreviewFor(path) {
-        if (!this._previewItem || !this._previewBox)
+        if (!this._previewItem || !this._previewImage)
             return;
         const target = path === undefined ? this._peekNext() : path;
         const imagePath = this._previewImagePath(target);
@@ -417,6 +429,11 @@ export class WallhubManager {
             this._previewItem.hide();
             return;
         }
+        // Avoid rebuilding the texture when the requested image is unchanged:
+        // notify::hover can fire repeatedly and decoding a full wallpaper each
+        // time would be wasteful.
+        if (imagePath === this._lastPreviewPath && this._previewItem.visible)
+            return;
         try {
             const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
             const width = Math.round(PREVIEW_WIDTH * scale);
@@ -438,11 +455,13 @@ export class WallhubManager {
                 this._previewItem.hide();
                 return;
             }
-            this._previewBox.set_size(width, height);
-            this._previewBox.child = image;
+            this._previewImage.set_size(width, height);
+            this._previewImage.content = image;
+            this._lastPreviewPath = imagePath;
             this._previewItem.show();
         } catch (e) {
             console.warn('Wallhub: preview render failed: ' + e);
+            this._lastPreviewPath = null;
             this._previewItem.hide();
         }
     }
