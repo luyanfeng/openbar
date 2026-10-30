@@ -2850,6 +2850,11 @@ class OpenbarPrefs {
 
         /////////////////////////////////////////////////////////////////////
 
+        // Build Wallhub wallpaper slideshow page (ported from wallhub@sakithb.github.io)
+        this.buildWallhubPage(window);
+
+        /////////////////////////////////////////////////////////////////////
+
         window.connect('unrealize', () => {
             if(this.quoteTimeoutId) {
                 clearTimeout(this.quoteTimeoutId);
@@ -2857,6 +2862,192 @@ class OpenbarPrefs {
             }
         });
 
+    }
+
+    buildWallhubPage(window) {
+        const page = new Adw.PreferencesPage({
+            name: 'wallhub',
+            title: _('Wallpaper Slideshow'),
+            icon_name: 'preferences-desktop-wallpaper-symbolic',
+        });
+        window.add(page);
+
+        // --- General group ---
+        const generalGroup = new Adw.PreferencesGroup({
+            title: _('Slideshow'),
+            description: _('Rotate desktop background through a set of images or folders.'),
+        });
+        page.add(generalGroup);
+
+        // Interval unit (Dropdown)
+        let unitRow = new Adw.ComboRow({
+            title: _('Interval Unit'),
+        });
+        const unitModel = new Gtk.StringList();
+        unitModel.append(_('Hours'));
+        unitModel.append(_('Minutes'));
+        unitModel.append(_('Seconds'));
+        unitRow.model = unitModel;
+        const unitIndex = { Hours: 0, Minutes: 1, Seconds: 2 };
+        const currentUnit = this._settings.get_enum('slideshow-interval-unit');
+        unitRow.selected = unitIndex[currentUnit] ?? 1;
+        unitRow.connect('notify::selected', () => {
+            const names = ['Hours', 'Minutes', 'Seconds'];
+            this._settings.set_enum('slideshow-interval-unit', names[unitRow.selected]);
+        });
+        generalGroup.add(unitRow);
+
+        // Interval value (SpinButton)
+        let intervalRow = new Adw.SpinRow({
+            title: _('Interval'),
+            adjustment: new Gtk.Adjustment({
+                lower: 1,
+                upper: 100000,
+                step_increment: 1,
+                page_increment: 10,
+                value: this._settings.get_uint('slideshow-interval'),
+            }),
+        });
+        this._settings.bind(
+            'slideshow-interval',
+            intervalRow,
+            'value',
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        generalGroup.add(intervalRow);
+
+        // --- Wallpaper paths group ---
+        const pathsGroup = new Adw.PreferencesGroup({
+            title: _('Wallpaper Sources'),
+            description: _('Add image files or folders. Check the box to include a source in the rotation.'),
+        });
+        page.add(pathsGroup);
+
+        // Container that holds one row per path
+        if (!this._wallhubPathRows)
+            this._wallhubPathRows = [];
+        this._wallhubRefreshPathRows = () => {
+            // remove existing rows (keep group header)
+            this._wallhubPathRows.forEach(r => pathsGroup.remove(r));
+            this._wallhubPathRows = [];
+
+            const paths = this._settings.get_strv('wallpaper-paths');
+            const selected = this._settings.get_int('wallpaper-paths-selected');
+            paths.forEach((path, idx) => {
+                const row = new Adw.ActionRow({ title: path });
+                const check = new Gtk.CheckButton();
+                check.active = (selected & (1 << idx)) !== 0;
+                check.connect('toggled', () => {
+                    let sel = this._settings.get_int('wallpaper-paths-selected');
+                    if (check.active)
+                        sel = sel | (1 << idx);
+                    else
+                        sel = sel & ~(1 << idx);
+                    this._settings.set_int('wallpaper-paths-selected', sel);
+                });
+                row.add_prefix(check);
+
+                const removeBtn = new Gtk.Button({
+                    icon_name: 'user-trash-symbolic',
+                    valign: Gtk.Align.CENTER,
+                    css_classes: ['flat', 'circular'],
+                });
+                removeBtn.connect('clicked', () => {
+                    let p = this._settings.get_strv('wallpaper-paths');
+                    let s = this._settings.get_int('wallpaper-paths-selected');
+                    p.splice(idx, 1);
+                    // shift bits above idx down by one
+                    let newSel = 0;
+                    for (let i = 0; i < p.length; i++) {
+                        if (i < idx && (s & (1 << i)))
+                            newSel = newSel | (1 << i);
+                        else if (i >= idx && (s & (1 << (i + 1))))
+                            newSel = newSel | (1 << i);
+                    }
+                    this._settings.set_strv('wallpaper-paths', p);
+                    this._settings.set_int('wallpaper-paths-selected', newSel);
+                    this._wallhubRefreshPathRows();
+                });
+                row.add_suffix(removeBtn);
+                pathsGroup.add(row);
+                this._wallhubPathRows.push(row);
+            });
+        };
+        this._wallhubRefreshPathRows();
+
+        // Add files button
+        const addFileBtn = new Gtk.Button({
+            label: _('Add Image…'),
+            halign: Gtk.Align.START,
+            css_classes: ['pill'],
+        });
+        addFileBtn.connect('clicked', () => {
+            const chooser = new Gtk.FileChooserDialog({
+                title: _('Select Wallpaper Image'),
+                action: Gtk.FileChooserAction.OPEN,
+                transient_for: window,
+                modal: true,
+            });
+            chooser.add_button(_('Cancel'), Gtk.ResponseType.CANCEL);
+            chooser.add_button(_('Add'), Gtk.ResponseType.ACCEPT);
+            chooser.set_select_multiple(true);
+            const filter = new Gtk.FileFilter();
+            filter.add_mime_type('image/*');
+            chooser.add_filter(filter);
+            chooser.connect('response', (self, response) => {
+                if (response === Gtk.ResponseType.ACCEPT) {
+                    const files = self.get_files();
+                    if (files.length) {
+                        const paths = this._settings.get_strv('wallpaper-paths');
+                        files.forEach(f => paths.push(f.get_path()));
+                        this._settings.set_strv('wallpaper-paths', paths);
+                        this._wallhubRefreshPathRows();
+                    }
+                }
+                self.destroy();
+            });
+            chooser.show();
+        });
+
+        // Add folder button
+        const addFolderBtn = new Gtk.Button({
+            label: _('Add Folder…'),
+            halign: Gtk.Align.START,
+            css_classes: ['pill'],
+        });
+        addFolderBtn.connect('clicked', () => {
+            const chooser = new Gtk.FileChooserDialog({
+                title: _('Select Wallpaper Folder'),
+                action: Gtk.FileChooserAction.SELECT_FOLDER,
+                transient_for: window,
+                modal: true,
+            });
+            chooser.add_button(_('Cancel'), Gtk.ResponseType.CANCEL);
+            chooser.add_button(_('Add'), Gtk.ResponseType.ACCEPT);
+            chooser.set_select_multiple(true);
+            chooser.connect('response', (self, response) => {
+                if (response === Gtk.ResponseType.ACCEPT) {
+                    const files = self.get_files();
+                    if (files.length) {
+                        const paths = this._settings.get_strv('wallpaper-paths');
+                        files.forEach(f => paths.push(f.get_path()));
+                        this._settings.set_strv('wallpaper-paths', paths);
+                        this._wallhubRefreshPathRows();
+                    }
+                }
+                self.destroy();
+            });
+            chooser.show();
+        });
+
+        const actionsBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+            margin_top: 8,
+        });
+        actionsBox.append(addFileBtn);
+        actionsBox.append(addFolderBtn);
+        pathsGroup.add(actionsBox);
     }
 
     resetSettingsDialog(window){

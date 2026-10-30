@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="openbar">
+  <enum id="org.gnome.shell.extensions.openbar.slideshow-interval-units">
+    <value nick="Hours" value="3600" />
+    <value nick="Minutes" value="60" />
+    <value nick="Seconds" value="1" />
+  </enum>
   <schema id="org.gnome.shell.extensions.openbar" path="/org/gnome/shell/extensions/openbar/">
 
     <key type="s" name="bartype">
@@ -1431,6 +1436,29 @@
       <default>1000</default>
       <summary>Monitor width</summary>
       <description>Monitor width.</description>
+    </key>
+
+    <!-- Wallhub wallpaper slideshow (ported from wallhub@sakithb.github.io) -->
+    <key type="as" name="wallpaper-paths">
+      <default>[]</default>
+      <summary>Wallpaper paths</summary>
+      <description>List of wallpaper files or directories to rotate through.</description>
+    </key>
+    <key type="i" name="wallpaper-paths-selected">
+      <default>0</default>
+      <summary>Wallpaper paths selected</summary>
+      <description>Bitmask of which wallpaper-paths entries are enabled for the slideshow.</description>
+    </key>
+    <key name="slideshow-interval-unit"
+      enum="org.gnome.shell.extensions.openbar.slideshow-interval-units">
+      <default>'Minutes'</default>
+      <summary>Slideshow interval unit</summary>
+      <description>Time unit for the slideshow interval.</description>
+    </key>
+    <key type="u" name="slideshow-interval">
+      <default>10</default>
+      <summary>Slideshow interval</summary>
+      <description>Number of interval units between wallpaper changes.</description>
     </key>
   </schema>
 </schemalist>

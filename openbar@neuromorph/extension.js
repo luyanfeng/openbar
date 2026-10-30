@@ -35,6 +35,7 @@ import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/ex
 import * as Quantize from './quantize.js';
 import * as AutoThemes from './autothemes.js';
 import * as StyleSheets from './stylesheets.js';
+import { WallhubManager } from './wallhub.js';
 
 Gio._promisify(Gio.File.prototype, "copy_async", "copy_finish");
 
@@ -327,96 +328,159 @@ export default class Openbar extends Extension {
 
     // Go through each panel button's menu to add/remove openmenu class to its children
     applyMenuStyles(panel, add) {
+        if(this.disabling)
+            return;
+        try {
+            if(!this.panelBoxes)
+                return;
+        }
+        catch(e) {
+            return;
+        }
         for(const box of this.panelBoxes) {
+            if(!box)
+                continue;
             for(const btn of box) { // btn is a bin, parent of indicator button
+                if(!btn)
+                    continue;
                 if(btn.child instanceof PanelMenu.Button || btn.child instanceof PanelMenu.ButtonBox) { // btn.child is the indicator
+                    try {
 
-                    // box pointer case, to update -arrow-rise for bottom panel
-                    if(btn.child.menu?._boxPointer) {
-                        this.applyMenuClass(btn.child.menu._boxPointer, add);
-                    }
-
-                    // special case for Quick Settings Audio Panel, because it changes the layout of the Quick Settings menu
-                    if(btn.child.menu?.constructor.name == "PanelGrid") {
-                        for(const panel of btn.child.menu._get_panels()) {
-                            this.applyBoxStyles(panel, add);
+                        // box pointer case, to update -arrow-rise for bottom panel
+                        if(btn.child.menu?._boxPointer) {
+                            this.applyMenuClass(btn.child.menu._boxPointer, add);
                         }
-                    }
-                    // general case
-                    else if(btn.child.menu?.box) {
-                        this.applyBoxStyles(btn.child.menu.box, add);
-                    }
 
-                    // special case for Arc Menu, because it removes default menu and creates its own menu
-                    if(btn.child.constructor.name === 'ArcMenuMenuButton') {
-                        let menu = btn.child.arcMenu;
-                        this.applyMenuClass(menu, add);
-                        if(menu.box)
-                            this.applyBoxStyles(menu.box, add);
-
-                        let ctxMenu = btn.child.arcMenuContextMenu;
-                        this.applyMenuClass(ctxMenu, add);
-                        if(ctxMenu.box)
-                            this.applyBoxStyles(ctxMenu.box, add);
-                    }
-
-                    // DateMenu: Notifications (messages and media), DND and Clear buttons
-                    //           Calendar Grid, Events, World Clock, Weather
-                    if(btn.child.constructor.name === 'DateMenuButton') {
-                        const bin = btn.child.menu.box.get_child_at_index(0); // CalendarArea
-                        const hbox = bin.get_child_at_index(0); // hbox with left and right sections
-
-                        const msgList = hbox.get_child_at_index(0); // Left Pane/Section with notifications etc
-                        this.applyMenuClass(msgList, add);
-                        const placeholder = msgList.get_child_at_index(0); // placeholder for 'No Notifications'
-                        this.applyMenuClass(placeholder, add);
-                        const msgbox = msgList.get_child_at_index(1);
-                        const msgScroll = msgbox.get_child_at_index(0);
-                        const sectionList = msgScroll.child;
-                        if(add) {
-                            this._connections.connect(sectionList, this.addedSignal, (container, actor) => {
-                                // console.log('section added: ', actor.constructor.name);
-                                this.applySectionStyles(sectionList, add);
-                            });
-                        }
-                        else
-                            this._connections?.disconnect(sectionList, this.addedSignal);
-                        this.applySectionStyles(sectionList, add);
-
-                        const msgHbox = msgbox.get_child_at_index(1); // hbox at botton for dnd and clear buttons
-                        let clearBtn;
-                        if(this.gnomeVersion < 49) {
-                            const dndBtn = msgHbox.get_child_at_index(1);
-                            this.applyMenuClass(dndBtn, add);
-                            const toggleSwitch = dndBtn.get_child_at_index(0);
-                            this.applyMenuClass(toggleSwitch, add);
-                            clearBtn = msgHbox.get_child_at_index(2);
-                        }
-                        else {
-                            clearBtn = msgHbox.get_child_at_index(1);
-                        }
-                        this.applyMenuClass(clearBtn, add);
-
-                        const vbox = hbox.get_child_at_index(1); // Right Pane/Section vbox for calendar etc
-                        vbox.get_children().forEach(item => {
-                            this.applyMenuClass(item, add);
-                            item.get_children().forEach(child => {
-                                this.applyMenuClass(child, add);
-                                child.get_children().forEach(subch => {
-                                    this.applyMenuClass(subch, add);
-                                })
-                            });
-
-                            if(item.constructor.name === 'Calendar') {
-                                this.applyCalendarGridStyle(item, add);
-                                this.calendarTimeoutId = setTimeout(() => {
-                                    this.applyCalendarGridStyle(item, add);
-                                    this.calendarTimeoutId = null;
-                                }, 250);
+                        // special case for Quick Settings Audio Panel, because it changes the layout of the Quick Settings menu
+                        if(btn.child.menu?.constructor.name == "PanelGrid") {
+                            for(const panel of btn.child.menu._get_panels()) {
+                                this.applyBoxStyles(panel, add);
                             }
-                        });
-                    }
+                        }
+                        // general case
+                        else if(btn.child.menu?.box) {
+                            this.applyBoxStyles(btn.child.menu.box, add);
+                        }
 
+                        // special case for Arc Menu, because it removes default menu and creates its own menu
+                        if(btn.child.constructor.name === 'ArcMenuMenuButton') {
+                            let menu = btn.child.arcMenu;
+                            if(menu) {
+                                this.applyMenuClass(menu, add);
+                                if(menu.box)
+                                    this.applyBoxStyles(menu.box, add);
+                            }
+
+                            let ctxMenu = btn.child.arcMenuContextMenu;
+                            if(ctxMenu) {
+                                this.applyMenuClass(ctxMenu, add);
+                                if(ctxMenu.box)
+                                    this.applyBoxStyles(ctxMenu.box, add);
+                            }
+                        }
+
+                        // DateMenu: Notifications (messages and media), DND and Clear buttons
+                        //           Calendar Grid, Events, World Clock, Weather
+                        if(btn.child.constructor.name === 'DateMenuButton') {
+                            let menuBox = btn.child.menu?.box;
+                            if(!menuBox)
+                                continue;
+                            const bin = menuBox.get_child_at_index(0); // CalendarArea
+                            if(!bin)
+                                continue;
+                            const hbox = bin.get_child_at_index(0); // hbox with left and right sections
+                            if(!hbox)
+                                continue;
+
+                            const msgList = hbox.get_child_at_index(0); // Left Pane/Section with notifications etc
+                            if(!msgList)
+                                continue;
+                            this.applyMenuClass(msgList, add);
+                            const placeholder = msgList.get_child_at_index(0); // placeholder for 'No Notifications'
+                            this.applyMenuClass(placeholder, add);
+                            const msgbox = msgList.get_child_at_index(1);
+                            if(!msgbox)
+                                continue;
+                            const msgScroll = msgbox.get_child_at_index(0);
+                            if(!msgScroll)
+                                continue;
+                            const sectionList = msgScroll.child;
+                            if(!sectionList)
+                                continue;
+                            if(add && this._connections) {
+                                try {
+                                    this._connections.connect(sectionList, this.addedSignal, (container, actor) => {
+                                        // console.log('section added: ', actor.constructor.name);
+                                        try {
+                                            if(this.disabling) return;
+                                            this.applySectionStyles(sectionList, add);
+                                        }
+                                        catch(e) {}
+                                    });
+                                }
+                                catch(e) {}
+                            }
+                            else if(this._connections)
+                                try { this._connections.disconnect(sectionList, this.addedSignal); } catch(e) {}
+                            try { this.applySectionStyles(sectionList, add); } catch(e) {}
+
+                            const msgHbox = msgbox.get_child_at_index(1); // hbox at botton for dnd and clear buttons
+                            if(!msgHbox)
+                                continue;
+                            let clearBtn;
+                            if(this.gnomeVersion < 49) {
+                                const dndBtn = msgHbox.get_child_at_index(1);
+                                if(dndBtn) {
+                                    this.applyMenuClass(dndBtn, add);
+                                    const toggleSwitch = dndBtn.get_child_at_index(0);
+                                    if(toggleSwitch)
+                                        this.applyMenuClass(toggleSwitch, add);
+                                }
+                                clearBtn = msgHbox.get_child_at_index(2);
+                            }
+                            else {
+                                clearBtn = msgHbox.get_child_at_index(1);
+                            }
+                            if(clearBtn)
+                                this.applyMenuClass(clearBtn, add);
+
+                            const vbox = hbox.get_child_at_index(1); // Right Pane/Section vbox for calendar etc
+                            if(!vbox)
+                                continue;
+                            vbox.get_children().forEach(item => {
+                                if(!item) return;
+                                this.applyMenuClass(item, add);
+                                item.get_children().forEach(child => {
+                                    if(!child) return;
+                                    this.applyMenuClass(child, add);
+                                    child.get_children().forEach(subch => {
+                                        if(!subch) return;
+                                        this.applyMenuClass(subch, add);
+                                    })
+                                });
+
+                                if(item.constructor.name === 'Calendar') {
+                                    try {
+                                        this.applyCalendarGridStyle(item, add);
+                                    }
+                                    catch(e) {}
+                                    if(this.disabling) return;
+                                    this.calendarTimeoutId = setTimeout(() => {
+                                        if(this.disabling) return;
+                                        try {
+                                            this.applyCalendarGridStyle(item, add);
+                                        }
+                                        catch(e) {}
+                                        this.calendarTimeoutId = null;
+                                    }, 250);
+                                }
+                            });
+                        }
+
+                    }
+                    catch(e) {
+                        // ignore errors during shutdown
+                    }
                 }
             }
         }
@@ -534,9 +598,16 @@ export default class Openbar extends Extension {
     // Update panel style when Settings change
     updatePanelStyle(obj, key, sig_param, callbk_param) {
         // console.log('update called with ', key, sig_param, callbk_param);
-        let panel = Main.panel;
-
-        if(!this._settings)
+        if(this.disabling || !this._settings)
+            return;
+        let panel;
+        try {
+            panel = Main.panel;
+        }
+        catch(e) {
+            return;
+        }
+        if(!panel)
             return;
 
         // Nothing to update if it's a color palette setting
@@ -874,8 +945,15 @@ export default class Openbar extends Extension {
     // Check for maximized window on Panel monitor
     setWindowMaxBar(obj, signal, sig2) {
         // Retain wmax status as-is in Overview (do nothing here)
-        if(!this._settings || Main.panel.has_style_pseudo_class('overview'))
+        if(this.disabling || !this._settings)
             return;
+        try {
+            if(!Main.panel || Main.panel.has_style_pseudo_class('overview'))
+                return;
+        }
+        catch(e) {
+            return;
+        }
 
         const wmaxbar = this._settings.get_boolean('wmaxbar');
         if(!wmaxbar) {
@@ -1564,110 +1642,189 @@ export default class Openbar extends Extension {
                 this.enableFittsWidgets();
                 this.fittsEnableTimeoutId = null;
             }, 5000);
+
+        // Enable Wallhub wallpaper slideshow engine (ported from wallhub@sakithb.github.io)
+        this.wallhub = new WallhubManager(this);
+        this.wallhub.enable();
     }
 
     disable() {
         this.disabling = true;
 
-        // Get the top panel
-        let panel = Main.panel;
-
-        this.disableFittsWidgets();
-
-        this._connections.disconnectAll();
-        this._connections = null;
-
-        this.disconnectWindowSignals();
-
-        if(this.calendarTimeoutId > 0) {
-            clearTimeout(this.calendarTimeoutId);
+        // Clear timeouts early to avoid firing callbacks
+        if(this.calendarTimeoutId) {
+            try { clearTimeout(this.calendarTimeoutId); } catch(e) {}
             this.calendarTimeoutId = null;
         }
-        if(this.updatingBguriId > 0) {
-            clearTimeout(this.updatingBguriId);
+        if(this.updatingBguriId) {
+            try { clearTimeout(this.updatingBguriId); } catch(e) {}
             this.updatingBguriId = null;
         }
-        if(this.updateBguriId > 0) {
-            clearTimeout(this.updateBguriId);
+        if(this.updateBguriId) {
+            try { clearTimeout(this.updateBguriId); } catch(e) {}
             this.updateBguriId = null;
         }
-        if(this.bgMgrTimeOutId > 0) {
-            clearTimeout(this.bgMgrTimeOutId);
+        if(this.bgMgrTimeOutId) {
+            try { clearTimeout(this.bgMgrTimeOutId); } catch(e) {}
             this.bgMgrTimeOutId = null;
         }
-        if(this.onFullScrTimeoutId > 0) {
-            clearTimeout(this.onFullScrTimeoutId);
+        if(this.onFullScrTimeoutId) {
+            try { clearTimeout(this.onFullScrTimeoutId); } catch(e) {}
             this.onFullScrTimeoutId = null;
         }
-        if(this.postStartupId > 0) {
-            clearTimeout(this.postStartupId);
+        if(this.postStartupId) {
+            try { clearTimeout(this.postStartupId); } catch(e) {}
             this.postStartupId = null;
         }
-        if(this.enableStyleTimeoutId > 0) {
-            clearTimeout(this.enableStyleTimeoutId);
+        if(this.enableStyleTimeoutId) {
+            try { clearTimeout(this.enableStyleTimeoutId); } catch(e) {}
             this.enableStyleTimeoutId = null;
         }
-        if(this.fittsEnableTimeoutId > 0) {
-            clearTimeout(this.fittsEnableTimeoutId);
+        if(this.fittsEnableTimeoutId) {
+            try { clearTimeout(this.fittsEnableTimeoutId); } catch(e) {}
             this.fittsEnableTimeoutId = null;
         }
-        if(this.fittsCornerTimeoutId > 0) {
-            clearTimeout(this.fittsCornerTimeoutId);
+        if(this.fittsCornerTimeoutId) {
+            try { clearTimeout(this.fittsCornerTimeoutId); } catch(e) {}
             this.fittsCornerTimeoutId = null;
         }
 
-        for(let i=0; i<this.msgLists.length; i++) {
-            if(this.msgListIds[i]) {
-                // console.log('Disable - msgListIds: ', this.msgListIds[i]);
-                if(this.msgLists[i] && this.msgListIds[i] > 0)
-                    this.msgLists[i].disconnect(this.msgListIds[i]);
-                this.msgListIds[i] = null;
-                this.msgLists[i] = null;
+        let panel;
+        try {
+            panel = Main.panel;
+        }
+        catch(e) {
+            panel = null;
+        }
+
+        try {
+            this.disableFittsWidgets();
+        }
+        catch(e) {}
+
+        try {
+            if(this._connections)
+                this._connections.disconnectAll();
+        }
+        catch(e) {}
+        this._connections = null;
+
+        try {
+            this.disconnectWindowSignals();
+        }
+        catch(e) {}
+
+        try {
+            if(this.msgLists) {
+                for(let i=0; i<this.msgLists.length; i++) {
+                    if(this.msgListIds && this.msgListIds[i]) {
+                        try {
+                            if(this.msgLists[i] && this.msgListIds[i] > 0)
+                                this.msgLists[i].disconnect(this.msgListIds[i]);
+                        }
+                        catch(e) {}
+                        this.msgListIds[i] = null;
+                    }
+                }
             }
         }
+        catch(e) {}
         this.msgLists = [];
         this.msgListIds = [];
 
-        this._removeInjection(Calendar.Calendar.prototype, this._injections, "_rebuildCalendar");
+        try {
+            if(this._injections)
+                this._removeInjection(Calendar.Calendar.prototype, this._injections, "_rebuildCalendar");
+        }
+        catch(e) {}
         this._injections = [];
 
-        // Remove style class from Panel and PanelBox
-        Main.layoutManager.panelBox.remove_style_class_name('openbar');
-        panel.remove_style_class_name('openbar');
-        panel.remove_style_class_name('candybar');
-        panel.remove_style_class_name('trilands');
-        // Reset left padding widget into DateMenu button
-        if(this.dateMenuLeftPadWidget) {
-            this.dateMenuBtnBox.insert_child_at_index(this.dateMenuLeftPadWidget, 0);
-            this.dateMenuLeftPadWidget = null;
+        try {
+            if(Main.layoutManager && Main.layoutManager.panelBox)
+                Main.layoutManager.panelBox.remove_style_class_name('openbar');
         }
-        // Reset the style for Menus
-        this.applyMenuStyles(panel, false);
-
-        // Unload stylesheet
-        this.unloadStylesheet();
-
-        // Reset panel and banner position to Top
-        this.setPanelBoxPosition('Top');
-        Main.messageTray._bannerBin.y_align = Clutter.ActorAlign.START;
-
-        // Clear/Restore Gtk css and Flatpak override
-        StyleSheets.saveGtkCss(this, 'disable');
-        StyleSheets.saveFlatpakOverrides(this, 'disable');
-
-        // Disconnect settings handler before dropping the reference
-        if(this._settingsSignalId > 0) {
-            this._settings.disconnect(this._settingsSignalId);
-            this._settingsSignalId = null;
+        catch(e) {}
+        try {
+            if(panel) {
+                panel.remove_style_class_name('openbar');
+                panel.remove_style_class_name('candybar');
+                panel.remove_style_class_name('trilands');
+            }
         }
+        catch(e) {}
 
+        try {
+            if(this.dateMenuLeftPadWidget && this.dateMenuBtnBox && !this.disabling) {
+                // only restore if objects still valid
+            }
+            if(this.dateMenuLeftPadWidget && this.dateMenuBtnBox) {
+                try {
+                    this.dateMenuBtnBox.insert_child_at_index(this.dateMenuLeftPadWidget, 0);
+                }
+                catch(e) {}
+                this.dateMenuLeftPadWidget = null;
+            }
+        }
+        catch(e) {}
+        this.dateMenuBtnBox = null;
+
+        try {
+            if(panel)
+                this.applyMenuStyles(panel, false);
+        }
+        catch(e) {}
+
+        try {
+            this.unloadStylesheet();
+        }
+        catch(e) {}
+
+        try {
+            this.setPanelBoxPosition('Top');
+        }
+        catch(e) {}
+        try {
+            if(Main.messageTray && Main.messageTray._bannerBin)
+                Main.messageTray._bannerBin.y_align = Clutter.ActorAlign.START;
+        }
+        catch(e) {}
+
+        try {
+            StyleSheets.saveGtkCss(this, 'disable');
+        }
+        catch(e) {}
+        try {
+            StyleSheets.saveFlatpakOverrides(this, 'disable');
+        }
+        catch(e) {}
+
+        // Disable Wallhub wallpaper slideshow engine
+        try {
+            if(this.wallhub) {
+                this.wallhub.disable();
+                this.wallhub = null;
+            }
+        }
+        catch(e) {}
+
+        try {
+            if(this._settings && this._settingsSignalId && this._settingsSignalId > 0) {
+                this._settings.disconnect(this._settingsSignalId);
+            }
+        }
+        catch(e) {}
+        this._settingsSignalId = null;
+
+        this.panelBoxes = null;
         this.main = null;
         this._settings = null;
         this._bgSettings = null;
         this._intSettings = null;
         this._hcSettings = null;
         this._shellSettings = null;
-        this._settingsSignalId = null;
+        this.themeContext = null;
+        this.obarRunDir = null;
+        this.obarAssetsDir = null;
     }
 }
 
