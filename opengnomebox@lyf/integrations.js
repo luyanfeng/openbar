@@ -1,7 +1,7 @@
 // integrations.js
 //
 // Self-contained re-implementations of five small GNOME Shell extensions, so
-// they can be configured from Open Bar's preference window instead of needing
+// they can be configured from Open Gnome Box's preference window instead of needing
 // five separate extensions installed:
 //
 //   - Autohide Battery        (autohide-battery@sitnik.ru)
@@ -11,10 +11,10 @@
 //   - Swap Finger Gestures 3-4 (swap-finger-gestures-3-4@...)
 //
 // Each integration has its own enable()/disable() and is toggled by a boolean
-// key in Open Bar's schema, so they can be switched on independently. The
+// key in Open Gnome Box's schema, so they can be switched on independently. The
 // originals must be disabled: two implementations of the same hook conflict.
 //
-// GPL-2.0-or-later, same as the rest of Open Bar.
+// GPL-2.0-or-later, same as the rest of Open Gnome Box.
 
 import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
@@ -121,7 +121,7 @@ export class BatteryAutohide {
                     this._update();
             });
         } catch (e) {
-            console.warn('Open Bar: battery watch failed: ' + e.message);
+            console.warn('Open Gnome Box: battery watch failed: ' + e.message);
         }
     }
 
@@ -162,7 +162,7 @@ export class BatteryAutohide {
                 this._show();
             }
         } catch (e) {
-            console.warn('Open Bar: battery update failed: ' + e.message);
+            console.warn('Open Gnome Box: battery update failed: ' + e.message);
         }
     }
 }
@@ -202,7 +202,7 @@ export class StatusAreaSpacing {
             if (ext && typeof StyleSheets !== 'undefined' && StyleSheets.reloadStyle)
                 StyleSheets.reloadStyle(ext, ext);
         } catch (e) {
-            console.warn('Open Bar: could not reload stylesheet for spacing: ' + e.message);
+            console.warn('Open Gnome Box: could not reload stylesheet for spacing: ' + e.message);
         }
     }
 
@@ -267,7 +267,7 @@ export class AutoMoveWindows {
                 return false;
             };
         } catch (e) {
-            console.warn('Open Bar: auto-move workspace hook failed: ' + e.message);
+            console.warn('Open Gnome Box: auto-move workspace hook failed: ' + e.message);
         }
     }
 
@@ -336,7 +336,7 @@ export class AutoMoveWindows {
                 this._appData.set(app, { windows: app.get_windows() });
             }
         } catch (e) {
-            console.warn('Open Bar: auto-move update failed: ' + e.message);
+            console.warn('Open Gnome Box: auto-move update failed: ' + e.message);
         }
     }
 
@@ -351,7 +351,7 @@ export class AutoMoveWindows {
             }
             win.change_workspace_by_index(workspaceNum, false);
         } catch (e) {
-            console.warn('Open Bar: could not move window: ' + e.message);
+            console.warn('Open Gnome Box: could not move window: ' + e.message);
         }
     }
 
@@ -375,7 +375,7 @@ export class AutoMoveWindows {
                 .forEach(w => this._moveWindow(w, workspaceNum));
             data.windows = windows;
         } catch (e) {
-            console.warn('Open Bar: auto-move window handling failed: ' + e.message);
+            console.warn('Open Gnome Box: auto-move window handling failed: ' + e.message);
         }
     }
 }
@@ -422,7 +422,7 @@ export class SwapFingerGestures {
                     gesture);
             }
         } catch (e) {
-            console.warn('Open Bar: finger gesture swap failed: ' + e.message);
+            console.warn('Open Gnome Box: finger gesture swap failed: ' + e.message);
         }
     }
 
@@ -442,7 +442,7 @@ export class SwapFingerGestures {
                         gesture._handleEvent.bind(gesture),
                         gesture);
             } catch (e) {
-                console.warn('Open Bar: finger gesture restore failed: ' + e.message);
+                console.warn('Open Gnome Box: finger gesture restore failed: ' + e.message);
             }
             delete gesture._openbarNewHandleEvent;
         }
@@ -498,7 +498,7 @@ class DriveMenuItem extends PopupMenu.PopupBaseMenuItem {
             else
                 this.mount.unmount_with_operation(...args, (m, res) => this._finish(m, res, false));
         } catch (e) {
-            console.warn('Open Bar: eject failed: ' + e.message);
+            console.warn('Open Gnome Box: eject failed: ' + e.message);
         }
     }
 
@@ -509,7 +509,7 @@ class DriveMenuItem extends PopupMenu.PopupBaseMenuItem {
             else
                 mount.unmount_with_operation_finish(result);
         } catch (e) {
-            console.warn('Open Bar: eject/unmount failed: ' + e.message);
+            console.warn('Open Gnome Box: eject/unmount failed: ' + e.message);
         }
     }
 
@@ -517,7 +517,7 @@ class DriveMenuItem extends PopupMenu.PopupBaseMenuItem {
         try {
             this.mount.get_root().open(null);
         } catch (e) {
-            console.warn('Open Bar: could not open mount: ' + e.message);
+            console.warn('Open Gnome Box: could not open mount: ' + e.message);
         }
     }
 });
@@ -553,7 +553,7 @@ export class DriveMenu {
             }
             this._refresh();
         } catch (e) {
-            console.warn('Open Bar: drive menu failed to start: ' + e.message);
+            console.warn('Open Gnome Box: drive menu failed to start: ' + e.message);
         }
     }
 
@@ -636,7 +636,7 @@ export class DriveMenu {
             if (mounts.length === 0)
                 menu.addMenuItem(new PopupMenu.PopupMenuItem(_('No removable drives'), { reactive: false }));
         } catch (e) {
-            console.warn('Open Bar: drive menu refresh failed: ' + e.message);
+            console.warn('Open Gnome Box: drive menu refresh failed: ' + e.message);
         }
     }
 }
@@ -689,7 +689,7 @@ export class DedicatedWorkspaceGuard {
         try {
             this._injectionManager?.clear();
         } catch (e) {
-            console.warn('Open Bar: could not restore workspace methods: ' + e.message);
+            console.warn('Open Gnome Box: could not restore workspace methods: ' + e.message);
         }
         this._unwatchWindows();
         this._injectionManager = null;
@@ -760,7 +760,7 @@ export class DedicatedWorkspaceGuard {
                     this._watchWindow(win);
             }
         } catch (e) {
-            console.warn('Open Bar: could not watch window moves: ' + e.message);
+            console.warn('Open Gnome Box: could not watch window moves: ' + e.message);
         }
 
   }
@@ -894,7 +894,7 @@ export class DedicatedWorkspaceGuard {
                 this._internalMoves--;
             }
         } catch (e) {
-            console.warn('Open Bar: could not evict window: ' + e.message);
+            console.warn('Open Gnome Box: could not evict window: ' + e.message);
         }
     }
 
@@ -943,7 +943,7 @@ export class DedicatedWorkspaceGuard {
                 label.clutter_text.line_wrap = true;
                 label.clutter_text.ellipsize = 0;   // Pango.EllipsizeMode.NONE
             } catch (e) {
-                console.warn('Open Bar: could not size hint text: ' + e.message);
+                console.warn('Open Gnome Box: could not size hint text: ' + e.message);
             }
             // A full-stage container pinned by layout constraints is more
             // reliable than setting an explicit size (which is 0 before the
@@ -967,7 +967,7 @@ export class DedicatedWorkspaceGuard {
                 return GLib.SOURCE_REMOVE;
             });
         } catch (e) {
-            console.warn('Open Bar: could not show hint: ' + e.message);
+            console.warn('Open Gnome Box: could not show hint: ' + e.message);
         }
     }
 
@@ -1008,7 +1008,7 @@ export class DedicatedWorkspaceGuard {
                         ? 'border: 2px solid rgba(224,27,36,0.85); border-radius: 4px;'
                         : null);
                 } catch (e) {
-                    console.warn('Open Bar: could not dim thumbnail: ' + e.message);
+                    console.warn('Open Gnome Box: could not dim thumbnail: ' + e.message);
                 }
             }
         } catch (e) {
@@ -1163,11 +1163,11 @@ export class FullscreenEmptyWorkspace {
                     try {
                         fn(...args);
                     } catch (e) {
-                        console.warn(`Open Bar: fullscreen-workspace ${sig} failed: ${e.message}`);
+                        console.warn(`Open Gnome Box: fullscreen-workspace ${sig} failed: ${e.message}`);
                     }
                 }));
             } catch (e) {
-                console.warn(`Open Bar: could not connect ${sig}: ${e.message}`);
+                console.warn(`Open Gnome Box: could not connect ${sig}: ${e.message}`);
             }
         };
 
@@ -1209,7 +1209,7 @@ export class FullscreenEmptyWorkspace {
                 this._guard.disable();
             }
         } catch (e) {
-            console.warn('Open Bar: could not toggle workspace guard: ' + e.message);
+            console.warn('Open Gnome Box: could not toggle workspace guard: ' + e.message);
         }
     }
 
@@ -1367,7 +1367,7 @@ export class FullscreenEmptyWorkspace {
                     ws.activate(global.get_current_time());
             }
         } catch (e) {
-            console.warn('Open Bar: fullscreen-workspace destroy cleanup failed: ' + e.message);
+            console.warn('Open Gnome Box: fullscreen-workspace destroy cleanup failed: ' + e.message);
         }
     }
 
@@ -1423,7 +1423,7 @@ export class FullscreenEmptyWorkspace {
                     created = true;
                 }
             } catch (e) {
-                console.warn('Open Bar: could not create a workspace: ' + e.message);
+                console.warn('Open Gnome Box: could not create a workspace: ' + e.message);
             }
             if (!dedicatedWs)
                 return;
@@ -1443,10 +1443,10 @@ export class FullscreenEmptyWorkspace {
                 if (now && now.index() !== manager.get_active_workspace_index())
                     now.activate(global.get_current_time());
             } catch (e) {
-                console.warn('Open Bar: could not switch to the window workspace: ' + e.message);
+                console.warn('Open Gnome Box: could not switch to the window workspace: ' + e.message);
             }
         } catch (e) {
-            console.warn('Open Bar: could not place window on a dedicated workspace: ' + e.message);
+            console.warn('Open Gnome Box: could not place window on a dedicated workspace: ' + e.message);
         } finally {
             // The guard is released by its own timer; nothing to do here.
         }
@@ -1529,11 +1529,11 @@ export class FullscreenEmptyWorkspace {
                 } catch (e) {
                     // Leaving an empty workspace is harmless; never let cleanup
                     // break the restore.
-                    console.warn('Open Bar: could not remove dedicated workspace: ' + e.message);
+                    console.warn('Open Gnome Box: could not remove dedicated workspace: ' + e.message);
                 }
             }
         } catch (e) {
-            console.warn('Open Bar: could not restore window workspace: ' + e.message);
+            console.warn('Open Gnome Box: could not restore window workspace: ' + e.message);
         } finally {
             // The guard is released by its own timer; nothing to do here.
         }
@@ -1582,14 +1582,14 @@ export class IntegrationsManager {
                     else
                         this.integrations[name].disable();
                 } catch (e) {
-                    console.warn(`Open Bar: integration ${name} toggle failed: ${e.message}`);
+                    console.warn(`Open Gnome Box: integration ${name} toggle failed: ${e.message}`);
                 }
             }));
             if (this._settings.get_boolean(settingKey)) {
                 try {
                     this.integrations[name].enable();
                 } catch (e) {
-                    console.warn(`Open Bar: integration ${name} start failed: ${e.message}`);
+                    console.warn(`Open Gnome Box: integration ${name} start failed: ${e.message}`);
                 }
             }
         }
@@ -1606,7 +1606,7 @@ export class IntegrationsManager {
             try {
                 integration.disable();
             } catch (e) {
-                console.warn(`Open Bar: integration ${name} stop failed: ${e.message}`);
+                console.warn(`Open Gnome Box: integration ${name} stop failed: ${e.message}`);
             }
         }
     }

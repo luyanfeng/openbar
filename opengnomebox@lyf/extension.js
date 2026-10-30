@@ -861,7 +861,7 @@ export default class Openbar extends Extension {
     }
 
     // QSAP: listen for addition of new panels
-    // this allows theming QSAP panels when QSAP is enabled after Open Bar
+    // this allows theming QSAP panels when QSAP is enabled after Open Gnome Box
     setupLibpanel(obj, signal, sig_param, menu) {
         if(menu.constructor.name != 'PanelGrid')
             return;
@@ -1451,7 +1451,7 @@ export default class Openbar extends Extension {
         try {
             this.initTranslations();
         } catch (e) {
-            console.warn('Open Bar: could not initialise translations: ' + e.message);
+            console.warn('Open Gnome Box: could not initialise translations: ' + e.message);
         }
 
         // Get Gnome version
@@ -1590,7 +1590,7 @@ export default class Openbar extends Extension {
 
         // OpenBar runtime directory
         const userRunDir = GLib.get_user_runtime_dir();
-        this.obarRunDir = Gio.File.new_for_path(`${userRunDir}/io.github.neuromorph.openbar`);
+        this.obarRunDir = Gio.File.new_for_path(`${userRunDir}/io.github.neuromorph.opengnomebox`);
         this.obarAssetsDir = Gio.File.new_for_path(`${this.obarRunDir.get_path()}/assets`);
         // Create dirs if missing
         if(!this.obarAssetsDir.query_exists(null)) {
@@ -1615,7 +1615,7 @@ export default class Openbar extends Extension {
         Main.layoutManager.panelBox.add_style_class_name('openbar');
         // Cause stylesheet to save and reload on Enable (also creates gtk css)
         StyleSheets.reloadStyle(this, this);
-        // Add Open Bar Flatpak Overrides
+        // Add Open Gnome Box Flatpak Overrides
         StyleSheets.saveFlatpakOverrides(this, 'enable');
 
         // Apply the initial style

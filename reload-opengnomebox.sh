@@ -4,8 +4,8 @@
 # 注意：只动 Open Bar 自己的扩展目录，不碰系统文件。
 set -euo pipefail
 
-UUID="openbar@neuromorph"
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/openbar@neuromorph"
+UUID="opengnomebox@lyf"
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/opengnomebox@lyf"
 DEST="$HOME/.local/share/gnome-shell/extensions/$UUID"
 
 if [ ! -d "$SRC" ]; then

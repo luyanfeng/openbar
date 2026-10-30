@@ -3,9 +3,9 @@
 // Wallpaper slideshow engine ported from Wallhub (wallhub@sakithb.github.io).
 // Original project is archived (https://github.com/sakithb/wallhub).
 //
-// Ported into Open Bar as a background wallpaper rotation feature. Wallhub's
+// Ported into Open Gnome Box as a background wallpaper rotation feature. Wallhub's
 // setWallpaper writes org.gnome.desktop.background picture-uri / picture-uri-dark,
-// which Open Bar already watches to re-derive its color palette — so the two
+// which Open Gnome Box already watches to re-derive its color palette — so the two
 // features compose without extra coupling.
 //
 // The control surface is a top-bar indicator (previous / next / random plus a
@@ -14,7 +14,7 @@
 // desktop-icons extension the desktop menu runs in a separate gjs process and
 // cannot be reached from the shell process.
 //
-// GPL-2.0-or-later, same as the rest of Open Bar.
+// GPL-2.0-or-later, same as the rest of Open Gnome Box.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
@@ -372,7 +372,7 @@ export class WallhubManager {
             this._paused ? 'media-playback-start-symbolic' : 'media-playback-pause-symbolic',
             _('Pause / Resume'),
             () => this.setPaused(!this._paused), null);
-        makeButton('emblem-system-symbolic', _('Open Bar Settings'),
+        makeButton('emblem-system-symbolic', _('Open Gnome Box Settings'),
             () => this.ext.openPreferences(), null);
     }
 

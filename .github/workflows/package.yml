@@ -20,7 +20,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          for f in openbar@neuromorph/*.js; do
+          for f in opengnomebox@lyf/*.js; do
             node --input-type=module --check < "$f" || exit 1
           done
 
@@ -28,13 +28,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libglib2.0-bin
-          glib-compile-schemas openbar@neuromorph/schemas/
+          glib-compile-schemas opengnomebox@lyf/schemas/
 
       - name: Build zip
         run: |
           mkdir -p dist
-          cd openbar@neuromorph
-          zip -r "../dist/openbar@neuromorph.shell-extension.zip" . -x '*.git*' -x '*.DS_Store'
+          cd opengnomebox@lyf
+          zip -r "../dist/opengnomebox@lyf.shell-extension.zip" . -x '*.git*' -x '*.DS_Store'
 
       - name: Verify package contents
         run: |
@@ -45,14 +45,14 @@ jobs:
           for required in metadata.json extension.js prefs.js stylesheets.js \
                            autothemes.js quantize.js utils.js wallhub.js \
                            integrations.js prefs.css media \
-                           locale/zh_CN/LC_MESSAGES/openbar.mo; do
+                           locale/zh_CN/LC_MESSAGES/opengnomebox.mo; do
             if ! echo "$NAMES" | grep -qx "$required"; then
               echo "::error::Missing required entry: $required"
               exit 1
             fi
           done
-          UUID=$(python3 -c "import json;print(json.load(open('openbar@neuromorph/metadata.json'))['uuid'])")
-          if [ "$UUID" != "openbar@neuromorph" ]; then
+          UUID=$(python3 -c "import json;print(json.load(open('opengnomebox@lyf/metadata.json'))['uuid'])")
+          if [ "$UUID" != "opengnomebox@lyf" ]; then
             echo "::error::uuid mismatch: $UUID"
             exit 1
           fi
@@ -61,7 +61,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           TAG="${GITHUB_REF_NAME#v}"
-          VER=$(python3 -c "import json;print(json.load(open('openbar@neuromorph/metadata.json'))['version'])")
+          VER=$(python3 -c "import json;print(json.load(open('opengnomebox@lyf/metadata.json'))['version'])")
           echo "tag=${GITHUB_REF_NAME} (parsed: $TAG)  metadata.version=$VER"
           if [ "$TAG" != "$VER" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match metadata.json version $VER"
@@ -71,7 +71,7 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openbar-extension-zip
+          name: opengnomebox-extension-zip
           path: dist/*.zip
           if-no-files-found: error
 

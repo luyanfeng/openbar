@@ -1,10 +1,10 @@
 
-# Open Bar (GNOME 45–50 Extension)  
+# Open Gnome Box (GNOME 45–50 Extension)  
 
 
 A GNOME Shell extension for theming Gnome Top Bar / Top Panel, Menus, Dash/Dock, Gnome Shell and Gtk/Flatpak Apps.  
 
-### Open Bar 2.0: 
+### Open Gnome Box 2.0: 
 - Auto-theming completely renewed. Theme Options: Dark, Light, Pastel, True-Color
 - Apply styles to Bar, Menu, Dash / Dock and rest of the shell
 - Apply accent color and style Gtk/Flatpak apps
@@ -12,7 +12,7 @@ A GNOME Shell extension for theming Gnome Top Bar / Top Panel, Menus, Dash/Dock,
 
 ### Compatibility with Extensions:
 - It should be (mostly) compatible with user themes and other extensions that affect the Top Panel 
-- Some extensions do not use standard widget and API (e.g. 'PanelMenu.Button' and 'main.addToStatusArea') when adding indicator to Panel and fixing that makes them work correctly with Open Bar (or user themes for that matter).
+- Some extensions do not use standard widget and API (e.g. 'PanelMenu.Button' and 'main.addToStatusArea') when adding indicator to Panel and fixing that makes them work correctly with Open Gnome Box (or user themes for that matter).
   
 
 ### Auto Theming:
@@ -64,11 +64,11 @@ the _Extension Manager_ app.
 ### How to manually install the extension (if needed)?
 
 ```
-git clone https://github.com/neuromorph/openbar.git \
-	~/.local/share/gnome-shell/extensions/openbar@neuromorph
+git clone https://github.com/luyanfeng/openGnomeBox.git \
+	~/.local/share/gnome-shell/extensions/opengnomebox@lyf
 ```
 OR download the code zip file and unzip at location: ~/.local/share/gnome-shell/extensions/
-The extension's directory name should match its uuid i.e. "openbar@neuromorph"
+The extension's directory name should match its uuid i.e. "opengnomebox@lyf"
 
 Note: 
 Please download from following GitHub branch as per your Gnome version:
@@ -104,7 +104,7 @@ If the panel/menu isn't looking right, you need to tweak some settings. There ar
 
 ## What's New (recent first)
 - GNOME Shell 50 support. Fixes the extension failing to enable on GNOME 49/50 and a settings handler left connected after disable.
-- Open Bar 2.0: New Auto-theming, Apply Styles to Dash/Dock, Shell and Gtk/Flatpak apps
+- Open Gnome Box 2.0: New Auto-theming, Apply Styles to Dash/Dock, Shell and Gtk/Flatpak apps
 - Automatic FG color, Panel Box color, Light-gradient for menus and creative tweaks for border width and radius
 - Auto-theming options 
 - Import, export theme settings to file.

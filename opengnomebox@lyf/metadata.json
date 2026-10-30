@@ -1,0 +1,20 @@
+{
+  "description": "Top Bar / Top Panel, Menus, Dash / Dock, GNOME Shell and GTK Apps theming. Open Gnome Box and let the colors flow.",
+  "donations": {
+    "buymeacoffee": "neuromorph"
+  },
+  "gettext-domain": "opengnomebox",
+  "name": "Open Gnome Box",
+  "settings-schema": "org.gnome.shell.extensions.opengnomebox",
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50"
+  ],
+  "url": "https://github.com/luyanfeng/openGnomeBox",
+  "uuid": "opengnomebox@lyf",
+  "version": 1
+}

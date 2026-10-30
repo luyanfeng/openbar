@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<schemalist gettext-domain="openbar">
-  <enum id="org.gnome.shell.extensions.openbar.slideshow-interval-units">
+<schemalist gettext-domain="opengnomebox">
+  <enum id="org.gnome.shell.extensions.opengnomebox.slideshow-interval-units">
     <value nick="Hours" value="3600" />
     <value nick="Minutes" value="60" />
     <value nick="Seconds" value="1" />
   </enum>
-  <schema id="org.gnome.shell.extensions.openbar" path="/org/gnome/shell/extensions/openbar/">
+  <schema id="org.gnome.shell.extensions.opengnomebox" path="/org/gnome/shell/extensions/opengnomebox/">
 
     <key type="s" name="bartype">
       <default>"Floating"</default>
@@ -1450,7 +1450,7 @@
       <description>Bitmask of which wallpaper-paths entries are enabled for the slideshow.</description>
     </key>
     <key name="slideshow-interval-unit"
-      enum="org.gnome.shell.extensions.openbar.slideshow-interval-units">
+      enum="org.gnome.shell.extensions.opengnomebox.slideshow-interval-units">
       <default>'Minutes'</default>
       <summary>Slideshow interval unit</summary>
       <description>Time unit for the slideshow interval.</description>

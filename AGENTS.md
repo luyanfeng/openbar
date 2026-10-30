@@ -3,17 +3,17 @@
 GNOME Shell 扩展（Top Bar / 菜单 / Dash / GTK 主题）。纯 GJS，无构建系统、无 lint/测试框架（没有 `package.json` / `Makefile`）。CI 只有一个打包 workflow（`.github/workflows/package.yml`）。
 
 ## 目录与分支
-- `openbar@neuromorph/` 是唯一的安装单元，目录名必须等于 `metadata.json` 的 `uuid`。
-- `patches/` 是历史单文件快照，代码中无任何引用；不要在这里改功能，真实代码只在 `openbar@neuromorph/`。
+- `opengnomebox@lyf/` 是唯一的安装单元，目录名必须等于 `metadata.json` 的 `uuid`。
+- `patches/` 是历史单文件快照，代码中无任何引用；不要在这里改功能，真实代码只在 `opengnomebox@lyf/`。
 - 分支：`main` = GNOME 45–50；`g42-44` = 旧版 GNOME 42–44，勿在 `main` 上兼容 42–44。
 - GNOME 50 对 `extension.js` 无破坏性变更（官方升级指南确认）。新增支持只需在 `metadata.json` 的 `shell-version` 加入 `"50"`；代码里的版本判断都用相对比较，50 自动落入正确分支（含 49 的 DND 按钮布局修复）。
 
 ## 验证
 - 语法检查（仓库唯一的自动化检查，无 ESLint）：
-  `node --input-type=module --check < openbar@neuromorph/extension.js`
+  `node --input-type=module --check < opengnomebox@lyf/extension.js`
   对每个改动过的 `.js` 各跑一次。
 - 改了 schema XML 必须重编，否则设置键不生效：
-  `glib-compile-schemas openbar@neuromorph/schemas/`（`gschemas.compiled` 已入库，需一并提交）
+  `glib-compile-schemas opengnomebox@lyf/schemas/`（`gschemas.compiled` 已入库，需一并提交）
 
 ### 隔离沙箱（首选运行时验证方式）
 在**完全不碰用户真实会话**的前提下加载扩展。全程产物落在临时目录：
@@ -21,14 +21,14 @@ GNOME Shell 扩展（Top Bar / 菜单 / Dash / GTK 主题）。纯 GJS，无构�
 H=/tmp/sb; mkdir -p $H/{config/glib-2.0/settings,data,cache,runtime}; chmod 700 $H/runtime
 GSETTINGS_BACKEND=keyfile XDG_CONFIG_HOME=$H/config XDG_DATA_HOME=$H/data \
 XDG_CACHE_HOME=$H/cache XDG_RUNTIME_DIR=$H/runtime gnome-extensions install --force --print-uuid ext.zip
-printf "[org/gnome/shell]\nenabled-extensions=['openbar@neuromorph']\n" > $H/config/glib-2.0/settings/keyfile
+printf "[org/gnome/shell]\nenabled-extensions=['opengnomebox@lyf']\n" > $H/config/glib-2.0/settings/keyfile
 dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
   --wayland-display sbdisp --no-x11 --automation-script drive.js
 ```
 - 必须 `dbus-run-session`：否则会连到真实会话的 `org.gnome.Shell` 并报 `already exists on bus`。
 - 必须 `GSETTINGS_BACKEND=keyfile`：否则读写用户真实 dconf。
 - `--automation-script` 是 **ES module**，导出 `export async function run()`；脚本内用
-  `Main.extensionManager.lookup('openbar@neuromorph')` 拿 `{state, error, stateObj}`，
+  `Main.extensionManager.lookup('opengnomebox@lyf')` 拿 `{state, error, stateObj}`，
   `stateObj` 即扩展实例，可直接调 `updatePanelStyle` / `applyMenuStyles` / `setWindowMaxBar`
   等方法覆盖真实会话才走的分支。
 - shell 退出时会打印 `mainloop.h ... assertion failed` 并以 134 退出，这是 perf harness
@@ -48,7 +48,7 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
 
 发布走 GitHub Releases，不再提交到 extensions.gnome.org。
 
-1. 改 `openbar@neuromorph/metadata.json` 的 `version`，从当前值 +1（这是发布序号，不是语义化版本；历史 38→39→41→42→43）。
+1. 改 `opengnomebox@lyf/metadata.json` 的 `version`，从当前值 +1（这是发布序号，不是语义化版本；历史 38→39→41→42→43）。
 2. 提交并推送 `main`。
 3. 打 tag 并推送，tag 名必须等于新版本号（允许 `v` 前缀）：
    ```bash
@@ -56,7 +56,7 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
    ```
 
 CI（`.github/workflows/package.yml`）行为：
-- `push` 到 `main` 或 `PR` → 只构建并上传 artifact `openbar-extension-zip`，不动 Release。
+- `push` 到 `main` 或 `PR` → 只构建并上传 artifact `opengnomebox-extension-zip`，不动 Release。
 - `push` tag → 额外把 zip 附到该 tag 的 Release，并用「Verify tag matches metadata version」校验 tag 名与 `version` 一致，不一致直接 fail。
 - Job 需要 `permissions: contents: write`，否则第 9 步 `Attach zip to release` 会因默认只读 token 失败。
 

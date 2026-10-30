@@ -37,7 +37,7 @@ try {
     };
 }
 
-const SCHEMA_PATH = '/org/gnome/shell/extensions/openbar/';
+const SCHEMA_PATH = '/org/gnome/shell/extensions/opengnomebox/';
 
 //-----------------------------------------------
 
@@ -49,7 +49,7 @@ export default class OpenbarPreferences extends ExtensionPreferences {
         try {
             this.initTranslations();
         } catch (e) {
-            console.warn('Open Bar: could not initialise translations: ' + e.message);
+            console.warn('Open Gnome Box: could not initialise translations: ' + e.message);
         }
         let prefs = new OpenbarPrefs();
         prefs.fillOpenbarPrefs(window, this);
@@ -485,7 +485,7 @@ class OpenbarPrefs {
         settingsPage.add(settingsGroup);
 
 
-        // Open Bar Title Grid
+        // Open Gnome Box Title Grid
         let titlegrid = this.createGridWidget();
         titlegrid.halign = Gtk.Align.START;
         titlegrid.valign = Gtk.Align.CENTER;
@@ -586,7 +586,7 @@ class OpenbarPrefs {
         rowbar = 1;
 
         let wecomeLabel = new Gtk.Label({
-            label: `\n<span size="large">Welcome to Open Bar!</span>\n`,
+            label: `\n<span size="large">Welcome to Open Gnome Box!</span>\n`,
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -607,7 +607,7 @@ class OpenbarPrefs {
 
         let welcomeNotesLabel = new Gtk.Label({
             label: `<span  allow_breaks="true">\
-            \n•  Open Bar allows you to theme the Top Bar, Pop-up Menus, Dash, Dock and rest of the Gnome Shell.\
+            \n•  Open Gnome Box allows you to theme the Top Bar, Pop-up Menus, Dash, Dock and rest of the Gnome Shell.\
             \n•  You can also extend the theme to Gtk and Flatpak apps to the extent possible with CSS.\
             \n•  You can choose any color for Accent and for everything else in the shell.\
             \n•  There are a lot of settings to allow full customization and they are grouped as tabs in the left panel.\
@@ -1827,7 +1827,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menuStyleLabel, 1, rowbar, 1, 1);
 
-        let menuStyleSwitch = this.createSwitchWidget('menustyle', 'Turn Off to disable Open Bar menu styles below and instead retain your installed theme');
+        let menuStyleSwitch = this.createSwitchWidget('menustyle', 'Turn Off to disable Open Gnome Box menu styles below and instead retain your installed theme');
         menugrid.attach(menuStyleSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1
@@ -2607,7 +2607,7 @@ class OpenbarPrefs {
         // Add a Yaru Theme Note label
         let yaruNoteLabel = new Gtk.Label({
             use_markup: true,
-            label: `<span allow_breaks="true">\nAuto-Set Gtk/Icons Yaru theme that is closest to Open Bar Accent.\nYaru themes need to be installed (default in Ubuntu).</span>`,
+            label: `<span allow_breaks="true">\nAuto-Set Gtk/Icons Yaru theme that is closest to Open Gnome Box Accent.\nYaru themes need to be installed (default in Ubuntu).</span>`,
             halign: Gtk.Align.START,
             wrap: true,
         });
@@ -2645,7 +2645,7 @@ class OpenbarPrefs {
 
         // Add a Gtk info label
         let appLabel = new Gtk.Label({
-            label: `<span><b>GTK3 / GTK4</b></span>\n\n<span size="small" allow_breaks="true">⚠ It will write to 'gtk.css' under '$XDG_CONFIG_HOME/gtk-3.0/' and 'gtk-4.0'.\n     For existing gtk.css, Open Bar will create a backup and restore it on disable.\n     You are advised to also take a manual backup as a failsafe.</span>`,
+            label: `<span><b>GTK3 / GTK4</b></span>\n\n<span size="small" allow_breaks="true">⚠ It will write to 'gtk.css' under '$XDG_CONFIG_HOME/gtk-3.0/' and 'gtk-4.0'.\n     For existing gtk.css, Open Gnome Box will create a backup and restore it on disable.\n     You are advised to also take a manual backup as a failsafe.</span>`,
             use_markup: true,
             halign: Gtk.Align.START,
             wrap: true,
@@ -2714,7 +2714,7 @@ class OpenbarPrefs {
 
         // Add an Import Settings button
         let importLbl = new Gtk.Label({
-            label: `Import Open Bar Settings from a file`,
+            label: `Import Open Gnome Box Settings from a file`,
             halign: Gtk.Align.START,
         });
         iegrid.attach(importLbl, 1, rowbar, 1, 1);
@@ -2739,7 +2739,7 @@ class OpenbarPrefs {
 
         // Add an Export Settings button
         let exportLbl = new Gtk.Label({
-            label: `Export Open Bar Settings to a file`,
+            label: `Export Open Gnome Box Settings to a file`,
             halign: Gtk.Align.START,
         });
         iegrid.attach(exportLbl, 1, rowbar, 1, 1);
@@ -2775,7 +2775,7 @@ class OpenbarPrefs {
 
         // Add a Reset Settings button
         let resetLbl = new Gtk.Label({
-            label: `⚠ Reset all Open Bar settings to default values`,
+            label: `⚠ Reset all Open Gnome Box settings to default values`,
             halign: Gtk.Align.START,
         });
         iegrid.attach(resetLbl, 1, rowbar, 1, 1);
@@ -2788,7 +2788,7 @@ class OpenbarPrefs {
         const resetBtn = new Gtk.Button({
             child: resetBtnLabel,
             // margin_top: 35,
-            tooltip_text: _("It will reset all Open Bar settings to their default values"),
+            tooltip_text: _("It will reset all Open Gnome Box settings to their default values"),
             halign: Gtk.Align.END,
         });
         resetBtn.connect('clicked', () => {
@@ -3225,7 +3225,7 @@ class OpenbarPrefs {
                 if (clipboard)
                     clipboard.set(logView.buffer.text);
             } catch (e) {
-                console.warn(`Open Bar: clipboard copy failed: ${e.message}`);
+                console.warn(`Open Gnome Box: clipboard copy failed: ${e.message}`);
             }
         });
 
@@ -3295,7 +3295,7 @@ class OpenbarPrefs {
         } catch (e) {
             // Some extensions legitimately have no errors entry; treat any D-Bus
             // failure as "no errors" rather than aborting the whole listing.
-            console.warn(`Open Bar: GetExtensionErrors(${uuid}) failed: ${e.message}`);
+            console.warn(`Open Gnome Box: GetExtensionErrors(${uuid}) failed: ${e.message}`);
             return [];
         }
     }
@@ -3528,7 +3528,7 @@ class OpenbarPrefs {
                     this._autoMoveRows.push(empty);
                 }
             } catch (e) {
-                console.warn('Open Bar: could not render auto-move rules: ' + e.message);
+                console.warn('Open Gnome Box: could not render auto-move rules: ' + e.message);
             }
         };
 
@@ -3550,7 +3550,7 @@ class OpenbarPrefs {
                 .filter(a => a.id)
                 .sort((x, y) => x.name.localeCompare(y.name));
         } catch (e) {
-            console.warn('Open Bar: could not list applications: ' + e.message);
+            console.warn('Open Gnome Box: could not list applications: ' + e.message);
         }
 
         const appCombo = new Adw.ComboRow({
@@ -3611,8 +3611,8 @@ class OpenbarPrefs {
     resetSettingsDialog(window){
         let dialog = new Gtk.MessageDialog({
           modal: true,
-          text: _("Reset Open Bar settings?"),
-          secondary_text: _("This will reset all the Open Bar settings to their default values. If needed, you can save the current settings by exporting them to a file before you reset."),
+          text: _("Reset Open Gnome Box settings?"),
+          secondary_text: _("This will reset all the Open Gnome Box settings to their default values. If needed, you can save the current settings by exporting them to a file before you reset."),
           transient_for: window,
         });
         // add buttons to dialog as 'Delete' and 'Cancel' with 'Cancel' as default
@@ -3679,7 +3679,7 @@ class OpenbarPrefs {
 
     importSettings(window) {
         let fileChooser = new Gtk.FileChooserDialog({
-            title: _("Import Settings for Open Bar Theme"),
+            title: _("Import Settings for Open Gnome Box Theme"),
             action: Gtk.FileChooserAction.OPEN,
             transient_for: window,
         });
@@ -3738,7 +3738,7 @@ class OpenbarPrefs {
 
     exportSettings(window) {
         let fileChooser = new Gtk.FileChooserDialog({
-            title: _("Export Settings for Open Bar Theme"),
+            title: _("Export Settings for Open Gnome Box Theme"),
             action: Gtk.FileChooserAction.SAVE,
             transient_for: window,
         });
