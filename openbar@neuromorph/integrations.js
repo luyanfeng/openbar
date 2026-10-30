@@ -28,6 +28,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as ShellMountOperation from 'resource:///org/gnome/shell/ui/shellMountOperation.js';
+import * as DND from 'resource:///org/gnome/shell/ui/dnd.js';
 import * as StyleSheets from './stylesheets.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { InjectionManager } from 'resource:///org/gnome/shell/extensions/extension.js';
@@ -665,6 +666,9 @@ export class DedicatedWorkspaceGuard {
         this._owners = new Map();
         this._thumbnailsChangedId = 0;
         this._enabled = false;
+        // Transient message shown when a move is refused.
+        this._toastActor = null;
+        this._toastTimeoutId = 0;
     }
 
     enable() {
@@ -825,6 +829,9 @@ export class DedicatedWorkspaceGuard {
                 } finally {
                     this._internalMoves--;
                 }
+                this.showMessage(
+                    _('A fullscreen window cannot be moved to another workspace. ' +
+                      'Leave fullscreen first.'));
                 return;
             }
 
@@ -905,71 +912,168 @@ export class DedicatedWorkspaceGuard {
     // owns the box-level drop target.
     installDropGuard() {
         try {
-            const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
-            for (const view of views) {
-                const box = view?._thumbnails;
-                if (!box || box._openbarDropPatched)
-                    continue;
-                const original = box.acceptDrop;
-                if (typeof original !== 'function')
-                    continue;
-                box.acceptDrop = (source, actor, x, y, time) => {
-                    try {
-                        const idx = box._dropWorkspace;
-                        const manager = global.workspace_manager;
-                        if (idx >= 0 && idx < manager.get_n_workspaces()) {
-                            const ws = manager.get_workspace_by_index(idx);
-                            // Refuse to move a normal window into a dedicated
-                            // workspace owned by another window.
-                            if (ws && this.isDedicated(ws) &&
-                                source?.metaWindow &&
-                                this._ownerOf(ws) !== source.metaWindow)
-                                return false;
-                        }
-                    } catch (e) {}
-                    return original.call(box, source, actor, x, y, time);
-                };
-                box._openbarDropPatched = true;
-            }
+            for (const thumb of this._allThumbnails())
+                this._patchThumbnailDnD(thumb);
+
+            // Thumbnails are rebuilt when workspaces change; re-patch then.
+            try {
+                if (!this._thumbnailsRebuiltId) {
+                    this._thumbnailsRebuiltId = global.workspace_manager.connect(
+                        'notify::n-workspaces', () => {
+                            this._refreshThumbnails();
+                            for (const t of this._allThumbnails())
+                                this._patchThumbnailDnD(t);
+                        });
+                }
+            } catch (e) {}
         } catch (e) {
             console.warn('Open Bar: could not install drop guard: ' + e.message);
         }
     }
 
+    // Patch one WorkspaceThumbnail so dragging a foreign window over a
+    // dedicated workspace is visibly refused: red outline plus a hint, and the
+    // drop itself is rejected.
+    _patchThumbnailDnD(thumb) {
+        if (!thumb || thumb._openbarDnDPatched)
+            return;
+        if (typeof thumb.handleDragOverInternal !== 'function')
+            return;
+
+        const originalOver = thumb.handleDragOverInternal;
+        thumb.handleDragOverInternal = (source, actor, time) => {
+            try {
+                const isForeign = source?.metaWindow &&
+                    this._ownerOf(thumb.metaWorkspace) !== source.metaWindow;
+                if (this.isDedicated(thumb.metaWorkspace) && isForeign) {
+                    thumb.set_style('opacity: 0.35; border: 2px solid rgba(224,27,36,0.9);');
+                    return DND.DragMotionResult.CONTINUE;   // not a valid drop
+                }
+            } catch (e) {}
+            return originalOver.call(thumb, source, actor, time);
+        };
+
+        const originalDrop = thumb.acceptDropInternal;
+        if (typeof originalDrop === 'function') {
+            thumb.acceptDropInternal = (source, actor, time) => {
+                try {
+                    const isForeign = source?.metaWindow &&
+                        this._ownerOf(thumb.metaWorkspace) !== source.metaWindow;
+                    if (this.isDedicated(thumb.metaWorkspace) && isForeign) {
+                        this.showMessage(
+                            _('This workspace belongs to a fullscreen window and cannot ' +
+                              'receive other windows.'));
+                        return false;
+                    }
+                } catch (e) {}
+                return originalDrop.call(thumb, source, actor, time);
+            };
+        }
+
+        thumb._openbarDnDPatched = true;
+    }
+
+    // ---- transient message -------------------------------------------------
+
+    // Short, self-dismissing hint near the bottom of the screen. Used when an
+    // action is refused so the block is explained rather than mysterious.
+    showMessage(text) {
+        try {
+            this._hideMessage();
+            const label = new St.Label({
+                text,
+                style_class: 'openbar-space-hint',
+                style: 'background-color: rgba(0,0,0,0.75); color: #fff; ' +
+                    'padding: 10px 20px; border-radius: 8px; font-size: 13px;',
+                x_align: Clutter.ActorAlign.CENTER,
+                text_align: Clutter.ActorAlign.CENTER,
+            });
+            const bin = new St.Bin({
+                child: label,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.END,
+                x_expand: true,
+                y_expand: true,
+                reactive: false,
+            });
+            bin.set_position(0, 0);
+            bin.set_size(global.stage.width, global.stage.height);
+            bin.translation_y = -90;
+            Main.uiGroup.add_child(bin);
+            this._toastActor = bin;
+            this._toastTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2200, () => {
+                this._toastTimeoutId = 0;
+                this._hideMessage();
+                return GLib.SOURCE_REMOVE;
+            });
+        } catch (e) {
+            console.warn('Open Bar: could not show hint: ' + e.message);
+        }
+    }
+
+    _hideMessage() {
+        if (this._toastTimeoutId) {
+            try { GLib.source_remove(this._toastTimeoutId); } catch (e) {}
+            this._toastTimeoutId = 0;
+        }
+        try {
+            this._toastActor?.destroy();
+        } catch (e) {}
+        this._toastActor = null;
+    }
+
     // ---- overview thumbnails ----------------------------------------------
+
 
     // Walk the workspaces views and dim dedicated thumbnails. The thumbnail
     // exposes `metaWorkspace`, so matching does not rely on private fields.
     _refreshThumbnails() {
         try {
-            const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
-            for (const view of views) {
-                const box = view?._thumbnails;
-                const thumbs = box?._thumbnails ?? [];
-                for (const thumb of thumbs) {
-                    if (!thumb || !thumb.metaWorkspace)
-                        continue;
-                    if (this.isDedicated(thumb.metaWorkspace))
+            for (const thumb of this._allThumbnails()) {
+                if (!thumb || !thumb.metaWorkspace)
+                    continue;
+                const dedicated = this.isDedicated(thumb.metaWorkspace);
+                // Mark for the drag-over handler and for identification.
+                thumb._openbarDedicated = dedicated;
+                try {
+                    if (dedicated)
                         thumb.set_style('opacity: 0.35;');
                     else
                         thumb.set_style(null);
-                }
+                } catch (e) {}
             }
         } catch (e) {
             // Purely cosmetic: never let it break anything.
         }
     }
 
-    _clearThumbnails() {
+    _allThumbnails() {
+        const out = [];
         try {
-            const views = Main.overview?._overview?._controls?._workspacesDisplay?._workspacesViews ?? [];
+            const views = this._workspaceViews();
             for (const view of views) {
-                const thumbs = view?._thumbnails?._thumbnails ?? [];
-                for (const thumb of thumbs) {
-                    try { thumb?.set_style(null); } catch (e) {}
-                }
+                const box = view?._thumbnails;
+                for (const thumb of (box?._thumbnails ?? []))
+                    out.push(thumb);
             }
         } catch (e) {}
+        return out;
+    }
+
+    // The overview keeps one view per monitor; both spellings exist in the
+    // shell source, so try both.
+    _workspaceViews() {
+        const display = Main.overview?._overview?._controls?._workspacesDisplay;
+        return display?._workspacesViews ?? (display?._workspacesView ? [display._workspacesView] : []);
+    }
+
+    _clearThumbnails() {
+        for (const thumb of this._allThumbnails()) {
+            try {
+                thumb.set_style(null);
+                thumb._openbarDedicated = false;
+            } catch (e) {}
+        }
     }
 
     // Re-dim after the thumbnail strip is rebuilt.

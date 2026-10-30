@@ -21,6 +21,9 @@ msgstr "（未找到应用）"
 msgid "(no matching entries)"
 msgstr "（没有匹配的记录）"
 
+msgid "A fullscreen window cannot be moved to another workspace. Leave fullscreen first."
+msgstr "全屏窗口不能移动到其他工作区。请先退出全屏。"
+
 msgid "Add"
 msgstr "添加"
 
@@ -233,6 +236,9 @@ msgstr "停止自动更换壁纸。上一张 / 下一张 / 随机仍然可用。
 
 msgid "Swaps the three-finger and four-finger gestures."
 msgstr "交换三指与四指手势。"
+
+msgid "This workspace belongs to a fullscreen window and cannot receive other windows."
+msgstr "该工作区属于一个全屏窗口，不能放入其他窗口。"
 
 msgid "Unexpected reply from the shell."
 msgstr "来自 Shell 的响应异常。"
