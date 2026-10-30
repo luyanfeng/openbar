@@ -8,11 +8,22 @@
 // which Open Bar already watches to re-derive its color palette — so the two
 // features compose without extra coupling.
 //
+// The control surface is a top-bar indicator (previous / next / random plus a
+// preview of the next wallpaper), modelled on the Bing Wallpaper extension.
+// There is deliberately no desktop right-click item: on systems with the DING
+// desktop-icons extension the desktop menu runs in a separate gjs process and
+// cannot be reached from the shell process.
+//
 // GPL-2.0-or-later, same as the rest of Open Bar.
 
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import GdkPixbuf from 'gi://GdkPixbuf';
+import Cogl from 'gi://Cogl';
+import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 // Promisify the async GIO methods used for directory enumeration so they can be
 // awaited. Without these, the calls throw "At least 5 arguments required" because
@@ -20,7 +31,9 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 // never starts.
 Gio._promisify(Gio.File.prototype, 'enumerate_children_async', 'enumerate_children_finish');
 Gio._promisify(Gio.FileEnumerator.prototype, 'next_files_async', 'next_files_finish');
-import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+
+const PREVIEW_WIDTH = 360;
+const PREVIEW_HEIGHT = 203;
 
 // ---- Bit flag helpers (wallpaper-paths-selected is an int bitmask) ----
 export function isBitSet(value, bit) {
@@ -73,7 +86,7 @@ export function parseDynamicWallpaper(xml) {
     };
 }
 
-// ---- Wallhub manager (slideshow engine) ----
+// ---- Wallhub manager (slideshow engine + top-bar indicator) ----
 export class WallhubManager {
     constructor(ext) {
         this.ext = ext;
@@ -84,8 +97,11 @@ export class WallhubManager {
         this.directoryMonitors = [];
         this.loopSourceId = null;
         this._signalIds = [];
-        this._bgMenuInjected = false;
-        this._bgMenuMenus = new Set();
+        this._cursor = -1;
+
+        this.indicator = null;
+        this._previewItem = null;
+        this._controlItem = null;
     }
 
     enable() {
@@ -107,10 +123,14 @@ export class WallhubManager {
 
         this._signalIds.push(this.settings.connect('changed::wallpaper-paths', () => {
             this.wallpaperPaths = this.settings.get_strv('wallpaper-paths');
+            this.updateQueue()
+                .then(() => this.updatePreview())
+                .catch(e => console.error('Wallhub: updateQueue failed: ' + e));
         }));
         this._signalIds.push(this.settings.connect('changed::wallpaper-paths-selected', () => {
             this.wallpaperPathsSelected = this.settings.get_int('wallpaper-paths-selected');
             this.updateQueue()
+                .then(() => this.updatePreview())
                 .catch(e => console.error('Wallhub: updateQueue failed: ' + e));
         }));
         this._signalIds.push(this.settings.connect('changed::slideshow-interval-unit', () => {
@@ -122,9 +142,12 @@ export class WallhubManager {
             this.startLoop();
         }));
 
-        this.injectBackgroundMenu();
+        this.buildIndicator();
         this.updateQueue()
-            .then(this.startLoop.bind(this))
+            .then(() => {
+                this.startLoop();
+                this.updatePreview();
+            })
             .catch(e => console.error('Wallhub: updateQueue failed: ' + e));
     }
 
@@ -170,102 +193,178 @@ export class WallhubManager {
             this.loopSourceId = null;
         }
 
-        this.removeBackgroundMenu();
+        if (this.indicator) {
+            this.indicator.destroy();
+            this.indicator = null;
+        }
+        this._previewItem = null;
+        this._controlItem = null;
+
         this.wallpaperQueue = null;
         this.bgSettings = null;
     }
 
-    // Add "Next Wallpaper" item to every monitor's desktop background menu
-    injectBackgroundMenu() {
-        if (this._bgMenuInjected)
-            return;
-        // _addBackgroundMenu is called when a BackgroundManager is created;
-        // hook after the original so the menu already exists.
-        // Store the original method in _injections so that _removeInjection
-        // can restore it on disable; otherwise the injected wrapper would be
-        // deleted and the original lost (breaking background menu on reload).
-        this.ext._injections['_addBackgroundMenu'] = this.ext._injectToFunction(
-            Main.layoutManager,
-            '_addBackgroundMenu',
-            (bgManager) => {
+    // ---- Top-bar indicator ----
+
+    buildIndicator() {
+        this.indicator = new PanelMenu.Button(0.0, 'openbar-wallhub', false);
+
+        const icon = new St.Icon({
+            icon_name: 'preferences-desktop-wallpaper-symbolic',
+            style_class: 'system-status-icon',
+        });
+        this.indicator.add_child(icon);
+
+        // Preview of the next wallpaper (non-interactive).
+        this._previewItem = new PopupMenu.PopupBaseMenuItem({
+            style_class: 'wallhub-preview',
+            reactive: false,
+        });
+        this._previewItem.setSensitive(false);
+
+        // Control bar: previous / next / random.
+        this._controlItem = new PopupMenu.PopupBaseMenuItem({ reactive: false });
+        this.buildControls();
+
+        this.indicator.menu.addMenuItem(this._previewItem);
+        this.indicator.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+        this.indicator.menu.addMenuItem(this._controlItem);
+
+        Main.panel.addToStatusArea('openbar-wallhub', this.indicator, 1, 'right');
+    }
+
+    buildControls() {
+        const makeButton = (iconName, tooltip, callback) => {
+            const btnIcon = new St.Icon({
+                icon_name: iconName,
+                style_class: 'popup-menu-icon',
+                icon_size: 16,
+            });
+            const btn = new St.Button({
+                style_class: 'ci-action-btn',
+                can_focus: true,
+                child: btnIcon,
+                x_expand: true,
+                y_expand: true,
+            });
+            btn.connect('clicked', () => {
                 if (this.ext.disabling)
                     return;
-                try {
-                    // bgManager.backgroundActor._backgroundMenu is set by the original
-                    const menu = bgManager.backgroundActor._backgroundMenu;
-                    if (menu)
-                        this.addBackgroundMenuHandlers(menu);
-                } catch (e) {}
-            }
-        );
-        this._bgMenuInjected = true;
-
-        // Also wire already-existing managers
-        try {
-            Main.layoutManager._bgManagers.forEach(bgManager => {
-                const menu = bgManager.backgroundActor._backgroundMenu;
-                if (menu)
-                    this.addBackgroundMenuHandlers(menu);
+                callback();
             });
-        } catch (e) {}
+            this._controlItem.add_child(btn);
+            return btn;
+        };
+
+        makeButton('media-skip-backward-symbolic', _('Previous'), () => this.prevWallpaper());
+        makeButton('media-skip-forward-symbolic', _('Next'), () => this.nextWallpaper());
+        makeButton('media-playlist-shuffle-symbolic', _('Random'), () => this.randomWallpaper());
     }
 
-    // Attach open-state handlers so the "Next Wallpaper" item is re-added each
-    // time the menu opens. GNOME 50 rebuilds/re-lays-out the background menu on
-    // open, so a one-time add at creation is unreliable there.
-    addBackgroundMenuHandlers(menu) {
-        if (!menu || this._bgMenuMenus.has(menu))
+    // ---- Slideshow navigation ----
+
+    _applyAndPreview(path) {
+        if (!path)
             return;
-        this._bgMenuMenus.add(menu);
-        menu.connect('open-state-changed', (m, isOpen) => {
-            if (isOpen && !this.ext.disabling)
-                this.ensureBackgroundMenuItem(m);
-        });
-        // In case it is already open at inject time
-        if (menu.isOpen)
-            this.ensureBackgroundMenuItem(menu);
+        this.setWallpaper(path)
+            .then(() => this.updatePreview())
+            .catch(e => console.error('Wallhub: setWallpaper failed: ' + e));
     }
 
-    removeBackgroundMenu() {
-        // Restore the original method
-        this.ext._removeInjection(Main.layoutManager, this.ext._injections, '_addBackgroundMenu');
-        this._bgMenuInjected = false;
+    nextWallpaper() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return;
+        this._cursor = (this._cursor + 1) % len;
+        this._applyAndPreview(this.wallpaperQueue[this._cursor]);
+    }
 
-        // Remove the menu items we added
+    prevWallpaper() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return;
+        this._cursor = (this._cursor - 1 + len) % len;
+        this._applyAndPreview(this.wallpaperQueue[this._cursor]);
+    }
+
+    randomWallpaper() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return;
+        this._cursor = Math.floor(Math.random() * len);
+        this._applyAndPreview(this.wallpaperQueue[this._cursor]);
+    }
+
+    // Path that nextWallpaper() would apply.
+    _peekNext() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return null;
+        return this.wallpaperQueue[(this._cursor + 1) % len];
+    }
+
+    // Resolve a previewable image path for a queue entry. Dynamic wallpaper
+    // .xml files have no raster of their own, so extract the first frame.
+    _previewImagePath(path) {
+        if (!path)
+            return null;
+        if (!path.toLowerCase().endsWith('.xml'))
+            return path;
         try {
-            Main.layoutManager._bgManagers.forEach(bgManager => {
-                const menu = bgManager.backgroundActor._backgroundMenu;
-                if (!menu)
-                    return;
-                this.removeBackgroundMenuItem(menu);
-            });
-        } catch (e) {}
-        this._bgMenuMenus = new Set();
+            const [ok, bytes] = Gio.File.new_for_path(path).load_contents(null);
+            if (!ok)
+                return null;
+            const xml = new TextDecoder().decode(bytes);
+            const match = xml.match(/<file>(.*?)<\/file>/) ||
+                xml.match(/<from>(.*?)<\/from>/) ||
+                xml.match(/<filename>(.*?)<\/filename>/);
+            return match ? match[1] : null;
+        } catch (e) {
+            console.warn('Wallhub: could not extract preview frame: ' + e);
+            return null;
+        }
     }
 
-    ensureBackgroundMenuItem(menu) {
-        // Remove any stale "Next Wallpaper" item first (idempotent on reopen)
-        this.removeBackgroundMenuItem(menu);
-        const menuItem = new PopupMenu.PopupMenuItem(_('Next Wallpaper'));
-        menuItem.connect('activate', () => {
-            if (this.ext.disabling)
+    updatePreview() {
+        if (!this._previewItem)
+            return;
+        const next = this._peekNext();
+        const imagePath = this._previewImagePath(next);
+        if (!imagePath) {
+            this._previewItem.hide();
+            return;
+        }
+        try {
+            const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+            const width = Math.round(PREVIEW_WIDTH * scale);
+            const height = Math.round(PREVIEW_HEIGHT * scale);
+            const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(imagePath, width, height);
+            const image = new St.ImageContent();
+            const args = [
+                pixbuf.get_pixels(),
+                pixbuf.get_has_alpha() ? Cogl.PixelFormat.RGBA_8888 : Cogl.PixelFormat.RGB_888,
+                pixbuf.get_width(),
+                pixbuf.get_height(),
+                pixbuf.get_rowstride(),
+            ];
+            if ((this.ext.gnomeVersion || 50) >= 48)
+                args.unshift(global.stage.context.get_backend().get_cogl_context());
+            const ok = image.set_data(...args);
+            if (!ok) {
+                console.warn('Wallhub: failed to build preview image');
+                this._previewItem.hide();
                 return;
-            const wallpaper = this.wallpaperQueue.dequeue();
-            if (wallpaper != null)
-                this.setWallpaper(wallpaper);
-        });
-        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem(null));
-        menu.addMenuItem(menuItem);
+            }
+            this._previewItem.content = image;
+            this._previewItem.set_size(width, height);
+            this._previewItem.show();
+        } catch (e) {
+            console.warn('Wallhub: preview render failed: ' + e);
+            this._previewItem.hide();
+        }
     }
 
-    removeBackgroundMenuItem(menu) {
-        try {
-            menu._getMenuItems().forEach(item => {
-                if (item.label_actor && item.label_actor.text === _('Next Wallpaper'))
-                    menu.box.remove_child(item.actor);
-            });
-        } catch (e) {}
-    }
+    // ---- Timed rotation ----
 
     startLoop() {
         if (this.loopSourceId != null)
@@ -282,19 +381,20 @@ export class WallhubManager {
                 this.loopSourceId = null;
                 return GLib.SOURCE_REMOVE;
             }
-            const wallpaper = this.wallpaperQueue.dequeue();
-            if (wallpaper != null) {
-                this.setWallpaper(wallpaper)
-                    .catch(e => console.error('Wallhub: setWallpaper failed: ' + e));
-                return GLib.SOURCE_CONTINUE;
+            if (this.wallpaperQueue.length === 0) {
+                this.loopSourceId = null;
+                return GLib.SOURCE_REMOVE;
             }
-            this.loopSourceId = null;
-            return GLib.SOURCE_REMOVE;
+            this.nextWallpaper();
+            return GLib.SOURCE_CONTINUE;
         });
     }
 
+    // ---- Source scanning ----
+
     async updateQueue() {
         this.wallpaperQueue.clear();
+        this._cursor = -1;
         if (!this.wallpaperPaths || this.wallpaperPaths.length === 0)
             return;
 
@@ -376,11 +476,15 @@ export class WallhubManager {
         this.directoryMonitors.push(monitor);
     }
 
+    // ---- Apply wallpaper ----
+
     async setWallpaper(path) {
         if (!path) {
             console.error('Wallhub: setWallpaper called with empty path');
             return;
         }
+        // Normalize to a proper file:// URI (avoids //// from naive concatenation).
+        const toUri = p => GLib.filename_to_uri(p, null);
         const extension = path.split('.').pop().toLowerCase();
         if (extension === 'xml') {
             // GNOME-native dynamic wallpapers use the <background> schema and are
@@ -406,8 +510,8 @@ export class WallhubManager {
             if (xml.includes('<background>')) {
                 // GNOME native dynamic wallpaper: set directly and let GNOME
                 // handle the time-based transitions.
-                this.bgSettings.set_string('picture-uri', 'file://' + path);
-                this.bgSettings.set_string('picture-uri-dark', 'file://' + path);
+                this.bgSettings.set_string('picture-uri', toUri(path));
+                this.bgSettings.set_string('picture-uri-dark', toUri(path));
                 return;
             }
             const dwpConfig = parseDynamicWallpaper(xml);
@@ -415,14 +519,14 @@ export class WallhubManager {
                 console.error('Wallhub: Failed to parse dynamic wallpaper: ' + path);
                 return;
             }
-            this.bgSettings.set_string('picture-uri', 'file:///' + dwpConfig.lightBg);
-            this.bgSettings.set_string('picture-uri-dark', 'file:///' + dwpConfig.darkBg);
+            this.bgSettings.set_string('picture-uri', toUri(dwpConfig.lightBg));
+            this.bgSettings.set_string('picture-uri-dark', toUri(dwpConfig.darkBg));
         } else if (extension === 'svg') {
             // GNOME background does not support SVG; skip to avoid a broken set.
             console.warn('Wallhub: skipping unsupported SVG wallpaper: ' + path);
         } else {
-            this.bgSettings.set_string('picture-uri', 'file:///' + path);
-            this.bgSettings.set_string('picture-uri-dark', 'file:///' + path);
+            this.bgSettings.set_string('picture-uri', toUri(path));
+            this.bgSettings.set_string('picture-uri-dark', toUri(path));
         }
     }
 }
