@@ -910,6 +910,34 @@ export class DedicatedWorkspaceGuard {
         return this._owners ? (this._owners.get(workspace) ?? null) : null;
     }
 
+    // A window living in a dedicated workspace must not be draggable in the
+    // overview: macOS treats a fullscreen Space and its window as one unit, so
+    // there is nothing to drag out. WindowPreview stores itself on the
+    // MetaWindow as _delegate and owns the _draggable from DND.makeDraggable;
+    // toggling its `enabled` flag is the only seam that prevents the drag from
+    // starting at all (the 'drag-begin' signal fires too late to cancel).
+    setWindowDraggable(win, draggable) {
+        try {
+            const preview = win?._delegate;
+            const dnd = preview?._draggable;
+            if (dnd && typeof dnd === 'object')
+                dnd.enabled = draggable;
+        } catch (e) {
+            console.warn('Open Bar: could not toggle window dragging: ' + e.message);
+        }
+    }
+
+    // Apply the current dedicated state to a window's preview, if any.
+    _syncWindowDraggable(win) {
+        try {
+            if (!win)
+                return;
+            const ws = win.get_workspace();
+            const blocked = this.isDedicated(ws) && this._ownerOf(ws) === win;
+            this.setWindowDraggable(win, !blocked);
+        } catch (e) {}
+    }
+
     // Drag & drop rejection: patch the thumbnail box once we can reach it, so a
     // drop onto a dedicated workspace is refused outright.
     // Reject drops onto a dedicated workspace.
@@ -1149,6 +1177,10 @@ export class DedicatedWorkspaceGuard {
                     this._refreshThumbnails();
                     for (const t of this._allThumbnails())
                         this._patchThumbnailDnD(t);
+                    // WindowPreviews are built when the overview opens, so the
+                    // draggable flag has to be applied here too.
+                    for (const { win } of (this._globalWindowIds ?? []))
+                        this._syncWindowDraggable(win);
                 });
             }
         } catch (e) {}
@@ -1501,6 +1533,7 @@ export class FullscreenEmptyWorkspace {
                 this._guard.add(dedicatedWs);
                 this._guard.setOwner(dedicatedWs, win);
                 this._guard.installDropGuard();
+                this._guard.setWindowDraggable(win, false);
             }
             this._guard.runInternal(() => win.change_workspace(dedicatedWs));
 
@@ -1581,6 +1614,7 @@ export class FullscreenEmptyWorkspace {
                 this._guard.setOwner(dedicatedWs, null);
                 this._guard.remove(dedicatedWs);
             }
+            this._guard.setWindowDraggable(win, true);
 
             // Remove the workspace we created for this window. Do not rely on
             // mutter's automatic cleanup: it only reliably removes trailing
