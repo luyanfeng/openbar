@@ -396,14 +396,14 @@ class OpenbarPrefs {
         // Needed as the transient parent of the conflict confirmation dialog.
         this._window = window;
 
+        // Start from the monitor size so the window opens at a sensible size,
+        // but do not pin it: set_size_request would freeze the minimum, so the
+        // window could neither be resized nor fit its content.
         let mWidth = this._settings.get_int('monitor-width');
         let mHeight = this._settings.get_int('monitor-height');
 
-        window.default_width = 820; // 825
-        window.default_height = 940; //910
-        let reqWidth = mWidth >= 1000? 815: mWidth - 100;
-        let reqHeight = mHeight >= 1000? 935: mHeight - 100;
-        window.set_size_request(reqWidth, reqHeight); // 815, 885
+        window.default_width = Math.min(1100, Math.max(820, mWidth - 200));
+        window.default_height = Math.min(1000, Math.max(700, mHeight - 200));
 
         window.paletteButtons = [];
         window.colorButtons = [];
@@ -2875,14 +2875,15 @@ class OpenbarPrefs {
         // Build Wallhub wallpaper slideshow page (ported from wallhub@sakithb.github.io)
         this.buildWallhubPage(window);
 
-        // Build extension/shell log viewer page
-        this.buildLogsPage(window);
-
         // Build the integrated small extensions page
         this.buildExtensionsPage(window);
 
         // Build the clipboard history page
         this.buildClipboardPage(window);
+
+        // Build extension/shell log viewer page last: it is a diagnostic tool, so
+        // it belongs at the far right of the tab bar.
+        this.buildLogsPage(window);
 
         /////////////////////////////////////////////////////////////////////
 
