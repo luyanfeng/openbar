@@ -2856,6 +2856,9 @@ class OpenbarPrefs {
         // Build extension/shell log viewer page
         this.buildLogsPage(window);
 
+        // Build the integrated small extensions page
+        this.buildExtensionsPage(window);
+
         /////////////////////////////////////////////////////////////////////
 
         window.connect('unrealize', () => {
@@ -3288,6 +3291,180 @@ class OpenbarPrefs {
             console.warn(`Open Bar: GetExtensionErrors(${uuid}) failed: ${e.message}`);
             return [];
         }
+    }
+
+    // ---- Integrated small extensions ----
+
+    buildExtensionsPage(window) {
+        const page = new Adw.PreferencesPage({
+            name: 'extensions',
+            title: _('Single Features'),
+            icon_name: 'preferences-other-symbolic',
+        });
+        window.add(page);
+
+        // --- Battery indicator ---
+        const batteryGroup = new Adw.PreferencesGroup({
+            title: _('Battery Indicator'),
+            description: _('Hide the battery/power indicator when it is charging or full.'),
+        });
+        page.add(batteryGroup);
+
+        const batterySwitch = new Adw.SwitchRow({ title: _('Auto-hide Battery') });
+        this._settings.bind('battery-autohide', batterySwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        batteryGroup.add(batterySwitch);
+
+        const batteryLevel = new Adw.SpinRow({
+            title: _('Hide at or above'),
+            adjustment: new Gtk.Adjustment({
+                lower: 1, upper: 100, step_increment: 1, page_increment: 10,
+                value: this._settings.get_int('battery-hide-on'),
+            }),
+        });
+        this._settings.bind('battery-hide-on', batteryLevel, 'value',
+            Gio.SettingsBindFlags.DEFAULT);
+        batteryGroup.add(batteryLevel);
+
+        const batteryAlways = new Adw.SwitchRow({
+            title: _('Hide on any battery state'),
+            subtitle: _('Ignore whether it is discharging.'),
+        });
+        this._settings.bind('battery-hide-always', batteryAlways, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        batteryGroup.add(batteryAlways);
+
+        // --- Status area spacing ---
+        const spacingGroup = new Adw.PreferencesGroup({
+            title: _('Status Area Spacing'),
+            description: _('Distance between the indicators on the right of the top bar.'),
+        });
+        page.add(spacingGroup);
+
+        const spacingSwitch = new Adw.SwitchRow({ title: _('Override Spacing') });
+        this._settings.bind('status-spacing-enabled', spacingSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        spacingGroup.add(spacingSwitch);
+
+        const spacingValue = new Adw.SpinRow({
+            title: _('Horizontal Padding (px)'),
+            adjustment: new Gtk.Adjustment({
+                lower: 0, upper: 40, step_increment: 1, page_increment: 5,
+                value: this._settings.get_int('status-spacing'),
+            }),
+        });
+        this._settings.bind('status-spacing', spacingValue, 'value',
+            Gio.SettingsBindFlags.DEFAULT);
+        spacingGroup.add(spacingValue);
+
+        // --- Finger gestures ---
+        const gestureGroup = new Adw.PreferencesGroup({
+            title: _('Finger Gestures'),
+            description: _('Use a four-finger touchpad swipe to change workspace.'),
+        });
+        page.add(gestureGroup);
+
+        const gestureSwitch = new Adw.SwitchRow({ title: _('Four-finger Workspace Swipe') });
+        this._settings.bind('swap-finger-gestures', gestureSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        gestureGroup.add(gestureSwitch);
+
+        // --- Drive menu ---
+        const driveGroup = new Adw.PreferencesGroup({
+            title: _('Removable Drives'),
+            description: _('Show a top bar menu for removable drives and unmounting.'),
+        });
+        page.add(driveGroup);
+
+        const driveSwitch = new Adw.SwitchRow({ title: _('Show Drive Menu') });
+        this._settings.bind('drive-menu-enabled', driveSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        driveGroup.add(driveSwitch);
+
+        // --- Auto move windows ---
+        const autoMoveGroup = new Adw.PreferencesGroup({
+            title: _('Auto Move Windows'),
+            description: _('Send an application to a workspace whenever it opens a window.'),
+        });
+        page.add(autoMoveGroup);
+
+        const autoMoveSwitch = new Adw.SwitchRow({ title: _('Enable Auto Move') });
+        this._settings.bind('auto-move-windows', autoMoveSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        autoMoveGroup.add(autoMoveSwitch);
+
+        // Rule list: "app-id:workspace"
+        this._autoMoveRows = [];
+        this._autoMoveRulesGroup = autoMoveGroup;
+
+        const refreshRules = () => {
+            try {
+                this._autoMoveRows.forEach(r => autoMoveGroup.remove(r));
+                this._autoMoveRows = [];
+                const rules = this._settings.get_strv('auto-move-list');
+                rules.forEach((rule, index) => {
+                    const [appId, ws] = rule.split(':');
+                    const row = new Adw.ActionRow({
+                        title: appId || _('(invalid)'),
+                        subtitle: _('Workspace %s').format(ws ?? '?'),
+                    });
+                    const removeBtn = new Gtk.Button({
+                        icon_name: 'user-trash-symbolic',
+                        valign: Gtk.Align.CENTER,
+                        css_classes: ['flat', 'circular'],
+                    });
+                    removeBtn.connect('clicked', () => {
+                        const current = this._settings.get_strv('auto-move-list');
+                        current.splice(index, 1);
+                        this._settings.set_strv('auto-move-list', current);
+                        refreshRules();
+                    });
+                    row.add_suffix(removeBtn);
+                    autoMoveGroup.add(row);
+                    this._autoMoveRows.push(row);
+                });
+            } catch (e) {
+                console.warn('Open Bar: could not render auto-move rules: ' + e.message);
+            }
+        };
+
+        const addRuleBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 8,
+        });
+        const appEntry = new Gtk.Entry({
+            placeholder_text: _('Application id (e.g. org.gnome.Nautilus.desktop)'),
+            hexpand: true,
+        });
+        const wsAdjustment = new Gtk.Adjustment({
+            lower: 1, upper: 36, step_increment: 1, page_increment: 1, value: 1,
+        });
+        const wsSpin = new Gtk.SpinButton({ adjustment: wsAdjustment, valign: Gtk.Align.CENTER });
+        const addRuleBtn = new Gtk.Button({
+            label: _('Add'),
+            css_classes: ['pill'],
+            valign: Gtk.Align.CENTER,
+        });
+        addRuleBtn.connect('clicked', () => {
+            const appId = appEntry.get_text().trim();
+            if (!appId)
+                return;
+            const workspace = Math.max(1, Math.min(36, wsSpin.get_value_as_int()));
+            const current = this._settings.get_strv('auto-move-list');
+            // Replace an existing rule for the same app.
+            const filtered = current.filter(r => r.split(':')[0] !== appId);
+            filtered.push(`${appId}:${workspace}`);
+            this._settings.set_strv('auto-move-list', filtered);
+            appEntry.set_text('');
+            wsSpin.set_value(1);
+            refreshRules();
+        });
+        addRuleBox.append(appEntry);
+        addRuleBox.append(wsSpin);
+        addRuleBox.append(addRuleBtn);
+        autoMoveGroup.add(addRuleBox);
+
+        refreshRules();
     }
 
     resetSettingsDialog(window){

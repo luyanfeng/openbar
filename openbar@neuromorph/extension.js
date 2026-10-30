@@ -36,6 +36,7 @@ import * as Quantize from './quantize.js';
 import * as AutoThemes from './autothemes.js';
 import * as StyleSheets from './stylesheets.js';
 import { WallhubManager } from './wallhub.js';
+import { IntegrationsManager } from './integrations.js';
 
 Gio._promisify(Gio.File.prototype, "copy_async", "copy_finish");
 
@@ -1646,6 +1647,11 @@ export default class Openbar extends Extension {
         // Enable Wallhub wallpaper slideshow engine (ported from wallhub@sakithb.github.io)
         this.wallhub = new WallhubManager(this);
         this.wallhub.enable();
+
+        // Enable the small integrated extensions (battery autohide, status
+        // spacing, auto-move windows, finger gestures, drive menu)
+        this.integrations = new IntegrationsManager(this);
+        this.integrations.enable();
     }
 
     disable() {
@@ -1803,6 +1809,15 @@ export default class Openbar extends Extension {
             if(this.wallhub) {
                 this.wallhub.disable();
                 this.wallhub = null;
+            }
+        }
+        catch(e) {}
+
+        // Disable the integrated small extensions
+        try {
+            if(this.integrations) {
+                this.integrations.disable();
+                this.integrations = null;
             }
         }
         catch(e) {}

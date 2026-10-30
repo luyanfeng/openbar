@@ -1465,5 +1465,52 @@
       <summary>Pause the wallpaper slideshow</summary>
       <description>When true, the automatic wallpaper rotation is stopped. Manual previous/next/random still work.</description>
     </key>
+
+    <!-- Integrated small extensions -->
+    <key type="b" name="battery-autohide">
+      <default>false</default>
+      <summary>Auto-hide the battery indicator</summary>
+      <description>Hide the power/battery indicator under the configured conditions.</description>
+    </key>
+    <key type="i" name="battery-hide-on">
+      <default>100</default>
+      <summary>Battery level to hide at</summary>
+      <description>Hide the indicator when the battery percentage is at or above this value.</description>
+    </key>
+    <key type="b" name="battery-hide-always">
+      <default>false</default>
+      <summary>Hide on any battery state</summary>
+      <description>Ignore the charging state and hide whenever the level threshold is met.</description>
+    </key>
+    <key type="b" name="status-spacing-enabled">
+      <default>false</default>
+      <summary>Override status area spacing</summary>
+      <description>Apply a custom horizontal padding to the status area indicators.</description>
+    </key>
+    <key type="i" name="status-spacing">
+      <default>6</default>
+      <summary>Status area horizontal padding</summary>
+      <description>Horizontal padding in pixels between status area indicators.</description>
+    </key>
+    <key type="b" name="auto-move-windows">
+      <default>false</default>
+      <summary>Auto move windows</summary>
+      <description>Move application windows to a configured workspace when they open.</description>
+    </key>
+    <key type="as" name="auto-move-list">
+      <default>[]</default>
+      <summary>Application to workspace list</summary>
+      <description>Entries of the form "desktop-file-id:workspace-number".</description>
+    </key>
+    <key type="b" name="swap-finger-gestures">
+      <default>false</default>
+      <summary>Use four-finger workspace swipes</summary>
+      <description>Treat four-finger touchpad swipes as the three-finger workspace gesture.</description>
+    </key>
+    <key type="b" name="drive-menu-enabled">
+      <default>false</default>
+      <summary>Show the removable drive menu</summary>
+      <description>Add a status area menu listing removable drives and allowing unmount.</description>
+    </key>
   </schema>
 </schemalist>
