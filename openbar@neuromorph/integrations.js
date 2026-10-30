@@ -660,7 +660,8 @@ export class DedicatedWorkspaceGuard {
         // Marks our own moves so the guards let them through.
         this._internalMoves = 0;
         this._injectionManager = null;
-        this._workspaceChangedId = 0;
+        this._winCreatedId = 0;
+        this._globalWindowIds = [];
         this._owners = new Map();
         this._thumbnailsChangedId = 0;
         this._enabled = false;
@@ -683,8 +684,8 @@ export class DedicatedWorkspaceGuard {
         } catch (e) {
             console.warn('Open Bar: could not restore workspace methods: ' + e.message);
         }
+        this._unwatchWindows();
         this._injectionManager = null;
-        this._workspaceChangedId = 0;
         this._owners = new Map();
         try {
             if (this._thumbnailsChangedId)
@@ -728,19 +729,56 @@ export class DedicatedWorkspaceGuard {
     _install() {
         // Meta.Window.prototype comes from GObject introspection (assigning to it
         // is not reliable) and ES module exports like
-        // Main.moveWindowToMonitorAndWorkspace are read-only bindings. The
-        // dependable hook is Meta.Display's 'workspace-changed' signal, which
-        // fires after any move - keyboard, overview drag, or another extension.
+        // Main.moveWindowToMonitorAndWorkspace are read-only bindings.
+        //
+        // 'workspace-changed' is a signal on Meta.Window (not on Meta.Display -
+        // MetaDisplay has no such signal). Every window receives it whenever it
+        // is moved, whatever the origin: keyboard, overview drag, or another
+        // extension. We therefore connect per window, via window-created plus a
+        // pass over the windows that already exist.
         try {
-            this._workspaceChangedId = global.display.connect(
-                'workspace-changed', (display, win) => {
-                    if (this._internalMoves > 0 || !this._enabled)
-                        return;
-                    this._evict(win);
-                });
+            this._globalWindowIds = [];
+            this._winCreatedId = global.display.connect('window-created',
+                (display, win) => this._watchWindow(win));
+
+            for (const actor of global.get_window_actors()) {
+                const win = actor.get_meta_window();
+                if (win)
+                    this._watchWindow(win);
+            }
         } catch (e) {
-            console.warn('Open Bar: could not watch workspace-changed: ' + e.message);
+            console.warn('Open Bar: could not watch window moves: ' + e.message);
         }
+    }
+
+    // Attach the per-window move listener exactly once.
+    _watchWindow(win) {
+        try {
+            if (!win || win._openbarWorkspaceWatched)
+                return;
+            win._openbarWorkspaceWatched = true;
+            const id = win.connect('workspace-changed', () => {
+                if (this._internalMoves > 0 || !this._enabled)
+                    return;
+                this._evict(win);
+            });
+            this._globalWindowIds.push({ win, id });
+        } catch (e) {
+            // Not every Meta.Window exposes the signal; ignore those.
+        }
+    }
+
+    _unwatchWindows() {
+        for (const { win, id } of (this._globalWindowIds ?? [])) {
+            try { win.disconnect(id); } catch (e) {}
+            try { delete win._openbarWorkspaceWatched; } catch (e) {}
+        }
+        this._globalWindowIds = [];
+        try {
+            if (this._winCreatedId)
+                global.display.disconnect(this._winCreatedId);
+        } catch (e) {}
+        this._winCreatedId = 0;
     }
 
     // A window landed on a dedicated workspace it does not own: move it back out.
