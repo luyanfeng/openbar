@@ -3665,7 +3665,7 @@ class OpenbarPrefs {
                         title: _('No rules yet'),
                         subtitle: _('Add one below.'),
                     });
-                    empty.setSensitive(false);
+                    empty.set_sensitive(false);
                     autoMoveExp.add_row(empty);
                     this._autoMoveRows.push(empty);
                 }
