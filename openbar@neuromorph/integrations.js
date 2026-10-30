@@ -920,11 +920,15 @@ export class DedicatedWorkspaceGuard {
         try {
             const preview = win?._delegate;
             const dnd = preview?._draggable;
-            console.log(`Open Bar[drag]: win=${win?.get_id?.()} ` +
-                `delegate=${preview?.constructor?.name ?? 'none'} ` +
-                `dnd=${!!dnd} want=${draggable} ` +
-                `keys=${dnd ? Object.keys(dnd).slice(0, 6).join(',') : '-'}`);
-            if (dnd && typeof dnd === 'object')
+            if (!dnd)
+                return;
+            // _Draggable.enabled is not what gates the drag: the gesture is
+            // St.DndStartGesture stored in _dndGesture, and that is the action
+            // whose enabled flag decides whether a drag can start.
+            const gesture = dnd._dndGesture;
+            if (gesture && 'enabled' in gesture)
+                gesture.enabled = draggable;
+            else
                 dnd.enabled = draggable;
         } catch (e) {
             console.warn('Open Bar: could not toggle window dragging: ' + e.message);
