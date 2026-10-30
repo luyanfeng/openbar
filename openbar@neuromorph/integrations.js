@@ -814,27 +814,21 @@ export class FullscreenEmptyWorkspace {
                     return;
                 if (free === -1)
                     return;
-                // Remember where the window came from so it can be put back on
-                // exactly that workspace (not merely merged into whichever
-                // workspace happens to hold windows).
-                // Record the origin BEFORE reordering: reorder_workspace changes
-                // the index, and the object may be merged away later, so both
-                // the object and its index at this moment are captured.
+                // Record the origin before touching anything.
                 const originRecord = this._rememberOrigin(win);
-                if (current < free) {
-                    manager.reorder_workspace(manager.get_workspace_by_index(free), current);
-                    others.forEach(w => w.change_workspace_by_index(current, false));
-                } else if (current > free) {
-                    manager.reorder_workspace(manager.get_workspace_by_index(current), free);
-                    manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
-                    others.forEach(w => w.change_workspace_by_index(current, false));
-                } else {
+                // Move the window itself onto the empty workspace. Reordering
+                // earlier only moved the whole workspace around and left the
+                // window on its origin workspace, which is why the feature
+                // appeared to do nothing.
+                const targetWs = manager.get_workspace_by_index(free);
+                if (!targetWs)
                     return;
-                }
+                win.change_workspace(targetWs);
                 this._maximized.set(win.get_id(), originRecord);
-                // Follow the window so the user actually sees the fullscreen
-                // window instead of staying on the workspace it left. Upstream
-                // leaves the view behind, which looks like "nothing happened".
+                console.log(`Open Bar[place]: originIdx=${originRecord?.index} ` +
+                    `current=${current} free=${free} ` +
+                    `winNowIdx=${win.get_workspace()?.index()}`);
+                // Follow the window so the user sees the fullscreen window.
                 try {
                     const winWs = win.get_workspace();
                     if (winWs && winWs.index() !== manager.get_active_workspace_index())
@@ -845,24 +839,15 @@ export class FullscreenEmptyWorkspace {
             } else {
                 if (free === -1)
                     return;
-                const currentList = win.get_workspace().list_windows()
-                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
-                const freeList = manager.get_workspace_by_index(free).list_windows()
-                    .filter(w => w !== win && !w.is_always_on_all_workspaces());
                 const originRecord2 = this._rememberOrigin(win);
-                if (current < free) {
-                    manager.reorder_workspace(manager.get_workspace_by_index(free), current);
-                    manager.reorder_workspace(manager.get_workspace_by_index(current + 1), free);
-                    currentList.forEach(w => w.change_workspace_by_index(current, false));
-                    freeList.forEach(w => w.change_workspace_by_index(free, false));
-                } else if (current > free) {
-                    manager.reorder_workspace(manager.get_workspace_by_index(current), free);
-                    manager.reorder_workspace(manager.get_workspace_by_index(free + 1), current);
-                    currentList.forEach(w => w.change_workspace_by_index(current, false));
-                    freeList.forEach(w => w.change_workspace_by_index(free, false));
-                } else {
+                // Move the window itself to the empty workspace, same as the
+                // primary-only path.
+                const targetWs = manager.get_workspace_by_index(free);
+                if (!targetWs) {
+                    this._maximized.set(win.get_id(), originRecord2);
                     return;
                 }
+                win.change_workspace(targetWs);
                 this._maximized.set(win.get_id(), originRecord2);
             }
         } catch (e) {
@@ -897,9 +882,10 @@ export class FullscreenEmptyWorkspace {
 
             const manager = win.get_display().get_workspace_manager();
 
-            // Primary path: move the window back to its original workspace.
-            // Prefer the recorded object; fall back to the recorded index when
-            // the object no longer resolves (dynamic workspaces can merge it).
+            // Move the window back to the workspace it came from. _place() no
+            // longer reorders workspaces, so both the object and its index stay
+            // stable; the index is only a fallback if the object was merged away
+            // by dynamic-workspace management.
             const originWs = record?.ws;
             const originIndex = record?.index;
             if (originWs || Number.isInteger(originIndex)) {
@@ -921,11 +907,10 @@ export class FullscreenEmptyWorkspace {
                     } catch (e) {
                         console.warn('Open Bar: could not move window back: ' + e.message);
                     }
-                    // Make sure the target workspace is the visible one, so the
-                    // user sees the window where it came from.
+                    console.log(`Open Bar[restore]: originIdx=${originIndex} ` +
+                        `targetIdx=${target.index()} winIdx=${win.get_workspace()?.index()}`);
                     try {
-                        const active = manager.get_active_workspace_index();
-                        if (target.index() !== active)
+                        if (target.index() !== manager.get_active_workspace_index())
                             target.activate(global.get_current_time());
                     } catch (e) {}
                     return;
@@ -979,6 +964,8 @@ export class FullscreenEmptyWorkspace {
         if (!this._isNormal(win))
             return;
         const id = win.get_id();
+        console.log(`Open Bar[sc]: id=${id} change=${change} max=${win.is_maximized()} ` +
+            `fs=${win.fullscreen} tracked=${this._maximized.has(id)}`);
         if ((this._maximizedToo() && change === Meta.SizeChange.MAXIMIZE && win.is_maximized()) ||
             change === Meta.SizeChange.FULLSCREEN) {
             this._sizeChange.set(id, 'place');
@@ -989,6 +976,7 @@ export class FullscreenEmptyWorkspace {
         if ((this._maximizedToo() && change === Meta.SizeChange.UNMAXIMIZE && wasFullMax) ||
             (change === Meta.SizeChange.UNFULLSCREEN && (this._maximizedToo() ? !win.is_maximized() : true))) {
             this._sizeChange.set(id, 'back');
+            console.log(`Open Bar[sc]: id=${id} -> back`);
         }
     }
 
