@@ -658,7 +658,6 @@ export class DriveMenu {
 // ---------------------------------------------------------------------------
 export class DedicatedWorkspaceGuard {
     constructor() {
-        this._originalBeginWindowDrag = null;
         this._dedicated = new Set();
         // Marks our own moves so the guards let them through.
         this._internalMoves = 0;
@@ -693,16 +692,6 @@ export class DedicatedWorkspaceGuard {
             console.warn('Open Bar: could not restore workspace methods: ' + e.message);
         }
         this._unwatchWindows();
-        try {
-            if (this._overviewProto && this._originalBeginWindowDrag)
-                this._overviewProto.beginWindowDrag = this._originalBeginWindowDrag;
-            if (this._overviewProto) {
-                delete this._overviewProto._isDedicatedFor;
-                delete this._overviewProto._hintBlockedMove;
-            }
-        } catch (e) {}
-        this._overviewProto = null;
-        this._originalBeginWindowDrag = null;
         this._injectionManager = null;
         this._owners = new Map();
         try {
@@ -774,41 +763,7 @@ export class DedicatedWorkspaceGuard {
             console.warn('Open Bar: could not watch window moves: ' + e.message);
         }
 
-        // Refuse a drag that starts on a window living in a dedicated
-        // workspace. WindowPreview objects are recreated whenever the overview
-        // opens, so disabling _draggable on them is futile - the instance we
-        // touched is gone by the time the user drags. Every preview calls
-        // Main.overview.beginWindowDrag(metaWindow) on drag start, which
-        // survives recreation and is the reliable seam.
-        try {
-            const proto = Object.getPrototypeOf(Main.overview);
-            this._overviewProto = proto;
-            this._originalBeginWindowDrag = proto.beginWindowDrag;
-            console.log(`Open Bar[drag]: patching beginWindowDrag on ` +
-                `${proto?.constructor?.name ?? '?'} ` +
-                `(own=${Object.prototype.hasOwnProperty.call(Main.overview, 'beginWindowDrag')}) ` +
-                `type=${typeof this._originalBeginWindowDrag}`);
-            proto.beginWindowDrag = function (metaWindow) {
-                try {
-                    const ws = metaWindow?.get_workspace?.();
-                    if (ws && this._isDedicatedFor(ws, metaWindow)) {
-                        this._hintBlockedMove();
-                        return;
-                    }
-                } catch (e) {}
-                return this._originalBeginWindowDrag?.call(this, metaWindow);
-            };
-            // Bind helpers the patched method needs.
-            proto._isDedicatedFor = (ws, win) =>
-                this.isDedicated(ws) && this._ownerOf(ws) === win;
-            proto._hintBlockedMove = () =>
-                this.showMessage(
-                    _('A fullscreen window cannot be moved to another workspace. ' +
-                      'Leave fullscreen first.'));
-        } catch (e) {
-            console.warn('Open Bar: could not patch beginWindowDrag: ' + e.message);
-        }
-    }
+  }
 
     // Attach the per-window move listener exactly once.
     _watchWindow(win) {
@@ -962,135 +917,6 @@ export class DedicatedWorkspaceGuard {
     // MetaWindow as _delegate and owns the _draggable from DND.makeDraggable;
     // toggling its `enabled` flag is the only seam that prevents the drag from
     // starting at all (the 'drag-begin' signal fires too late to cancel).
-    setWindowDraggable(win, draggable) {
-        try {
-            const preview = win?._delegate;
-            const dnd = preview?._draggable;
-            if (!dnd) {
-                console.log(`Open Bar[drag]: win=${win?.get_id?.()} no _draggable ` +
-                    `(delegate=${preview?.constructor?.name ?? 'none'})`);
-                return;
-            }
-
-            const gesture = dnd._dndGesture;
-            const actor = dnd.actor ?? preview;
-
-            // Belt and braces: disabling the action is the documented way, and
-            // removing it from the actor guarantees the gesture cannot fire even
-            // if something re-enables it. The action object is kept so it can be
-            // added back on restore.
-            if (gesture) {
-                gesture.enabled = draggable;
-                if (!draggable) {
-                    try {
-                        actor?.remove_action?.(gesture);
-                        dnd._openbarGestureRemoved = true;
-                    } catch (e) {}
-                } else if (dnd._openbarGestureRemoved) {
-                    try {
-                        actor?.add_action?.(gesture);
-                        dnd._openbarGestureRemoved = false;
-                    } catch (e) {}
-                }
-            } else {
-                dnd.enabled = draggable;
-            }
-
-            console.log(`Open Bar[drag]: win=${win?.get_id?.()} want=${draggable} ` +
-                `gesture=${!!gesture} gestureEnabled=${gesture?.enabled} ` +
-                `removed=${!!dnd._openbarGestureRemoved} ` +
-                `actor=${actor?.constructor?.name ?? '-'}`);
-        } catch (e) {
-            console.warn('Open Bar: could not toggle window dragging: ' + e.message);
-        }
-    }
-
-    // Apply the current dedicated state to a window's preview, if any.
-    _syncWindowDraggable(win) {
-        try {
-            if (!win)
-                return;
-            const ws = win.get_workspace();
-            const blocked = this.isDedicated(ws) && this._ownerOf(ws) === win;
-            this.setWindowDraggable(win, !blocked);
-        } catch (e) {}
-    }
-
-    // Drag & drop rejection: patch the thumbnail box once we can reach it, so a
-    // drop onto a dedicated workspace is refused outright.
-    // Reject drops onto a dedicated workspace.
-    //
-    // ThumbnailsBox.acceptDrop decides which thumbnail receives the drop via
-    // its own _dropWorkspace index, then delegates to that thumbnail's
-    // acceptDropInternal. Patching the box's acceptDrop is therefore the right
-    // seam: WorkspaceThumbnail.acceptDropInternal has no idea which workspace
-    // owns the box-level drop target.
-    installDropGuard() {
-        try {
-            for (const thumb of this._allThumbnails())
-                this._patchThumbnailDnD(thumb);
-
-            // Thumbnails are rebuilt when workspaces change; re-patch then.
-            try {
-                if (!this._thumbnailsRebuiltId) {
-                    this._thumbnailsRebuiltId = global.workspace_manager.connect(
-                        'notify::n-workspaces', () => {
-                            this._refreshThumbnails();
-                            for (const t of this._allThumbnails())
-                                this._patchThumbnailDnD(t);
-                        });
-                }
-            } catch (e) {}
-        } catch (e) {
-            console.warn('Open Bar: could not install drop guard: ' + e.message);
-        }
-    }
-
-    // Patch one WorkspaceThumbnail so dragging a foreign window over a
-    // dedicated workspace is visibly refused: red outline plus a hint, and the
-    // drop itself is rejected.
-    _patchThumbnailDnD(thumb) {
-        if (!thumb || thumb._openbarDnDPatched)
-            return;
-        if (typeof thumb.handleDragOverInternal !== 'function')
-            return;
-
-        const originalOver = thumb.handleDragOverInternal;
-        thumb.handleDragOverInternal = (source, actor, time) => {
-            try {
-                const isForeign = source?.metaWindow &&
-                    this._ownerOf(thumb.metaWorkspace) !== source.metaWindow;
-                if (this.isDedicated(thumb.metaWorkspace) && isForeign) {
-                    thumb.set_style('opacity: 0.35; border: 2px solid rgba(224,27,36,0.9);');
-                    // NO_DROP turns the pointer into a "forbidden" cursor, so the
-                    // drag never looks like it could land here. CONTINUE would
-                    // show a normal move cursor and only fail on release.
-                    return DND.DragMotionResult.NO_DROP;
-                }
-            } catch (e) {}
-            return originalOver.call(thumb, source, actor, time);
-        };
-
-        const originalDrop = thumb.acceptDropInternal;
-        if (typeof originalDrop === 'function') {
-            thumb.acceptDropInternal = (source, actor, time) => {
-                try {
-                    const isForeign = source?.metaWindow &&
-                        this._ownerOf(thumb.metaWorkspace) !== source.metaWindow;
-                    if (this.isDedicated(thumb.metaWorkspace) && isForeign) {
-                        this.showMessage(
-                            _('This workspace belongs to a fullscreen window and cannot ' +
-                              'receive other windows.'));
-                        return false;
-                    }
-                } catch (e) {}
-                return originalDrop.call(thumb, source, actor, time);
-            };
-        }
-
-        thumb._openbarDnDPatched = true;
-    }
-
     // ---- transient message -------------------------------------------------
 
     // Short, self-dismissing hint near the bottom of the screen. Used when an
@@ -1257,10 +1083,6 @@ export class DedicatedWorkspaceGuard {
                     this._refreshThumbnails();
                     for (const t of this._allThumbnails())
                         this._patchThumbnailDnD(t);
-                    // WindowPreviews are built when the overview opens, so the
-                    // draggable flag has to be applied here too.
-                    for (const { win } of (this._globalWindowIds ?? []))
-                        this._syncWindowDraggable(win);
                 });
             }
         } catch (e) {}
@@ -1613,7 +1435,6 @@ export class FullscreenEmptyWorkspace {
                 this._guard.add(dedicatedWs);
                 this._guard.setOwner(dedicatedWs, win);
                 this._guard.installDropGuard();
-                this._guard.setWindowDraggable(win, false);
             }
             this._guard.runInternal(() => win.change_workspace(dedicatedWs));
 
@@ -1694,7 +1515,6 @@ export class FullscreenEmptyWorkspace {
                 this._guard.setOwner(dedicatedWs, null);
                 this._guard.remove(dedicatedWs);
             }
-            this._guard.setWindowDraggable(win, true);
 
             // Remove the workspace we created for this window. Do not rely on
             // mutter's automatic cleanup: it only reliably removes trailing
