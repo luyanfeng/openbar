@@ -33,6 +33,7 @@ import {
     disableWholeConflict,
 } from './conflicts.js';
 import { buildClipboardPrefsPage } from './clipboardPrefs.js';
+import { BackupPage } from './backupPrefs.js';
 
 // Retain compatibility with GLib < 2.80, which lacks GioUnix (from GSConnect extension)
 let GioUnix;
@@ -2708,74 +2709,13 @@ class OpenbarPrefs {
 
         ////////////////////////////////////////////////////////////////////
 
-        // IMPORT / EXPORT SETTINGS
+        // SETTINGS ADMIN (reset)
 
         let iegrid = this.createGridWidget();
         iegrid.column_spacing = 100;
         iegrid.halign = Gtk.Align.CENTER;
 
         rowbar = 1;
-
-        // Import Export Label
-        let ieLabel = new Gtk.Label({
-            label: `<span size="large">Import / Export Settings</span>\n`,
-            use_markup: true,
-            halign: Gtk.Align.CENTER,
-            css_classes: [titleClass],
-        });
-        iegrid.attach(ieLabel, 1, rowbar, 2, 1);
-
-        rowbar += 1;
-
-        // Add an Import Settings button
-        let importLbl = new Gtk.Label({
-            label: `Import Open Gnome Box Settings from a file`,
-            halign: Gtk.Align.START,
-        });
-        iegrid.attach(importLbl, 1, rowbar, 1, 1);
-
-        // Add button to Import Settings
-        const importLabel = new Gtk.Label({
-            use_markup: true,
-            label: `<span>${_("Import ⚙")}</span>`,
-        });
-        const importBtn = new Gtk.Button({
-            child: importLabel,
-            // margin_top: 35,
-            tooltip_text: _("Import theme-settings from a file"),
-            halign: Gtk.Align.END,
-        });
-        importBtn.connect('clicked', () => {
-            this.importSettings(window);
-        });
-        iegrid.attach(importBtn, 2, rowbar, 1, 1);
-
-        rowbar += 2;
-
-        // Add an Export Settings button
-        let exportLbl = new Gtk.Label({
-            label: `Export Open Gnome Box Settings to a file`,
-            halign: Gtk.Align.START,
-        });
-        iegrid.attach(exportLbl, 1, rowbar, 1, 1);
-
-        // Add button to Export Settings
-        const exportLabel = new Gtk.Label({
-            use_markup: true,
-            label: `<span>${_("Export ⚙")}</span>`,
-        });
-        const exportBtn = new Gtk.Button({
-            child: exportLabel,
-            // margin_top: 35,
-            tooltip_text: _("Export current theme-settings to a file"),
-            halign: Gtk.Align.END,
-        });
-        exportBtn.connect('clicked', () => {
-            this.exportSettings(window);
-        });
-        iegrid.attach(exportBtn, 2, rowbar, 1, 1);
-
-        rowbar += 1;
 
         // Reset Settings Label
         let resetTitleLabel = new Gtk.Label({
@@ -2847,7 +2787,7 @@ class OpenbarPrefs {
         stack.add_titled(dashgrid, 'dashdock',      '⏏   Dash / Dock');
         stack.add_titled(beyondgrid, 'shell',       'ଳ   Gnome Shell');
         stack.add_titled(appgrid, 'gtkflatpak',     '⌘   Gtk / Flatpak Apps');
-        stack.add_titled(iegrid, 'importexport',    '⧉   Settings Admin');
+        stack.add_titled(iegrid, 'settingsadmin',   '⧉   Settings Admin');
 
         scrollWindow.set_child(stack);
 
@@ -2880,6 +2820,10 @@ class OpenbarPrefs {
 
         // Build the clipboard history page
         this.buildClipboardPage(window);
+
+        // Build the settings backup page. Like the log viewer this is a utility
+        // rather than an everyday setting, so it sits at the right of the tab bar.
+        this.buildBackupPage(window);
 
         // Build extension/shell log viewer page last: it is a diagnostic tool, so
         // it belongs at the far right of the tab bar.
@@ -3123,6 +3067,20 @@ class OpenbarPrefs {
             return;
         clamp.maximum_size = 4096;
         clamp.tightening_threshold = 2048;
+    }
+
+    buildBackupPage(window) {
+        this._backupPage = new BackupPage({
+            window,
+            settings: this._settings,
+            gettext: _,
+            onImported: () => {
+                // Imported values only reach the shell once it is told to
+                // reload, and the stylesheet is the visible part.
+                this.triggerStyleReload();
+            },
+        });
+        this._backupPage.build();
     }
 
     buildLogsPage(window) {
@@ -3916,99 +3874,6 @@ class OpenbarPrefs {
         this.quotes = this.quotes.map((quote) => quote.split(/(?=~)/g));
         this.shuffleQuotes();
         // console.log('QUTES: ' + this.quotes);
-    }
-
-    importSettings(window) {
-        let fileChooser = new Gtk.FileChooserDialog({
-            title: _("Import Settings for Open Gnome Box Theme"),
-            action: Gtk.FileChooserAction.OPEN,
-            transient_for: window,
-        });
-        fileChooser.add_button(_("Cancel"), Gtk.ResponseType.CANCEL);
-        fileChooser.add_button(_("Open"), Gtk.ResponseType.ACCEPT);
-
-        fileChooser.connect('response', (self, response) => {
-          if (response == Gtk.ResponseType.ACCEPT) {
-            this._settings.set_boolean('import-export', true);
-            // Save current BG URIs since the one in imported file maybe invalid
-            let bguri = this._settings.get_string('bguri');
-            let darkBguri =  this._settings.get_string('dark-bguri');
-            let lightBguri = this._settings.get_string('light-bguri');
-
-            // Load settings from file
-            let filePath = fileChooser.get_file().get_path();
-            if (filePath && GLib.file_test(filePath, GLib.FileTest.EXISTS)) {
-                let file = Gio.File.new_for_path(filePath);
-
-                let [success_, pid_, stdin, stdout, stderr] =
-                    GLib.spawn_async_with_pipes(
-                        null,
-                        ['dconf', 'load', SCHEMA_PATH],
-                        null,
-                        GLib.SpawnFlags.SEARCH_PATH | GLib.SpawnFlags.DO_NOT_REAP_CHILD,
-                        null
-                    );
-
-                stdin = new GioUnix.OutputStream({fd: stdin, close_fd: true});
-                GLib.close(stdout);
-                GLib.close(stderr);
-
-                stdin.splice(file.read(null),
-                    Gio.OutputStreamSpliceFlags.CLOSE_SOURCE | Gio.OutputStreamSpliceFlags.CLOSE_TARGET, null);
-
-                setTimeout(() => {
-                    // Replace BG URIs with saved URIs
-                    this._settings.set_string('bguri', bguri);
-                    this._settings.set_string('dark-bguri', darkBguri);
-                    this._settings.set_string('light-bguri', lightBguri);
-
-                    // Disable import/export pause to enable style reload
-                    this._settings.set_boolean('import-export', false);
-
-                    // Trigger stylesheet reload to apply new settings
-                    this.triggerStyleReload();
-                }, 3000);
-
-            }
-          }
-          fileChooser.destroy();
-        });
-
-        fileChooser.show();
-    }
-
-    exportSettings(window) {
-        let fileChooser = new Gtk.FileChooserDialog({
-            title: _("Export Settings for Open Gnome Box Theme"),
-            action: Gtk.FileChooserAction.SAVE,
-            transient_for: window,
-        });
-        fileChooser.add_button(_("Cancel"), Gtk.ResponseType.CANCEL);
-        fileChooser.add_button(_("Save"), Gtk.ResponseType.ACCEPT);
-
-        fileChooser.connect('response', (self, response) => {
-          if (response == Gtk.ResponseType.ACCEPT) {
-            this._settings.set_boolean('import-export', true);
-            let filePath = fileChooser.get_file().get_path();
-            const file = Gio.file_new_for_path(filePath);
-            const raw = file.replace(null, false, Gio.FileCreateFlags.NONE, null);
-            const out = Gio.BufferedOutputStream.new_sized(raw, 4096);
-
-            // Settings not updated by user (default) aren't caught by dconf, so force update
-            let keys = this._settings.list_keys();
-            keys.forEach(k => {
-                let value = this._settings.get_value(k);
-                this._settings.set_value(k, value);
-            });
-
-            out.write_all(GLib.spawn_command_line_sync(`dconf dump ${SCHEMA_PATH}`)[1], null);
-            out.close(null);
-            setTimeout(() => {this._settings.set_boolean('import-export', false)}, 1000);
-          }
-          fileChooser.destroy();
-        });
-
-        fileChooser.show();
     }
 
 }

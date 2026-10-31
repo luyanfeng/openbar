@@ -920,3 +920,129 @@ msgstr "存在冲突的扩展已启用"
 msgid "Disable %s"
 msgstr "停用 %s"
 
+msgid "Backup"
+msgstr "备份"
+
+msgid "Export"
+msgstr "导出"
+
+msgid "Import"
+msgstr "导入"
+
+msgid "Save every setting to a JSON file you can keep or copy to another machine."
+msgstr "将全部设置保存为一个 JSON 文件，便于留存或复制到其他机器。"
+
+msgid "Not exported yet"
+msgstr "尚未导出"
+
+msgid "%s settings will be written."
+msgstr "将写入 %s 项设置。"
+
+msgid "Export to folder"
+msgstr "导出到文件夹"
+
+msgid "Choose where to save the file."
+msgstr "选择文件的保存位置。"
+
+msgid "Choose Folder"
+msgstr "选择文件夹"
+
+msgid "Choose a folder for the export"
+msgstr "选择导出文件夹"
+
+msgid "Saved %s"
+msgstr "已保存 %s"
+
+msgid "%s bytes, %s settings"
+msgstr "%s 字节，%s 项设置"
+
+msgid "Exported to %s"
+msgstr "已导出到 %s"
+
+msgid "Export failed"
+msgstr "导出失败"
+
+msgid "Could not write the file"
+msgstr "无法写入文件"
+
+msgid "Load settings from a file. You will see what changes before anything is applied."
+msgstr "从文件加载设置。应用前会先显示将要变更的内容。"
+
+msgid "No file chosen"
+msgstr "尚未选择文件"
+
+msgid "Only settings that differ will be written."
+msgstr "只写入有差异的设置项。"
+
+msgid "Import from file"
+msgstr "从文件导入"
+
+msgid "Pick a backup file exported by this extension."
+msgstr "选择由本扩展导出的备份文件。"
+
+msgid "Choose File"
+msgstr "选择文件"
+
+msgid "Choose a settings file"
+msgstr "选择设置文件"
+
+msgid "Settings files"
+msgstr "设置文件"
+
+msgid "Cannot read this file"
+msgstr "无法读取此文件"
+
+msgid "%s of %s settings differ"
+msgstr "%s / %s 项设置存在差异"
+
+msgid "Import these settings?"
+msgstr "导入这些设置？"
+
+msgid "Nothing would change: this file matches the current settings."
+msgstr "不会有任何变更：该文件与当前设置一致。"
+
+msgid "%s settings will be replaced."
+msgstr "将替换 %s 项设置。"
+
+msgid "%s already match and are skipped."
+msgstr "%s 项已一致，将跳过。"
+
+msgid "%s settings in the file are not known to this version and will be ignored:"
+msgstr "文件中有 %s 项设置当前版本无法识别，将被忽略："
+
+msgid "%s values could not be read and will be skipped:"
+msgstr "%s 项值无法解析，将被跳过："
+
+msgid "Imported %s"
+msgstr "已导入 %s"
+
+msgid "Imported %s settings"
+msgstr "已导入 %s 项设置"
+
+msgid "Import failed"
+msgstr "导入失败"
+
+msgid "%s settings were written."
+msgstr "已写入 %s 项设置。"
+
+msgid "Could not apply the settings"
+msgstr "无法应用设置"
+
+msgid "The file is not valid JSON."
+msgstr "该文件不是有效的 JSON。"
+
+msgid "The file was not exported by Open Gnome Box."
+msgstr "该文件不是由 Open Gnome Box 导出的。"
+
+msgid "The file was written by a newer version and cannot be read here."
+msgstr "该文件由更新版本写入，当前版本无法读取。"
+
+msgid "The file contains no settings."
+msgstr "该文件中没有设置项。"
+
+msgid "The file could not be read."
+msgstr "无法读取该文件。"
+
+msgid "Exported %s"
+msgstr "导出于 %s"
+
