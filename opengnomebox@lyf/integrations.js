@@ -348,18 +348,27 @@ export class AutoMoveWindows {
         try {
             if (win.skip_taskbar || win.is_on_all_workspaces())
                 return;
-            // A fullscreen window's dedicated workspace is off limits: planting
-            // an auto-moved window inside it would break the space. The guard
-            // evicts the window out of it anyway, so skipping avoids the fight.
+
+            // A fullscreen window's dedicated workspace is off limits as an
+            // auto-move target. Redirect to the next non-dedicated workspace
+            // after it, so the rule's "go to this workspace" intent survives as
+            // closely as the space layout allows; the guard would bounce a
+            // window planted there anyway.
+            let num = workspaceNum;
             const fes = this.ext.integrations?.integrations?.fullscreen;
-            if (fes?.targetIsDedicated?.(workspaceNum))
-                return;
+            while (fes?.targetIsDedicated?.(num))
+                num += 1;
+
             const manager = global.workspace_manager;
-            for (let i = manager.n_workspaces; i <= workspaceNum; i++) {
-                win.change_workspace_by_index(i - 1, false);
+            for (let i = manager.n_workspaces; i <= num; i++) {
+                // The tail workspace is what the final move needs; skip any
+                // intermediate landing that would drop the window inside a
+                // dedicated space on the way.
+                if (!fes?.targetIsDedicated?.(i - 1))
+                    win.change_workspace_by_index(i - 1, false);
                 manager.append_new_workspace(false, 0);
             }
-            win.change_workspace_by_index(workspaceNum, false);
+            win.change_workspace_by_index(num, false);
         } catch (e) {
             console.warn('Open Gnome Box: could not move window: ' + e.message);
         }
@@ -1402,10 +1411,11 @@ export class FullscreenEmptyWorkspace {
     // True when workspace  (1-based, as auto-move rules count) is a
     // fullscreen window's dedicated workspace. Auto Move consults this so it
     // does not plant a window inside the dedicated space.
+    // `num` is the 0-based workspace index Auto Move moves windows to.
     targetIsDedicated(num) {
         if (!this._guardEnabled || !this._guard)
             return false;
-        const ws = global.workspace_manager.get_workspace_by_index(num - 1);
+        const ws = global.workspace_manager.get_workspace_by_index(num);
         return !!ws && this._guard.isDedicated(ws);
     }
 
