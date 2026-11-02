@@ -1061,3 +1061,48 @@ msgstr "排序"
 msgid "Lilypad"
 msgstr "Lilypad"
 
+msgid "Order lists"
+msgstr "排序列表"
+
+msgid "Drag rows between the lists to choose which indicators are collected into the collapsible group and how the rest are ordered."
+msgstr "在列表之间拖动条目：选择哪些指示器收进折叠组，以及其余指示器的顺序。"
+
+msgid "Collapsible group"
+msgstr "折叠组"
+
+msgid "Top bar order"
+msgstr "顶栏顺序"
+
+msgid "Ignored by grouping"
+msgstr "不参与分组"
+
+msgid "%s"
+msgstr "%s"
+
+msgid "How the collapsible group button behaves."
+msgstr "折叠组按钮的行为。"
+
+msgid "Hide group button"
+msgstr "隐藏分组按钮"
+
+msgid "When to hide the collapsible group button"
+msgstr "何时隐藏折叠组按钮"
+
+msgid "Icon style"
+msgstr "图标样式"
+
+msgid "Choose the indicator icon style"
+msgstr "选择指示器图标样式"
+
+msgid "Enable auto collapse"
+msgstr "启用自动收起"
+
+msgid "Close the group automatically after the delay without interaction."
+msgstr "超过延迟无交互后自动收起分组。"
+
+msgid "Auto collapse delay (ms)"
+msgstr "自动收起延迟（毫秒）"
+
+msgid "Remove from this list"
+msgstr "从此列表移除"
+

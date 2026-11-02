@@ -33,7 +33,7 @@ import {
     disableWholeConflict,
 } from './conflicts.js';
 import { buildClipboardPrefsPage } from './clipboardPrefs.js';
-import { LilypadPrefsPage } from './lilypadPrefs.js';
+import { LilypadPrefsContent } from './lilypadPrefs.js';
 import { BackupPage } from './backupPrefs.js';
 
 // Retain compatibility with GLib < 2.80, which lacks GioUnix (from GSConnect extension)
@@ -3081,6 +3081,8 @@ class OpenbarPrefs {
         });
         window.add(page);
 
+        // Master switch with the usual conflict handling: the standalone
+        // Lilypad patches the same panel entry point.
         const masterGroup = new Adw.PreferencesGroup({
             title: _('Top Bar Indicator Group'),
             description: _('Collect chosen top bar indicators into one collapsible ' +
@@ -3094,24 +3096,16 @@ class OpenbarPrefs {
         masterRow.add_suffix(masterSwitch);
         masterGroup.add(masterRow);
 
-        // The order lists only make sense while grouping is on, so they are
-        // removed from the window when the switch is off.
-        this._lilyPages = new LilypadPrefsPage({ window, settings: this._settings });
-        this._lilySubPages = this._lilyPages.build();
-        this._syncLilyPages();
-        this._signalLily = this._settings.connect('changed::lilypad-enabled',
-            () => this._syncLilyPages());
-    }
+        // One page holds everything; the lists are greyed out instead of the
+        // pages being added and removed (Adw.PreferencesWindow only appends
+        // pages, so re-adding them would shuffle the page order on every toggle).
+        this._lilyContent = new LilypadPrefsContent(this._settings, _);
+        this._lilyController = this._lilyContent.build(page);
 
-    _syncLilyPages() {
-        const on = this._settings.get_boolean('lilypad-enabled');
-        for (const page of this._lilySubPages) {
-            const inWindow = page.get_ancestor(Adw.PreferencesWindow) === this._window;
-            if (on && !inWindow)
-                this._window.add(page);
-            else if (!on && inWindow)
-                this._window.remove(page);
-        }
+        const sync = () =>
+            this._lilyController.setSensitive(this._settings.get_boolean('lilypad-enabled'));
+        sync();
+        this._lilySignalPrefsId = this._settings.connect('changed::lilypad-enabled', sync);
     }
 
     buildBackupPage(window) {

@@ -1,52 +1,144 @@
 // lilypadPrefs.js
 //
-// Preferences pages for the collapsible top bar group: drag-and-drop ordering
-// of panel indicators plus the display behaviour switches.
+// Preferences content for the collapsible top bar indicator group.
 //
-// Ported from Lilypad (lilypad@shendrew.github.io) under GPL-3.0-or-later.
-// The two pages keep their GtkBuilder templates (ui/order.ui, ui/display.ui).
+// One page holds everything: the drag-and-drop order lists and the display
+// behaviour. Keeping it on a single page matters because Adw.PreferencesWindow
+// only appends pages, so dynamically hiding sub-pages would make them jump to
+// the bottom of the page list on every toggle. Instead the groups stay put and
+// are greyed out while grouping is disabled.
+//
+// The drag-and-drop list handling is ported from Lilypad
+// (lilypad@shendrew.github.io) under GPL-3.0-or-later.
+//
+// GPL-3.0-or-later for this file; the rest of Open Gnome Box is GPL-2.0-or-later.
 
 import Adw from 'gi://Adw';
 import GObject from 'gi://GObject';
 import Gdk from 'gi://Gdk';
-import Gio from 'gi://Gio';
 import Gtk from 'gi://Gtk';
-import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 
-import { gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+// Keys whose value order is edited through drag-and-drop lists.
+const ORDER_KEYS = [
+    'lily-group-order',
+    'lily-rightbox-order',
+    'lily-ignored-order',
+];
 
-const OrderPage = GObject.registerClass({
-    GTypeName: 'OrderUI',
-    Template: GLib.uri_resolve_relative(import.meta.url, './ui/order.ui', null),
-    InternalChildren: [
-        'rightbox-order',
-        'lilypad-order',
-        'ignored-order',
-        'clear-button',
-    ],
-}, class OrderPage extends Adw.PreferencesPage {
-    _init(params = {}) {
-        this._settings = params.settings;
-        const { settings, ...rest } = params;
-        super._init(rest);
-
-        this._rightBoxList = this._rightbox_order;
-        this._groupList = this._lilypad_order;
-        this._ignoredList = this._ignored_order;
-
-        this._initDragMenu('lily-rightbox-order', this._rightBoxList);
-        this._initDragMenu('lily-group-order', this._groupList);
-        this._initDragMenu('lily-ignored-order', this._ignoredList);
-        this._initClearButton('lily-rightbox-order', 'lily-group-order', 'lily-ignored-order');
+export class LilypadPrefsContent {
+    constructor(settings, gettext) {
+        this._settings = settings;
+        this._ = gettext;
+        this._listBoxes = new Map();
     }
 
-    // Based on the Workbench drag-and-drop sample, GPL-3.0, as upstream did.
-    _addRow(dragBox, rowName, index) {
-        const row = new Adw.ActionRow({ title: rowName, selectable: false });
-        const dropController = new Gtk.DropControllerMotion();
-        row.add_controller(dropController);
+    // Build the content groups into `page` and return a controller whose
+    // setSensitive(on) greys the lists and behaviour rows out.
+    build(page) {
+        // Adw.PreferencesGroup has no subtitle property in this libadwaita, so
+        // the explanation goes into description.
+        const makeGroup = (title, description) => {
+            const group = new Adw.PreferencesGroup({ title, description });
+            page.add(group);
+            return group;
+        };
 
-        if (rowName) {
+        const groupLists = makeGroup(
+            this._('Order lists'),
+            this._('Drag rows between the lists to choose which indicators are ' +
+                'collected into the collapsible group and how the rest are ordered.'));
+
+        this._buildDragList(groupLists, 'lily-group-order', this._('Collapsible group'));
+        this._buildDragList(groupLists, 'lily-rightbox-order', this._('Top bar order'));
+        this._buildDragList(groupLists, 'lily-ignored-order', this._('Ignored by grouping'));
+
+        const groupDisplay = makeGroup(
+            this._('Display'),
+            this._('How the collapsible group button behaves.'));
+
+        this._addDropdown(groupDisplay, 'lily-hide-indicator', this._('Hide group button'),
+            this._('When to hide the collapsible group button'),
+            ['Never', 'When empty', 'Always']);
+        this._addDropdown(groupDisplay, 'lily-icon-style', this._('Icon style'),
+            this._('Choose the indicator icon style'),
+            ['Default', 'Arrow']);
+
+        const collapseSwitch = new Adw.SwitchRow({
+            title: this._('Enable auto collapse'),
+            subtitle: this._('Close the group automatically after the delay without interaction.'),
+        });
+        this._settings.bind('lily-auto-collapse', collapseSwitch, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        groupDisplay.add(collapseSwitch);
+
+        // int keys cannot bind to SpinButton.value (double): the binding fails
+        // silently, so write the value explicitly.
+        const spin = new Adw.SpinRow({
+            title: this._('Auto collapse delay (ms)'),
+            adjustment: new Gtk.Adjustment({
+                lower: 0, upper: 10000, step_increment: 100, page_increment: 500,
+                value: this._settings.get_int('lily-auto-collapse-millisecond'),
+            }),
+        });
+        spin.connect('notify::value', () => {
+            const v = Math.round(spin.value);
+            if (this._settings.get_int('lily-auto-collapse-millisecond') !== v)
+                this._settings.set_int('lily-auto-collapse-millisecond', v);
+        });
+        groupDisplay.add(spin);
+
+        const sync = on => {
+            groupLists.sensitive = on;
+            groupDisplay.sensitive = on;
+        };
+        sync(this._settings.get_boolean('lilypad-enabled'));
+
+        return { setSensitive: sync };
+    }
+
+    // ---- drag-and-drop order lists -----------------------------------------
+
+    _buildDragList(group, keyname, title) {
+        const listbox = new Gtk.ListBox({
+            selection_mode: Gtk.SelectionMode.NONE,
+            css_classes: ['boxed-list'],
+        });
+
+        const order = this._settings.get_strv(keyname);
+        for (const name of order)
+            this._addRow(listbox, name);
+        if (!order.length)
+            this._addRow(listbox, null);
+
+        const dropTarget = Gtk.DropTarget.new(Gtk.ListBoxRow, Gdk.DragAction.MOVE);
+        listbox.add_controller(dropTarget);
+        dropTarget.connect('drop', (target, value, x, y) =>
+            this._onDrop(value, y, listbox));
+
+        const scroll = new Gtk.ScrolledWindow({
+            child: listbox,
+            hscrollbar_policy: Gtk.PolicyType.NEVER,
+            height_request: Math.min(260, 44 * (listbox.get_first_child() ? 6 : 2)),
+        });
+        group.add(scroll);
+
+        const hint = new Gtk.Label({
+            label: this._('%s').format(title),
+            halign: Gtk.Align.START,
+            css_classes: ['caption', 'dim-label'],
+        });
+        group.add(hint);
+
+        this._listBoxes.set(keyname, listbox);
+    }
+
+    _addRow(listbox, name) {
+        const row = new Adw.ActionRow({ title: name ?? '', selectable: false });
+        const dropMotion = new Gtk.DropControllerMotion();
+        row.add_controller(dropMotion);
+
+        if (name) {
             row.add_prefix(new Gtk.Image({
                 icon_name: 'list-drag-handle-symbolic',
                 css_classes: ['dim-label'],
@@ -56,11 +148,11 @@ const OrderPage = GObject.registerClass({
                 icon_name: 'user-trash-symbolic',
                 css_classes: ['flat'],
                 valign: Gtk.Align.CENTER,
-                tooltip_text: _('Delete'),
+                tooltip_text: this._('Remove from this list'),
                 focusable: false,
             });
             deleteButton.connect('clicked', () => {
-                dragBox.remove(row);
+                listbox.remove(row);
                 this._storeAllOrders();
                 this._emitReorder();
             });
@@ -74,7 +166,6 @@ const OrderPage = GObject.registerClass({
             dragSource.connect('prepare', (_source, x, y) => {
                 dragX = x;
                 dragY = y;
-
                 const value = new GObject.Value();
                 value.init(Gtk.ListBoxRow);
                 value.set_object(row);
@@ -100,154 +191,66 @@ const OrderPage = GObject.registerClass({
             });
         }
 
-        dropController.connect('enter', () => dragBox.drag_highlight_row(row));
-        dropController.connect('leave', () => dragBox.drag_unhighlight_row());
-        dragBox.insert(row, index);
+        dropMotion.connect('enter', () => listbox.drag_highlight_row(row));
+        dropMotion.connect('leave', () => listbox.drag_unhighlight_row());
+        listbox.append(row);
     }
 
-    _initDragMenu(keyname, listbox) {
-        const order = this._settings.get_strv(keyname);
-        const boxTarget = Gtk.DropTarget.new(Gtk.ListBoxRow, Gdk.DragAction.MOVE);
-        listbox.add_controller(boxTarget);
-
-        for (const name of order)
-            this._addRow(listbox, name, -1);
-        if (!order.length)
-            this._addRow(listbox, null, -1);
-
-        boxTarget.connect('drop', (target, value, x, y) =>
-            this._onTargetDropped(value, y, listbox));
-    }
-
-    _removeRow(oldRow, listbox) {
-        for (const row of listbox) {
-            if (row === oldRow) {
-                listbox.remove(oldRow);
-                return;
-            }
-        }
-    }
-
-    _storeOrder(listbox, keyname) {
-        const order = [];
-        for (const row of listbox) {
-            if (row.title === '')
-                listbox.remove(row);
-            else
-                order.push(row.title);
-        }
-
-        if (!order.length)
-            this._addRow(listbox, null, -1);
-
-        this._settings.set_strv(keyname, order);
-    }
-
-    _storeAllOrders() {
-        this._storeOrder(this._rightBoxList, 'lily-rightbox-order');
-        this._storeOrder(this._groupList, 'lily-group-order');
-        this._storeOrder(this._ignoredList, 'lily-ignored-order');
-    }
-
-    _onTargetDropped(value, y, listbox) {
-        const targetRow = listbox.get_row_at_y(y);
-        const targetIndex = targetRow ? targetRow.get_index() : -1;
-
-        this._groupList.drag_unhighlight_row();
-        this._rightBoxList.drag_unhighlight_row();
-        this._ignoredList.drag_unhighlight_row();
-
+    _onDrop(value, y, targetList) {
+        const targetRow = targetList.get_row_at_y(y);
         if (!value || !targetRow)
             return false;
 
-        // The group button itself stays in the right box list.
-        if (value.title === 'lilypad' && listbox !== this._rightBoxList)
+        // The group button itself must stay in the top bar order list.
+        if (value.title === 'lilypad' && targetList !== this._listBoxes.get('lily-rightbox-order'))
             return false;
 
-        this._removeRow(value, this._rightBoxList);
-        this._removeRow(value, this._groupList);
-        this._removeRow(value, this._ignoredList);
+        for (const listbox of this._listBoxes.values()) {
+            for (const row of listbox) {
+                if (row === value) {
+                    listbox.remove(row);
+                    break;
+                }
+            }
+        }
 
-        listbox.insert(value, targetIndex);
+        targetList.insert(value, targetRow.get_index());
         this._storeAllOrders();
         this._emitReorder();
         return true;
     }
 
-    _initClearButton(...keynames) {
-        this._clear_button.connect('clicked', () => {
-            const parentWindow = this.get_ancestor(Gtk.Window);
-
-            const dialog = new Adw.MessageDialog({
-                transient_for: parentWindow,
-                modal: true,
-                heading: _('Clear all orders?'),
-                body: _('Indicators return to their natural order. This cannot be undone.'),
-            });
-            dialog.add_response('cancel', _('Cancel'));
-            dialog.add_response('clear', _('Clear'));
-            dialog.set_response_appearance('clear', Adw.ResponseAppearance.DESTRUCTIVE);
-            dialog.set_default_response('cancel');
-            dialog.set_close_response('cancel');
-            dialog.connect('response', (dlg, response) => {
-                if (response !== 'clear')
-                    return;
-                for (const keyname of keynames)
-                    this._settings.reset(keyname);
-                this._emitReorder();
-                if (parentWindow)
-                    parentWindow.close();
-            });
-            dialog.present();
-        });
+    _storeAllOrders() {
+        for (const [keyname, listbox] of this._listBoxes) {
+            const order = [];
+            for (const row of listbox) {
+                if (row.title === '')
+                    listbox.remove(row);
+                else
+                    order.push(row.title);
+            }
+            if (!order.length)
+                this._addRow(listbox, null);
+            this._settings.set_strv(keyname, order);
+        }
     }
 
-    // The preferences process cannot reach the shell object, so flipping this
-    // key is how a reorder is requested; the extension listens for it.
+    // The preferences process cannot reach the shell object; flipping this key
+    // is how a rearrange is requested, and the extension listens for it.
     _emitReorder() {
         const state = this._settings.get_boolean('lily-reorder');
         this._settings.set_boolean('lily-reorder', !state);
     }
-});
 
-const DisplayPage = GObject.registerClass({
-    GTypeName: 'DisplayUI',
-    Template: GLib.uri_resolve_relative(import.meta.url, './ui/display.ui', null),
-    InternalChildren: [
-        'hide-indicator-dropdown',
-        'icon-style-dropdown',
-        'auto-collapse-millisecond-spin-button',
-        'auto-collapse-switch',
-    ],
-}, class DisplayPage extends Adw.PreferencesPage {
-    _init(params = {}) {
-        this._settings = params.settings;
-        const { settings, ...rest } = params;
-        super._init(rest);
+    // ---- dropdown rows -----------------------------------------------------
 
-        this._initDropdown('lily-hide-indicator', this._hide_indicator_dropdown,
-            ['Never', 'When empty', 'Always']);
-        this._initDropdown('lily-icon-style', this._icon_style_dropdown,
-            ['Default', 'Arrow']);
-
-        // int keys cannot bind to SpinButton.value (double): the binding fails
-        // silently, so write the value explicitly.
-        const spin = this._auto_collapse_millisecond_spin_button;
-        spin.set_range(0, 10000);
-        spin.set_increments(100, 500);
-        spin.set_value(this._settings.get_int('lily-auto-collapse-millisecond'));
-        spin.connect('value-changed', () => {
-            const v = Math.round(spin.value);
-            if (this._settings.get_int('lily-auto-collapse-millisecond') !== v)
-                this._settings.set_int('lily-auto-collapse-millisecond', v);
+    _addDropdown(group, keyname, title, subtitle, strings) {
+        const row = new Adw.ActionRow({ title, subtitle: subtitle ?? '' });
+        const dropdown = new Gtk.DropDown({
+            model: new Gtk.StringList({ strings }),
+            valign: Gtk.Align.CENTER,
         });
 
-        this._settings.bind('lily-auto-collapse', this._auto_collapse_switch,
-            'active', Gio.SettingsBindFlags.DEFAULT);
-    }
-
-    _initDropdown(keyname, dropdown, strings) {
-        dropdown.set_model(new Gtk.StringList({ strings }));
         // 'selected' is guint while the key is int: bind would silently fail.
         dropdown.selected = this._settings.get_int(keyname);
         dropdown.connect('notify::selected', () => {
@@ -255,29 +258,8 @@ const DisplayPage = GObject.registerClass({
             if (this._settings.get_int(keyname) !== v)
                 this._settings.set_int(keyname, v);
         });
-    }
-});
 
-export class LilypadPrefsPage {
-    constructor({ window, settings }) {
-        this._window = window;
-        this._settings = settings;
-    }
-
-    build() {
-        const orderPage = new OrderPage({
-            title: _('Order'),
-            icon_name: 'view-sort-ascending-symbolic',
-            settings: this._settings,
-        });
-        this._window.add(orderPage);
-
-        const displayPage = new DisplayPage({
-            title: _('Display'),
-            icon_name: 'display-symbolic',
-            settings: this._settings,
-        });
-        this._window.add(displayPage);
-        return [orderPage, displayPage];
+        row.add_suffix(dropdown);
+        group.add(row);
     }
 }
