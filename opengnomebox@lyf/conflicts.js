@@ -46,6 +46,10 @@ export const CONFLICTING_EXTENSIONS = {
         uuid: 'clipboard-indicator@tudmotu.com',
         label: 'Clipboard Indicator',
     },
+    'lilypad-enabled': {
+        uuid: 'lilypad@shendrew.github.io',
+        label: 'Lilypad',
+    },
 };
 
 // Extensions that conflict with Open Gnome Box as a whole rather than with one
@@ -56,6 +60,10 @@ export const CONFLICTING_WHOLE_EXTENSIONS = [
     {
         uuid: 'openbar@neuromorph',
         label: 'Open Bar',
+    },
+    {
+        uuid: 'lilypad@shendrew.github.io',
+        label: 'Lilypad',
     },
 ];
 

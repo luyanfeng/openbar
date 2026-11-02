@@ -33,6 +33,7 @@ import {
     disableWholeConflict,
 } from './conflicts.js';
 import { buildClipboardPrefsPage } from './clipboardPrefs.js';
+import { LilypadPrefsPage } from './lilypadPrefs.js';
 import { BackupPage } from './backupPrefs.js';
 
 // Retain compatibility with GLib < 2.80, which lacks GioUnix (from GSConnect extension)
@@ -2821,6 +2822,9 @@ class OpenbarPrefs {
         // Build the clipboard history page
         this.buildClipboardPage(window);
 
+        // Build the top bar grouping page
+        this.buildLilypadPage(window);
+
         // Build the settings backup page. Like the log viewer this is a utility
         // rather than an everyday setting, so it sits at the right of the tab bar.
         this.buildBackupPage(window);
@@ -3067,6 +3071,47 @@ class OpenbarPrefs {
             return;
         clamp.maximum_size = 4096;
         clamp.tightening_threshold = 2048;
+    }
+
+    buildLilypadPage(window) {
+        const page = new Adw.PreferencesPage({
+            name: 'lilypad',
+            title: _('Indicator Group'),
+            icon_name: 'view-grid-symbolic',
+        });
+        window.add(page);
+
+        const masterGroup = new Adw.PreferencesGroup({
+            title: _('Top Bar Indicator Group'),
+            description: _('Collect chosen top bar indicators into one collapsible ' +
+                'button and reorder the rest.'),
+        });
+        page.add(masterGroup);
+
+        const masterRow = new Adw.ExpanderRow({ title: _('Enable indicator grouping') });
+        const masterSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+        this._bindConflictingFeature('lilypad-enabled', masterSwitch);
+        masterRow.add_suffix(masterSwitch);
+        masterGroup.add(masterRow);
+
+        // The order lists only make sense while grouping is on, so they are
+        // removed from the window when the switch is off.
+        this._lilyPages = new LilypadPrefsPage({ window, settings: this._settings });
+        this._lilySubPages = this._lilyPages.build();
+        this._syncLilyPages();
+        this._signalLily = this._settings.connect('changed::lilypad-enabled',
+            () => this._syncLilyPages());
+    }
+
+    _syncLilyPages() {
+        const on = this._settings.get_boolean('lilypad-enabled');
+        for (const page of this._lilySubPages) {
+            const inWindow = page.get_ancestor(Adw.PreferencesWindow) === this._window;
+            if (on && !inWindow)
+                this._window.add(page);
+            else if (!on && inWindow)
+                this._window.remove(page);
+        }
     }
 
     buildBackupPage(window) {

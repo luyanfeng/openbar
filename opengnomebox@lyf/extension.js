@@ -39,6 +39,7 @@ import * as StyleSheets from './stylesheets.js';
 import { WallhubManager } from './wallhub.js';
 import { IntegrationsManager } from './integrations.js';
 import { ClipboardManager } from './clipboard.js';
+import { LilypadManager } from './lilypad.js';
 import { activeWholeConflicts } from './conflicts.js';
 
 Gio._promisify(Gio.File.prototype, "copy_async", "copy_finish");
@@ -1445,6 +1446,23 @@ export default class Openbar extends Extension {
     // per enable through the message tray, since a silent log line is easy to
     // miss and the symptom (one stylesheet overriding the other) looks like a
     // bug in this extension.
+    _enableClipboard() {
+        if (this.clipboardManager)
+            return;
+        this.clipboard = St.Clipboard.get_default();
+        this.clipboardManager = new ClipboardManager(this);
+        this.clipboardManager.enable();
+        if (this._settings.get_boolean('enable-keybindings'))
+            this.clipboardManager.bindShortcuts();
+    }
+
+    _enableLilypad() {
+        if (this.lilypadManager)
+            return;
+        this.lilypadManager = new LilypadManager(this);
+        this.lilypadManager.enable();
+    }
+
     showConflictWarning(conflicts) {
         try {
             if (!this._conflictSource) {
@@ -1716,15 +1734,38 @@ export default class Openbar extends Extension {
         this.integrations = new IntegrationsManager(this);
         this.integrations.enable();
 
+        // Enable the collapsible top bar indicator group. Installed after our
+        // own indicators exist, so its first arrange() sees them all; the panel
+        // entry point patch catches anything registered later.
+        if (this._settings.get_boolean('lilypad-enabled'))
+            this._enableLilypad();
+        this._lilySignalId = this._settings.connect('changed::lilypad-enabled', () => {
+            if (this.disabling)
+                return;
+            if (this._settings.get_boolean('lilypad-enabled'))
+                this._enableLilypad();
+            else if (this.lilypadManager) {
+                this.lilypadManager.disable();
+                this.lilypadManager = null;
+            }
+        });
+
         // Enable the built-in clipboard history manager. It needs a real
         // clipboards object from the extension base class.
-        if (this._settings.get_boolean('clipboard-enabled')) {
-            this.clipboard = St.Clipboard.get_default();
-            this.clipboardManager = new ClipboardManager(this);
-            this.clipboardManager.enable();
-            if (this._settings.get_boolean('enable-keybindings'))
-                this.clipboardManager.bindShortcuts();
-        }
+        if (this._settings.get_boolean('clipboard-enabled'))
+            this._enableClipboard();
+        this._clipboardSignalId = this._settings.connect('changed::clipboard-enabled', () => {
+            if (this.disabling)
+                return;
+            if (this._settings.get_boolean('clipboard-enabled'))
+                this._enableClipboard();
+            else if (this.clipboardManager) {
+                this.clipboardManager.unbindShortcuts();
+                this.clipboardManager.disable();
+                this.clipboardManager = null;
+                this.clipboard = null;
+            }
+        });
     }
 
     disable() {
@@ -1910,6 +1951,30 @@ export default class Openbar extends Extension {
             if(this._conflictSource) {
                 this._conflictSource.destroy();
                 this._conflictSource = null;
+            }
+        }
+        catch(e) {}
+
+        try {
+            if(this._clipboardSignalId && this._settings) {
+                this._settings.disconnect(this._clipboardSignalId);
+            }
+            this._clipboardSignalId = null;
+        }
+        catch(e) {}
+
+        try {
+            if(this._lilySignalId && this._settings) {
+                this._settings.disconnect(this._lilySignalId);
+            }
+            this._lilySignalId = null;
+        }
+        catch(e) {}
+
+        try {
+            if(this.lilypadManager) {
+                this.lilypadManager.disable();
+                this.lilypadManager = null;
             }
         }
         catch(e) {}

@@ -1534,6 +1534,52 @@
       <description>Keep a history of copied text and images in a menu on the top bar. If the standalone "Clipboard Indicator" extension is enabled, this stays off and the preferences offer to disable that extension instead, so the clipboard is only recorded once.</description>
     </key>
     <!-- ------------------------------------------------------------------
+         Topbar indicator grouping (folded tray)
+         ------------------------------------------------------------------ -->
+    <key type="b" name="lilypad-enabled">
+      <default>false</default>
+      <summary>Group top bar indicators</summary>
+      <description>Collect chosen top bar indicators into one collapsible button and reorder the rest. If the standalone "Lilypad" extension is enabled, this stays off and the preferences offer to disable that extension instead, because both patch the same panel entry point.</description>
+    </key>
+    <key type="as" name="lily-rightbox-order">
+      <default>[]</default>
+      <summary>Order of icons in rightbox</summary>
+    </key>
+    <key type="as" name="lily-group-order">
+      <default>[]</default>
+      <summary>Icons in the collapsible group</summary>
+    </key>
+    <key type="b" name="lily-reorder">
+      <default>false</default>
+      <summary>Internal flip signal to trigger a rearrange from the preferences window</summary>
+    </key>
+    <key type="as" name="lily-ignored-order">
+      <default>[]</default>
+      <summary>Icons ignored by the grouping</summary>
+    </key>
+    <key type="b" name="lily-show-icons">
+      <default>false</default>
+      <summary>Whether the grouped icons are currently shown</summary>
+    </key>
+    <key type="b" name="lily-auto-collapse">
+      <default>true</default>
+      <summary>Enable timer on collapsible group</summary>
+    </key>
+    <key type="i" name="lily-auto-collapse-millisecond">
+      <default>1000</default>
+      <summary>Auto collapse delay in milliseconds</summary>
+    </key>
+    <key type="i" name="lily-hide-indicator">
+      <default>0</default>
+      <range min="0" max="2"/>
+      <summary>When to hide the group button</summary>
+    </key>
+    <key type="i" name="lily-icon-style">
+      <default>0</default>
+      <range min="0" max="1"/>
+      <summary>Icon style: 0=Default, 1=Arrow</summary>
+    </key>
+    <!-- ------------------------------------------------------------------
          Clipboard manager
          ------------------------------------------------------------------ -->
     <key name="paste-button" type="b">

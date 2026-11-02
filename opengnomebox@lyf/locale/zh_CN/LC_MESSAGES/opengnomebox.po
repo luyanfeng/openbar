@@ -1046,3 +1046,18 @@ msgstr "无法读取该文件。"
 msgid "Exported %s"
 msgstr "导出于 %s"
 
+msgid "Clear all orders?"
+msgstr "清空全部排序？"
+
+msgid "Indicators return to their natural order. This cannot be undone."
+msgstr "指示器将恢复默认顺序。此操作无法撤销。"
+
+msgid "Display"
+msgstr "显示"
+
+msgid "Order"
+msgstr "排序"
+
+msgid "Lilypad"
+msgstr "Lilypad"
+
