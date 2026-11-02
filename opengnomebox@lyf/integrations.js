@@ -1447,6 +1447,32 @@ export class FullscreenEmptyWorkspace {
             } catch (e) {
                 console.warn('Open Gnome Box: could not switch to the window workspace: ' + e.message);
             }
+
+            // The AutoMove integration keeps trailing empty workspaces alive so
+            // its rule numbers stay valid. That pinning also leaves an empty
+            // workspace sitting right after the dedicated one once it is
+            // inserted, which reads as a phantom occupied space. Drop the
+            // empties after the dedicated workspace so it is the last one,
+            // matching the macOS Space model; the tail stops at the first
+            // non-empty workspace and the active one is never touched.
+            try {
+                const dedicatedIndex = dedicatedWs.index();
+                for (let i = manager.get_n_workspaces() - 1; i > dedicatedIndex; i--) {
+                    const ws = manager.get_workspace_by_index(i);
+                    if (!ws || ws.index() !== i)
+                        continue;
+                    const empty = ws.list_windows().filter(w =>
+                        w.window_type !== Meta.WindowType.DESKTOP &&
+                        !w.is_always_on_all_workspaces()).length === 0;
+                    if (!empty)
+                        break;
+                    if (ws === manager.get_active_workspace())
+                        continue;
+                    manager.remove_workspace(ws, global.get_current_time());
+                }
+            } catch (e) {
+                console.warn('Open Gnome Box: could not drop empty workspaces: ' + e.message);
+            }
         } catch (e) {
             console.warn('Open Gnome Box: could not place window on a dedicated workspace: ' + e.message);
         } finally {
