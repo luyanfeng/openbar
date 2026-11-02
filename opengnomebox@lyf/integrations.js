@@ -348,6 +348,12 @@ export class AutoMoveWindows {
         try {
             if (win.skip_taskbar || win.is_on_all_workspaces())
                 return;
+            // A fullscreen window's dedicated workspace is off limits: planting
+            // an auto-moved window inside it would break the space. The guard
+            // evicts the window out of it anyway, so skipping avoids the fight.
+            const fes = this.ext.integrations?.integrations?.fullscreen;
+            if (fes?.targetIsDedicated?.(workspaceNum))
+                return;
             const manager = global.workspace_manager;
             for (let i = manager.n_workspaces; i <= workspaceNum; i++) {
                 win.change_workspace_by_index(i - 1, false);
@@ -795,6 +801,25 @@ export class DedicatedWorkspaceGuard {
                 if (this._internalMoves > 0)
                     return;
                 this._evict(win, prev, now);
+            });
+
+            // A window created on a dedicated workspace never triggers
+            // workspace-changed - it is born there, so the handler above cannot
+            // catch it. That is exactly what happens when the dedicated space is
+            // the active one and an application launches. Check once the window
+            // has settled; dialogs are left alone and the owner is protected.
+            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                if (!this._enabled)
+                    return GLib.SOURCE_REMOVE;
+                let now = null;
+                try {
+                    now = win.get_workspace();
+                } catch (e) {
+                    return GLib.SOURCE_REMOVE;
+                }
+                if (now && this.isDedicated(now) && this._ownerOf(now) !== win)
+                    this._evict(win, null, now);
+                return GLib.SOURCE_REMOVE;
             });
             this._globalWindowIds.push({ win, id });
         } catch (e) {
@@ -1372,6 +1397,16 @@ export class FullscreenEmptyWorkspace {
         } catch (e) {
             console.warn('Open Gnome Box: fullscreen-workspace destroy cleanup failed: ' + e.message);
         }
+    }
+
+    // True when workspace  (1-based, as auto-move rules count) is a
+    // fullscreen window's dedicated workspace. Auto Move consults this so it
+    // does not plant a window inside the dedicated space.
+    targetIsDedicated(num) {
+        if (!this._guardEnabled || !this._guard)
+            return false;
+        const ws = global.workspace_manager.get_workspace_by_index(num - 1);
+        return !!ws && this._guard.isDedicated(ws);
     }
 
     // ---- placement ---------------------------------------------------------
