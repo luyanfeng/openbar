@@ -1106,3 +1106,21 @@ msgstr "自动收起延迟（毫秒）"
 msgid "Remove from this list"
 msgstr "从此列表移除"
 
+msgid "Indicator Group"
+msgstr "指示器分组"
+
+msgid "Top Bar Indicator Group"
+msgstr "顶栏指示器分组"
+
+msgid "Enable indicator grouping"
+msgstr "启用指示器分组"
+
+msgid "Indicators collected into the collapsible button."
+msgstr "收进折叠按钮中的指示器。"
+
+msgid "Indicators placed directly on the top bar, in this order."
+msgstr "直接放在顶栏上的指示器，按此顺序排列。"
+
+msgid "Indicators that manage their own placement."
+msgstr "自行管理位置的指示器。"
+
