@@ -64,10 +64,11 @@ export class LilypadPrefsContent {
 
         for (const key of ORDER_KEYS)
             this._loadCard(key);
+        this._rebuildCards();
 
         const cardDisplay = makeCard(
             this._('Display'),
-            this._('How the collapsible group button behaves.'), true);
+            this._('How the collapsible group button behaves.'), false);
 
         this._addDropdown(cardDisplay, 'lily-hide-indicator', this._('Hide group button'),
             this._('When to hide the collapsible group button'),
@@ -113,12 +114,42 @@ export class LilypadPrefsContent {
     // ---- card bookkeeping --------------------------------------------------
 
     _registerCard(key, expander) {
-        this._cards.set(key, { expander, rows: [] });
+        this._cards.set(key, { expander, rows: [], placeholder: null, placeholderAttached: false });
 
         const dropTarget = Gtk.DropTarget.new(Adw.ActionRow.$gtype, Gdk.DragAction.MOVE);
         expander.add_controller(dropTarget);
         dropTarget.connect('drop', (target, value, x, y) =>
             this._onDropOnCard(key, value));
+    }
+
+    // Every card keeps a permanent drop slot as its last row, so an empty card
+    // (or the gap below the last entry) visibly accepts drops. The placeholder
+    // is never stored and never draggable.
+    _ensurePlaceholder(key) {
+        const card = this._cards.get(key);
+        if (card.placeholder)
+            return card.placeholder;
+
+        const row = new Adw.ActionRow({
+            title: this._('Drop here'),
+            selectable: false,
+            css_classes: ['dim-label'],
+        });
+        row.add_prefix(new Gtk.Image({
+            icon_name: 'list-add-symbolic',
+            css_classes: ['dim-label'],
+        }));
+
+        const dropTarget = Gtk.DropTarget.new(Adw.ActionRow.$gtype, Gdk.DragAction.MOVE);
+        row.add_controller(dropTarget);
+        dropTarget.connect('drop', (target, value) => this._onDropOnCard(key, value));
+        const motion = new Gtk.DropControllerMotion();
+        row.add_controller(motion);
+        motion.connect('enter', () => card.expander.drag_highlight_row(row));
+        motion.connect('leave', () => card.expander.drag_unhighlight_row());
+
+        card.placeholder = row;
+        return row;
     }
 
     _loadCard(key) {
@@ -205,10 +236,21 @@ export class LilypadPrefsContent {
 
     _rebuildCards() {
         for (const [key, card] of this._cards) {
-            for (const row of [...card.rows])
+            const placeholder = this._ensurePlaceholder(key);
+
+            // The placeholder stays attached between rebuilds; re-adding a row
+            // that is already in the list would trip GTK.
+            for (const row of [...card.rows, placeholder])
                 card.expander.remove(row);
             for (const row of card.rows)
                 card.expander.add_row(row);
+            card.expander.add_row(placeholder);
+            card.placeholderAttached = true;
+
+            // An empty card has no content area at all, so without the
+            // placeholder there would be nowhere visible to drop. Expanding an
+            // empty card is what makes its drop slot reachable.
+            card.expander.expanded = card.rows.length === 0 ? true : card.expander.expanded;
         }
     }
 

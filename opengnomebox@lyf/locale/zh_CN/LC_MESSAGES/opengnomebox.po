@@ -1124,3 +1124,6 @@ msgstr "直接放在顶栏上的指示器，按此顺序排列。"
 msgid "Indicators that manage their own placement."
 msgstr "自行管理位置的指示器。"
 
+msgid "Drop here"
+msgstr "拖到此处"
+

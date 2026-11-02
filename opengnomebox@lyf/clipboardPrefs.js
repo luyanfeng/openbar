@@ -58,7 +58,7 @@ function addIntSpinRow(group, settings, key, title, subtitle, lower, upper, step
 }
 
 function buildUiGroup(settings, _) {
-    const group = makeGroup(_('UI'), _('Menu contents and what the top bar shows'), true);
+    const group = makeGroup(_('UI'), _('Menu contents and what the top bar shows'), false);
     addIntSpinRow(group, settings, 'preview-size',
         _('Preview Size (characters)'),
         _('Number of characters shown per entry in the history menu'),
@@ -105,7 +105,7 @@ function buildItemActionsGroup(settings, _) {
 }
 
 function buildBehaviorGroup(settings, _) {
-    const group = makeGroup(_('Behavior'), _('How entries are recorded, ordered and pasted'), true);
+    const group = makeGroup(_('Behavior'), _('How entries are recorded, ordered and pasted'), false);
     addSwitchRow(group, settings, 'strip-text',
         _('Remove whitespace around text'),
         _('Strip leading and trailing whitespace from text entries on copy'));
@@ -153,7 +153,7 @@ function buildSearchGroup(settings, _) {
 }
 
 function buildLimitsGroup(settings, _) {
-    const group = makeGroup(_('Limits'), _('History size and disk usage'), true);
+    const group = makeGroup(_('Limits'), _('History size and disk usage'), false);
     addIntSpinRow(group, settings, 'history-size',
         _('History Size'),
         _('Maximum number of entries to keep in clipboard history'),
