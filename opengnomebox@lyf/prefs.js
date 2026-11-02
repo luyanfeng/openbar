@@ -3693,12 +3693,26 @@ class OpenbarPrefs {
             }
         };
 
+        const appIconFor = (appId) => {
+            try {
+                const info = Gio.DesktopAppInfo.new(appId);
+                const icon = info?.get_icon();
+                if (icon)
+                    return icon;
+            } catch (e) {}
+            return Gio.ThemedIcon.new('application-x-executable-symbolic');
+        };
+
         const makeRuleRow = (appId, ws, index) => {
             const displayName = appNameFor(appId);
             const row = new Adw.ActionRow({
                 title: displayName || appId || _('(invalid)'),
                 subtitle: displayName ? appId : '',
             });
+
+            const appIcon = appIconFor(appId);
+            if (appIcon)
+                row.add_prefix(new Gtk.Image({ gicon: appIcon, pixel_size: 16 }));
 
             // Editable workspace number, so a rule can be retargeted without
             // deleting and re-adding it.
@@ -3777,13 +3791,9 @@ class OpenbarPrefs {
             appList = Gio.AppInfo.get_all()
                 .filter(a => a.should_show())
                 .map(a => {
-                    let iconName = 'application-x-executable-symbolic';
-                    try {
-                        const gicon = a.get_icon();
-                        if (gicon)
-                            iconName = gicon;
-                    } catch (e) {}
-                    return { id: a.get_id(), name: a.get_display_name(), icon: iconName };
+                    const gicon = a.get_icon() ??
+                        Gio.ThemedIcon.new('application-x-executable-symbolic');
+                    return { id: a.get_id(), name: a.get_display_name(), gicon };
                 })
                 .filter(a => a.id)
                 .sort((x, y) => x.name.localeCompare(y.name));
@@ -3791,18 +3801,104 @@ class OpenbarPrefs {
             console.warn('Open Gnome Box: could not list applications: ' + e.message);
         }
 
-        const appCombo = new Adw.ComboRow({
+        // Searchable picker instead of a flat dropdown: with a hundred or more
+        // installed applications an unfiltered list cannot be scanned, and the
+        // icons are what people actually recognise.
+        const selectedApp = { app: appList[0] ?? null };
+
+        const pickerIcon = new Gtk.Image({
+            gicon: selectedApp.app ? selectedApp.app.gicon : null, pixel_size: 16,
+        });
+        const pickerLabel = new Gtk.Label({
+            label: selectedApp.app ? selectedApp.app.name : _('(no applications found)'),
+        });
+        const pickerSummary = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL, spacing: 6,
+        });
+        pickerSummary.append(pickerIcon);
+        pickerSummary.append(pickerLabel);
+
+        const pickerPopover = new Gtk.Popover();
+        const pickerSearch = new Gtk.SearchEntry({
+            placeholder_text: _('Search applications...'), margin_bottom: 6,
+        });
+        const pickerScroll = new Gtk.ScrolledWindow({
+            hscrollbar_policy: Gtk.PolicyType.NEVER,
+            vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+            height_request: 300, width_request: 320,
+        });
+        const pickerList = new Gtk.ListBox({ css_classes: ['boxed-list'] });
+        pickerScroll.set_child(pickerList);
+
+        const pickerRows = [];
+        appList.forEach(a => {
+            const row = new Gtk.ListBoxRow();
+            const box = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL, spacing: 10,
+                margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6,
+            });
+            box.append(new Gtk.Image({ gicon: a.gicon, pixel_size: 24 }));
+            box.append(new Gtk.Label({
+                label: a.name, halign: Gtk.Align.START, hexpand: true,
+            }));
+            row.set_child(box);
+            row._app = a;
+            pickerList.append(row);
+            pickerRows.push({ row, app: a });
+        });
+
+        pickerSearch.connect('search-changed', () => {
+            const text = pickerSearch.get_text().toLowerCase();
+            for (const { row, app } of pickerRows)
+                row.set_visible(app.name.toLowerCase().includes(text) ||
+                    app.id.toLowerCase().includes(text));
+        });
+
+        const pickApp = app => {
+            if (!app)
+                return;
+            selectedApp.app = app;
+            pickerLabel.label = app.name;
+            pickerIcon.gicon = app.gicon;
+            pickerPopover.popdown();
+        };
+
+        pickerSearch.connect('activate', () => {
+            const first = pickerRows.find(({ row }) => row.visible);
+            if (first)
+                pickApp(first.app);
+        });
+
+        pickerList.connect('row-activated', (_list, row) => {
+            if (row?._app)
+                pickApp(row._app);
+        });
+
+        pickerPopover.set_child((() => {
+            const box = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                margin_top: 6, margin_bottom: 6, margin_start: 6, margin_end: 6,
+            });
+            box.append(pickerSearch);
+            box.append(pickerScroll);
+            return box;
+        })());
+
+        const pickerButton = new Gtk.MenuButton({
+            child: pickerSummary,
+            popover: pickerPopover,
+            always_show_arrow: false,
+            valign: Gtk.Align.CENTER,
+            tooltip_text: _('Choose from installed applications'),
+        });
+
+        const appRow = new Adw.ActionRow({
             title: _('Application'),
             subtitle: _('Choose the application to move.'),
         });
-        const appModel = new Gtk.StringList();
-        appList.forEach(a => appModel.append(a.name));
-        if (appList.length === 0)
-            appModel.append(_('(no applications found)'));
-        appCombo.model = appModel;
-        appCombo.selected = 0;
-
-        autoMoveExp.add_row(appCombo);
+        appRow.add_suffix(pickerButton);
+        appRow.activatable = false;
+        autoMoveExp.add_row(appRow);
 
         const wsAdjustment = new Gtk.Adjustment({
             lower: 1, upper: 36, step_increment: 1, page_increment: 1, value: 1,
@@ -3829,10 +3925,9 @@ class OpenbarPrefs {
         autoMoveExp.add_row(btnRow);
 
         addRuleBtn.connect('clicked', () => {
-            const sel = appCombo.selected;
-            if (sel < 0 || sel >= appList.length)
+            const appId = selectedApp.app ? selectedApp.app.id : null;
+            if (!appId)
                 return;
-            const appId = appList[sel].id;
             const workspace = Math.max(1, Math.min(36, wsSpin.get_value_as_int()));
             const current = this._settings.get_strv('auto-move-list');
             // Replace an existing rule for the same app.
