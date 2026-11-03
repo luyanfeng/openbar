@@ -975,15 +975,14 @@ export class DedicatedWorkspaceGuard {
             // explicit pixel size, which is what actually renders bigger.
             const label = new St.Label({
                 text,
-                style_class: 'openbar-space-hint',
-                style: 'background-color: rgba(0,0,0,0.5); color: #ffffff; ' +
-                    'padding: 10px 22px; border-radius: 8px;',
                 x_align: Clutter.ActorAlign.CENTER,
+                style: 'background-color: rgba(0,0,0,0.55); color: #ffffff; ' +
+                    'padding: 28px 48px; border-radius: 16px;',
             });
             try {
                 // ClutterText exposes font-name (a Pango description), not
                 // font_size; the CSS font-size above is not reliable on St.
-                label.clutter_text.font_name = 'Sans 20';
+                label.clutter_text.font_name = 'Sans 44';
                 label.clutter_text.line_wrap = true;
                 label.clutter_text.ellipsize = 0;   // Pango.EllipsizeMode.NONE
             } catch (e) {
@@ -991,21 +990,21 @@ export class DedicatedWorkspaceGuard {
             }
             // A full-stage container pinned by layout constraints is more
             // reliable than setting an explicit size (which is 0 before the
-            // first allocation).
+            // first allocation). Centered on the monitor: this hint is easy to
+            // miss near the panel edge.
             const bin = new St.Bin({
                 child: label,
                 x_align: Clutter.ActorAlign.CENTER,
-                y_align: Clutter.ActorAlign.END,
+                y_align: Clutter.ActorAlign.CENTER,
                 x_expand: true,
                 y_expand: true,
                 reactive: false,
             });
             const monitor = Main.layoutManager.primaryMonitor;
             bin.add_constraint(new Layout.MonitorConstraint({ index: monitor?.index ?? 0 }));
-            bin.translation_y = -90;
             Main.uiGroup.add_child(bin);
             this._toastActor = bin;
-            this._toastTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2200, () => {
+            this._toastTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 2600, () => {
                 this._toastTimeoutId = 0;
                 this._hideMessage();
                 return GLib.SOURCE_REMOVE;
