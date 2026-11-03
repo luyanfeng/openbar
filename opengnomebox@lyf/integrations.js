@@ -982,7 +982,7 @@ export class DedicatedWorkspaceGuard {
             try {
                 // ClutterText exposes font-name (a Pango description), not
                 // font_size; the CSS font-size above is not reliable on St.
-                label.clutter_text.font_name = 'Sans 44';
+                label.clutter_text.font_name = 'Sans 26';
                 label.clutter_text.line_wrap = true;
                 label.clutter_text.ellipsize = 0;   // Pango.EllipsizeMode.NONE
             } catch (e) {
