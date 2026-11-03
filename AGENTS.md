@@ -39,6 +39,9 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
 - **绝不** 向运行中的 `gnome-shell` 发 `SIGTERM` / `SIGHUP` / `kill` 来强制它重扫扩展目录。
   Wayland 会话会失去合成器输出直接黑屏（已发生过）。新装扩展要么经 Extensions 应用启用，
   要么让用户自己重启/注销。
+- **改动代码后 `gnome-extensions disable/enable` 不会重新导入模块**（GJS ESM 模块缓存，
+  状态切到 INACTIVE→ACTIVE 也不行，2026-11-03 两次实测确认）。改完 `.js` 并部署后，必须
+  重新登录才能加载新代码；验证时先看新日志前缀（如 `###FS enable`）出现与否来确认版本。
 - 安装用 `cp -r` 或 `gnome-extensions install`，不要用符号链接指向工作区。
 - 启用后核查：`gnome-extensions info <uuid>`（状态 ACTIVE）、
   `GetExtensionErrors` 返回 `@as []`、`$XDG_RUNTIME_DIR/io.github.neuromorph.openbar/stylesheet.css`
