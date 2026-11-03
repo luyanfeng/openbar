@@ -1401,13 +1401,34 @@ export class FullscreenEmptyWorkspace {
                 return;
             this._state.delete(id);
             this._sizeChange.delete(id);
+
+            const manager = global.workspace_manager;
+            const ded = st.dedicatedWs;
+
             // Bring the user back to where the window came from, without
             // touching the workspace list.
-            const manager = global.workspace_manager;
             if (st.originIndex >= 0 && st.originIndex < manager.get_n_workspaces()) {
                 const ws = manager.get_workspace_by_index(st.originIndex);
                 if (ws && ws.index() !== manager.get_active_workspace_index())
                     ws.activate(global.get_current_time());
+            }
+
+            // The dedicated space's only window is going away: remove the space
+            // too, or it lingers as a phantom empty workspace forever. Deferred
+            // to the next pass - the dying window may still be listed right now,
+            // which would defeat the emptiness check.
+            if (st.created && ded) {
+                GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                    try {
+                        if (ded.index() >= 0 &&
+                            ded.list_windows().filter(w =>
+                                w.window_type !== Meta.WindowType.DESKTOP &&
+                                !w.is_always_on_all_workspaces()).length === 0 &&
+                            ded.index() !== manager.get_active_workspace_index())
+                            manager.remove_workspace(ded, global.get_current_time());
+                    } catch (e) {}
+                    return GLib.SOURCE_REMOVE;
+                });
             }
         } catch (e) {
             console.warn('Open Gnome Box: fullscreen-workspace destroy cleanup failed: ' + e.message);
