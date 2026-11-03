@@ -815,21 +815,28 @@ export class DedicatedWorkspaceGuard {
             // A window created on a dedicated workspace never triggers
             // workspace-changed - it is born there, so the handler above cannot
             // catch it. That is exactly what happens when the dedicated space is
-            // the active one and an application launches. Check once the window
-            // has settled; dialogs are left alone and the owner is protected.
-            GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+            // the active one and an application launches. Slow-mapping
+            // applications (JetBrains) take seconds between window-created and
+            // landing on a workspace, so poll briefly instead of checking once;
+            // dialogs are left alone and the owner is protected.
+            const bornCheck = (tries) => {
                 if (!this._enabled)
                     return GLib.SOURCE_REMOVE;
                 let now = null;
                 try {
                     now = win.get_workspace();
                 } catch (e) {
+                    return GLib.SOURCE_REMOVE; // window gone
+                }
+                if (now && this.isDedicated(now) && this._ownerOf(now) !== win) {
+                    this._evict(win, null, now);
                     return GLib.SOURCE_REMOVE;
                 }
-                if (now && this.isDedicated(now) && this._ownerOf(now) !== win)
-                    this._evict(win, null, now);
+                if (tries > 0)
+                    return GLib.SOURCE_CONTINUE;
                 return GLib.SOURCE_REMOVE;
-            });
+            };
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => bornCheck(9));
             this._globalWindowIds.push({ win, id });
         } catch (e) {
             // Not every Meta.Window exposes the signal; ignore those.
@@ -1593,16 +1600,60 @@ export class FullscreenEmptyWorkspace {
             // mutter's automatic cleanup: it only reliably removes trailing
             // empty workspaces and skips the active one, so a workspace in the
             // middle would linger after the window left.
-            if (st.created && dedicatedWs && manager.get_n_workspaces() > 2) {
-                try {
-                    const stillAlone = this._isAloneOn(dedicatedWs, win);
-                    const notActive = dedicatedWs.index() !== manager.get_active_workspace_index();
-                    if (stillAlone && notActive && dedicatedWs.index() >= 0)
-                        manager.remove_workspace(dedicatedWs, global.get_current_time());
-                } catch (e) {
-                    // Leaving an empty workspace is harmless; never let cleanup
-                    // break the restore.
-                    console.warn('Open Gnome Box: could not remove dedicated workspace: ' + e.message);
+            if (st.created && dedicatedWs && dedicatedWs.index() >= 0) {
+                const stillAlone = this._isAloneOn(dedicatedWs, win);
+                // The view was switched back above; if that switch is still
+                // settling (animations), the removal runs on the next pass
+                // instead of being skipped - a skipped removal here would leave
+                // the space behind, and every fullscreen cycle would add one.
+                const removeDedicated = (via) => {
+                    if (this._disabling || !dedicatedWs)
+                        return;
+                    try {
+                        const stillAloneNow = this._isAloneOn(dedicatedWs, win);
+                        console.log(`###RESTORE[${via}] dedicatedIndex=${dedicatedWs.index()} ` +
+                            `stillAlone=${stillAloneNow} n=${manager.get_n_workspaces()} ` +
+                            `active=${manager.get_active_workspace_index()}`);
+                        if (stillAloneNow) {
+                            manager.remove_workspace(dedicatedWs, global.get_current_time());
+                            console.log(`###RESTORE[${via}] removed, n=${manager.get_n_workspaces()}`);
+                        } else {
+                            const dump = dedicatedWs.list_windows().filter(w => w !== win)
+                                .map(w => `${w.get_wm_class() ?? '?'}(type${w.get_window_type()})` +
+                                    `'${(w.get_title() || '').slice(0, 24)}'`)
+                                .join(', ');
+                            console.log(`###RESTORE[${via}] SKIP not-alone windows=[${dump}]`);
+                        }
+                    } catch (e) {
+                        // Leaving an empty workspace is harmless; never let
+                        // cleanup break the restore.
+                        console.warn(`###RESTORE[${via}] FAIL ` + e.message);
+                    }
+                };
+
+                if (stillAlone) {
+                    if (dedicatedWs.index() === manager.get_active_workspace_index()) {
+                        console.log('###RESTORE deferred（活动区切换未生效，idle 重试）');
+                        GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                            removeDedicated('idle');
+                            return GLib.SOURCE_REMOVE;
+                        });
+                    } else {
+                        removeDedicated('direct');
+                    }
+                } else {
+                    // A window born on the dedicated space while it was active
+                    // (the guard's birth check can lose the race against a
+                    // slow-mapping application) keeps the space non-empty and
+                    // the removal skipped forever. Send squatters on first, then
+                    // the space is empty and the removal always goes through.
+                    const squatters = dedicatedWs.list_windows().filter(w => w !== win)
+                        .filter(w => !w.is_always_on_all_workspaces() &&
+                            w.window_type === Meta.WindowType.NORMAL);
+                    console.log(`###RESTORE squatters=${squatters.length}`);
+                    for (const other of squatters)
+                        this._guard._evict(other, dedicatedWs, other.get_workspace());
+                    removeDedicated('after-evict');
                 }
             }
         } catch (e) {

@@ -191,7 +191,7 @@ class ContainerService extends GObject.Object {
     }
 
     destroy() {
-        this._setIconsVisibility(true, true);
+        this._containerService._setIconsVisibility(true, true);
     }
 }
 
@@ -409,18 +409,24 @@ export class LilypadManager {
             return true;
         }
         if (hide === HIDE_ALWAYS) {
-            this._containerService.switchIcons(false);
+            // Transient hide: lily-show-icons is left alone, so re-enabling
+            // the indicator restores the previous group state.
+            this._containerService._setIconsVisibility(false);
             this._setIcon(false);
             this._indicator.hide();
             return true;
         }
 
-        // Hide when there is nothing grouped.
+        // WHEN_EMPTY: hide the button while nothing is grouped. Both hides are
+        // transient - a temporarily empty group (right after login, before
+        // every grouped indicator has registered) must not overwrite the
+        // stored preference, or the group would start collapsed forever.
         if (this._containerService.getGroupedActors().length > 0) {
             this._indicator.show();
+            this._containerService._setIconsVisibility(this._settings.get_boolean('lily-show-icons'));
             return true;
         }
-        this._containerService.switchIcons(false);
+        this._containerService._setIconsVisibility(false);
         this._setIcon(false);
         this._indicator.hide();
         return false;
