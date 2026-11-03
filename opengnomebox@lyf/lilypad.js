@@ -57,12 +57,55 @@ class ContainerService extends GObject.Object {
     }
 
     _setIconsVisibility(show, destroy = false) {
+        // Each change bumps the generation so a stale hide's onComplete cannot
+        // hide a container that a newer show has already expanded.
+        this._visGeneration = (this._visGeneration ?? 0) + 1;
+        const generation = this._visGeneration;
+
+        let index = 0;
         for (const actor of this.getGroupedActors()) {
-            if (show)
-                actor.container.show();
-            else
-                actor.container.hide();
+            const container = actor.container;
+            container.set_pivot_point(0.5, 0.5);
+            container.remove_all_transitions();
+
+            if (show) {
+                // Spring-in: elastic overshoot, staggered per indicator.
+                container.show();
+                container.set_scale(0, 0);
+                container.set_opacity(0);
+                container.ease({
+                    scale_x: 1,
+                    scale_y: 1,
+                    opacity: 255,
+                    duration: 520,
+                    mode: Clutter.AnimationMode.ELASTIC_EASE_OUT,
+                    delay: index * 40,
+                });
+            } else if (destroy) {
+                // Teardown restores immediately; no animation.
+                container.set_scale(1, 1);
+                container.set_opacity(255);
+                container.hide();
+            } else {
+                container.ease({
+                    scale_x: 0,
+                    scale_y: 0,
+                    opacity: 0,
+                    duration: 200,
+                    mode: Clutter.AnimationMode.EASE_IN_BACK,
+                    delay: index * 25,
+                    onComplete: () => {
+                        if (generation === this._visGeneration) {
+                            container.hide();
+                            container.set_scale(1, 1);
+                            container.set_opacity(255);
+                        }
+                    },
+                });
+            }
+
             this._iconVisibilityListener(actor, show, destroy);
+            index += 1;
         }
     }
 
