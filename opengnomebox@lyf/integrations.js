@@ -692,16 +692,46 @@ export class DedicatedWorkspaceGuard {
         this._overviewShowingId = 0;
     }
 
+    // ---- diagnostics ------------------------------------------------------
+    // Temporary field instrumentation. Every decision and every workspace
+    // mutation logs one greppable line so a report can be reconstructed from
+    // the journal alone.
+
+    _wd(win) {
+        if (!win)
+            return 'null';
+        try {
+            return `${win.get_id()}:${win.get_wm_class() ?? '?'}` +
+                `'${(win.get_title() || '').slice(0, 24)}'`;
+        } catch (e) {
+            return 'gone';
+        }
+    }
+
+    _ws(ws) {
+        try {
+            return ws ? `ws${ws.index()}` : 'ws?';
+        } catch (e) {
+            return 'ws-gone';
+        }
+    }
+
+    _log(tag, msg) {
+        console.log(`###GUARD ${tag} ${msg}`);
+    }
+
     enable() {
         if (this._enabled)
             return;
         this._enabled = true;
+        this._log('enable', '');
         this._install();
         this._refreshThumbnails();
     }
 
     disable() {
         this._enabled = false;
+        this._log('disable', '');
         this._dedicated.clear();
         this._clearThumbnails();
         try {
@@ -731,6 +761,7 @@ export class DedicatedWorkspaceGuard {
         if (!workspace)
             return;
         this._dedicated.add(workspace);
+        this._log('add', this._ws(workspace));
         this._refreshThumbnails();
     }
 
@@ -738,6 +769,7 @@ export class DedicatedWorkspaceGuard {
         if (!workspace)
             return;
         this._dedicated.delete(workspace);
+        this._log('remove', this._ws(workspace));
         this._refreshThumbnails();
     }
 
@@ -807,9 +839,17 @@ export class DedicatedWorkspaceGuard {
                 }
                 const prev = win._openbarLastWs ?? null;
                 win._openbarLastWs = now;
-                if (this._internalMoves > 0)
+                if (this._internalMoves > 0) {
+                    this._log('move-self', `${this._wd(win)} ${this._ws(prev)} -> ${this._ws(now)}`);
                     return;
+                }
+                this._log('move', `${this._wd(win)} ${this._ws(prev)} -> ${this._ws(now)} ` +
+                    `fs=${win.fullscreen} max=${win.is_maximized()} min=${win.minimized}`);
                 this._evict(win, prev, now);
+                // An overview drag is committed by mutter after this signal, so
+                // an immediate change_workspace() can be overwritten by the drop
+                // still in flight. Re-check once the drop has landed.
+                this._evictLater(win, prev, now);
             });
 
             // A window created on a dedicated workspace never triggers
@@ -829,6 +869,7 @@ export class DedicatedWorkspaceGuard {
                     return GLib.SOURCE_REMOVE; // window gone
                 }
                 if (now && this.isDedicated(now) && this._ownerOf(now) !== win) {
+                    this._log('born-intruder', `${this._wd(win)} ${this._ws(now)} tries=${9 - tries}`);
                     this._evict(win, null, now);
                     return GLib.SOURCE_REMOVE;
                 }
@@ -861,10 +902,14 @@ export class DedicatedWorkspaceGuard {
     // keyboard move behaves as a skip rather than a bounce-back.
     _evict(win, prevWs, nowWs) {
         try {
-            if (!win || win.window_type !== Meta.WindowType.NORMAL)
+            if (!win || win.window_type !== Meta.WindowType.NORMAL) {
+                this._log('evict-skip', `${this._wd(win)} type=${win?.window_type}`);
                 return;
-            if (win.is_always_on_all_workspaces())
+            }
+            if (win.is_always_on_all_workspaces()) {
+                this._log('evict-skip', `${this._wd(win)} sticky`);
                 return;
+            }
 
             const manager = global.workspace_manager;
             const now = nowWs ?? win.get_workspace();
@@ -876,6 +921,7 @@ export class DedicatedWorkspaceGuard {
             const prevDedicated = prev && this.isDedicated(prev);
             if (prevDedicated && this._ownerOf(prev) === win &&
                 now && !this.isDedicated(now) && win.fullscreen) {
+                this._log('evict-owner-back', `${this._wd(win)} ${this._ws(now)} -> ${this._ws(prev)}`);
                 this._internalMoves++;
                 try {
                     win.change_workspace(prev);
@@ -892,10 +938,15 @@ export class DedicatedWorkspaceGuard {
             // Case 2: an intruder landed on a dedicated workspace. Skip past it
             // in the direction it was travelling, so a keyboard move reads as a
             // skip rather than a bounce-back.
-            if (!this.isDedicated(now))
+            if (!this.isDedicated(now)) {
+                this._log('evict-none', `${this._wd(win)} ${this._ws(prev)} -> ${this._ws(now)} ` +
+                    `notDedicated fs=${win.fullscreen}`);
                 return;
-            if (this._ownerOf(now) === win)
+            }
+            if (this._ownerOf(now) === win) {
+                this._log('evict-owner-ok', `${this._wd(win)} ${this._ws(now)}`);
                 return;
+            }
 
             const n = manager.get_n_workspaces();
             const here = now.index();
@@ -927,9 +978,13 @@ export class DedicatedWorkspaceGuard {
                     break;
                 }
             }
-            if (!target)
+            if (!target) {
+                this._log('evict-no-target', `${this._wd(win)} ${this._ws(now)} n=${n}`);
                 return;
+            }
 
+            this._log('evict', `${this._wd(win)} ${this._ws(now)} -> ${this._ws(target)} ` +
+                `step=${step} prev=${this._ws(prev)}`);
             this._internalMoves++;
             try {
                 win.change_workspace(target);
@@ -942,6 +997,25 @@ export class DedicatedWorkspaceGuard {
         }
     }
 
+    // The overview commits a drop after 'workspace-changed' is emitted, so the
+    // eviction above can be undone by the drop landing. Re-check once it has.
+    _evictLater(win, prevWs, nowWs) {
+        GLib.timeout_add(GLib.PRIORITY_DEFAULT, 150, () => {
+            if (!this._enabled)
+                return GLib.SOURCE_REMOVE;
+            try {
+                const now = win.get_workspace();
+                if (now && this.isDedicated(now) && this._ownerOf(now) !== win) {
+                    this._log('evict-late', `${this._wd(win)} still ${this._ws(now)}`);
+                    this._evict(win, prevWs, now);
+                }
+            } catch (e) {
+                // Window is gone; nothing to correct.
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
     // Record which window owns a dedicated workspace.
     setOwner(workspace, win) {
         if (!workspace)
@@ -949,6 +1023,7 @@ export class DedicatedWorkspaceGuard {
         if (!this._owners)
             this._owners = new Map();
         this._owners.set(workspace, win ?? null);
+        this._log('owner', `${this._ws(workspace)} -> ${this._wd(win)}`);
     }
 
     _ownerOf(workspace) {
@@ -1147,10 +1222,14 @@ export class FullscreenEmptyWorkspace {
         this._handles = [];
         this._mutterSettings = null;
 
-        // winId -> { originWs, originIndex, dedicatedWs, created }
+        // winId -> { dedicatedWs, created }
         this._state = new Map();
         // Pending size-change verdict per window, applied on 'size-changed'.
         this._sizeChange = new Map();
+        // Diagnostics: per-window state listeners and workspace-manager listeners.
+        this._stateWatchIds = [];
+        this._stateCreatedId = 0;
+        this._wsLogIds = [];
 
         // Re-entrancy guard. change_workspace() emits further size-change /
         // map signals, so every workspace mutation runs under this lock or it
@@ -1165,6 +1244,48 @@ export class FullscreenEmptyWorkspace {
         // Enabled only when the corresponding setting is on.
         this._guard = new DedicatedWorkspaceGuard();
         this._guardEnabled = false;
+    }
+
+    // ---- diagnostics ------------------------------------------------------
+    // Temporary field instrumentation: every event, decision and workspace
+    // mutation logs one greppable line (`###FS` for this class, `###GUARD` for
+    // the guard) so a report can be reconstructed from the journal alone.
+
+    _wd(win) {
+        if (!win)
+            return 'null';
+        try {
+            return `${win.get_id()}:${win.get_wm_class() ?? '?'}` +
+                `'${(win.get_title() || '').slice(0, 24)}'`;
+        } catch (e) {
+            return 'gone';
+        }
+    }
+
+    _ws(ws) {
+        try {
+            return ws ? `ws${ws.index()}` : 'ws?';
+        } catch (e) {
+            return 'ws-gone';
+        }
+    }
+
+    _log(tag, msg) {
+        console.log(`###FS ${tag} ${msg}`);
+    }
+
+    _dumpState() {
+        const parts = [];
+        for (const [id, st] of this._state) {
+            try {
+                parts.push(`{${id}:${this._ws(st.dedicatedWs)} created=${st.created}}`);
+            } catch (e) {
+                parts.push(`{${id}:gone}`);
+            }
+        }
+        return `n=${global.workspace_manager.get_n_workspaces()} ` +
+            `active=${global.workspace_manager.get_active_workspace_index()} ` +
+            `state=[${parts.join(' ')}]`;
     }
 
     // Take the guard and auto-release after a short delay. The delay matters:
@@ -1195,6 +1316,12 @@ export class FullscreenEmptyWorkspace {
             this._mutterSettings = null;
         }
 
+        this._log('enable', `newWs=${this._settings.get_boolean('fullscreen-new-workspace')} ` +
+            `maxToo=${this._maximizedToo()} primaryOnly=${this._primaryOnly()} ` +
+            `guard=${this._settings.get_boolean('fullscreen-guard-workspaces')} ` +
+            this._dumpState());
+        this._watchDiagnostics();
+
         const wm = global.window_manager;
         const connect = (sig, fn) => {
             try {
@@ -1212,8 +1339,8 @@ export class FullscreenEmptyWorkspace {
             }
         };
 
-        connect('map', act => this._onMap(act));
-        connect('unminimize', act => this._onMap(act));
+        connect('map', act => this._onMap(act, 'map'));
+        connect('unminimize', act => this._onMap(act, 'unminimize'));
         connect('size-change', (act, change, rectOld) => this._onSizeChange(act, change, rectOld));
         connect('size-changed', act => this._onSizeChanged(act));
         connect('minimize', act => this._onRestore(act));
@@ -1236,6 +1363,7 @@ export class FullscreenEmptyWorkspace {
         if (wanted === this._guardEnabled)
             return;
         this._guardEnabled = wanted;
+        this._log('guard-toggle', `enabled=${wanted}`);
         try {
             if (wanted) {
                 this._guard.enable();
@@ -1253,8 +1381,71 @@ export class FullscreenEmptyWorkspace {
         }
     }
 
+    // ---- diagnostics ------------------------------------------------------
+
+    _watchDiagnostics() {
+        try {
+            this._wsLogIds.push(global.workspace_manager.connect('notify::n-workspaces',
+                () => this._log('ws-count', this._dumpState())));
+            this._wsLogIds.push(global.workspace_manager.connect('active-workspace-changed',
+                () => this._log('ws-active', this._dumpState())));
+            this._stateCreatedId = global.display.connect('window-created', (display, win) => {
+                this._log('created', `${this._wd(win)} ${this._ws(win.get_workspace())}`);
+                this._watchWindowState(win);
+            });
+            for (const actor of global.get_window_actors()) {
+                const win = actor.get_meta_window();
+                if (win)
+                    this._watchWindowState(win);
+            }
+        } catch (e) {
+            console.warn('Open Gnome Box: could not install diagnostics: ' + e.message);
+        }
+    }
+
+    _watchWindowState(win) {
+        try {
+            if (!win || win._openbarStateWatched)
+                return;
+            win._openbarStateWatched = true;
+            const ids = [];
+            const sig = (name, tag) => {
+                ids.push(win.connect(name, () => {
+                    try {
+                        this._log(tag, `${this._wd(win)} fs=${win.fullscreen} max=${win.is_maximized()} ` +
+                            `min=${win.minimized} ${this._ws(win.get_workspace())}`);
+                    } catch (e) {}
+                }));
+            };
+            sig('notify::fullscreen', 'win-fullscreen');
+            sig('notify::minimized', 'win-minimized');
+            sig('notify::maximized-horizontally', 'win-max');
+            this._stateWatchIds.push({ win, ids });
+        } catch (e) {}
+    }
+
+    _unwatchDiagnostics() {
+        for (const { win, ids } of this._stateWatchIds) {
+            for (const id of ids) {
+                try { win.disconnect(id); } catch (e) {}
+            }
+            try { delete win._openbarStateWatched; } catch (e) {}
+        }
+        this._stateWatchIds = [];
+        if (this._stateCreatedId) {
+            try { global.display.disconnect(this._stateCreatedId); } catch (e) {}
+            this._stateCreatedId = 0;
+        }
+        for (const id of this._wsLogIds) {
+            try { global.workspace_manager.disconnect(id); } catch (e) {}
+        }
+        this._wsLogIds = [];
+    }
+
     disable() {
         this._enabled = false;
+        this._log('disable', this._dumpState());
+        this._unwatchDiagnostics();
         this._signalIds.forEach(id => {
             try { this._settings.disconnect(id); } catch (e) {}
         });
@@ -1332,11 +1523,58 @@ export class FullscreenEmptyWorkspace {
 
     // ---- workspace helpers -------------------------------------------------
 
+    // True for workspaces this feature keeps windows away from - whether the
+    // guard is currently enabled or not.
+    _isDedicatedWs(ws) {
+        if (!ws)
+            return false;
+        if (this._guardEnabled && this._guard.isDedicated(ws))
+            return true;
+        for (const st of this._state.values()) {
+            if (st?.dedicatedWs === ws)
+                return true;
+        }
+        return false;
+    }
+
+    // Where a window goes back to when it leaves its dedicated workspace.
+    // Resolved from the live layout every time: the dedicated space is created
+    // next to the window's workspace, but indices keep shifting as other windows
+    // come and go, and the original workspace may no longer exist at all. Walk
+    // backwards from the dedicated space, then forwards if there is nothing
+    // before it.
+    _restoreTarget(dedicatedWs) {
+        const manager = global.workspace_manager;
+        let here = -1;
+        try {
+            here = dedicatedWs ? dedicatedWs.index() : -1;
+        } catch (e) {
+            here = -1;
+        }
+        if (here < 0)
+            return null;
+        for (let i = here - 1; i >= 0; i--) {
+            const ws = manager.get_workspace_by_index(i);
+            if (ws && !this._isDedicatedWs(ws))
+                return ws;
+        }
+        const n = manager.get_n_workspaces();
+        for (let i = here + 1; i < n; i++) {
+            const ws = manager.get_workspace_by_index(i);
+            if (ws && !this._isDedicatedWs(ws))
+                return ws;
+        }
+        return null;
+    }
 
     // ---- event handlers ----------------------------------------------------
 
-    _onMap(act) {
+    _onMap(act, why = 'map') {
         const win = act?.meta_window;
+        if (!win)
+            return;
+        this._log(why, `${this._wd(win)} fs=${win.fullscreen} max=${win.is_maximized()} ` +
+            `type=${win.window_type} ${this._ws(win.get_workspace())} ${this._dumpState()}`);
         if (!this._shouldPlace(win))
             return;
         this._place(win);
@@ -1348,10 +1586,15 @@ export class FullscreenEmptyWorkspace {
             return;
         const id = win.get_id();
         const too = this._maximizedToo();
+        let changeName = '?';
+        try {
+            changeName = Object.keys(Meta.SizeChange).find(k => Meta.SizeChange[k] === change) ?? change;
+        } catch (e) {}
 
         if ((too && change === Meta.SizeChange.MAXIMIZE && win.is_maximized()) ||
             change === Meta.SizeChange.FULLSCREEN) {
             this._sizeChange.set(id, 'place');
+            this._log('size-change', `${this._wd(win)} ${changeName} -> place`);
             return;
         }
 
@@ -1364,7 +1607,11 @@ export class FullscreenEmptyWorkspace {
         if ((too && change === Meta.SizeChange.UNMAXIMIZE && wasFullyMaximized) ||
             (change === Meta.SizeChange.UNFULLSCREEN && (too ? !win.is_maximized() : true))) {
             this._sizeChange.set(id, 'back');
+            this._log('size-change', `${this._wd(win)} ${changeName} -> back ` +
+                `wasMax=${wasFullyMaximized} hasState=${this._state.has(id)}`);
+            return;
         }
+        this._log('size-change', `${this._wd(win)} ${changeName} -> ignore`);
     }
 
     _onSizeChanged(act) {
@@ -1376,6 +1623,7 @@ export class FullscreenEmptyWorkspace {
         if (!verdict)
             return;
         this._sizeChange.delete(id);
+        this._log('size-changed', `${this._wd(win)} verdict=${verdict}`);
         if (verdict === 'place') {
             if (this._shouldPlace(win))
                 this._place(win);
@@ -1385,6 +1633,7 @@ export class FullscreenEmptyWorkspace {
     }
 
     _onRestore(act) {
+        this._log('minimize', this._wd(act?.meta_window));
         this._restore(act);
     }
 
@@ -1397,6 +1646,7 @@ export class FullscreenEmptyWorkspace {
                 return;
             const id = win.get_id();
             const st = this._state.get(id);
+            this._log('destroy', `${this._wd(win)} hasState=${!!st} ${this._dumpState()}`);
             if (!st)
                 return;
             this._state.delete(id);
@@ -1405,12 +1655,19 @@ export class FullscreenEmptyWorkspace {
             const manager = global.workspace_manager;
             const ded = st.dedicatedWs;
 
-            // Bring the user back to where the window came from, without
-            // touching the workspace list.
-            if (st.originIndex >= 0 && st.originIndex < manager.get_n_workspaces()) {
-                const ws = manager.get_workspace_by_index(st.originIndex);
-                if (ws && ws.index() !== manager.get_active_workspace_index())
-                    ws.activate(global.get_current_time());
+            // Release the guard either way - the workspace stops being
+            // exclusive the moment its owner is gone.
+            if (this._guardEnabled && ded) {
+                this._guard.setOwner(ded, null);
+                this._guard.remove(ded);
+            }
+
+            // Bring the user back to where the window came from, but only when
+            // we moved it away in the first place.
+            if (st.created) {
+                const target = this._restoreTarget(ded);
+                if (target && target.index() !== manager.get_active_workspace_index())
+                    target.activate(global.get_current_time());
             }
 
             // The dedicated space's only window is going away: remove the space
@@ -1449,43 +1706,77 @@ export class FullscreenEmptyWorkspace {
     // ---- placement ---------------------------------------------------------
 
     _place(win) {
-        if (this._busy)
+        if (this._busy) {
+            this._log('place-skip', `${this._wd(win)} busy`);
             return;
+        }
 
         try {
             const id = win.get_id();
             const existing = this._state.get(id);
-            // Already isolated: nothing to do. This is the main idempotency
-            // guard that stops repeated size-change events from re-moving.
-            if (existing && this._isAloneOn(win.get_workspace(), win))
+
+            // Already owns a dedicated space: never build a second one. If
+            // something else landed on it, send the intruders away - moving the
+            // fullscreen window itself is what made it appear "kicked out".
+            if (existing) {
+                let onDedicated = false;
+                try {
+                    onDedicated = win.get_workspace() === existing.dedicatedWs;
+                } catch (e) {
+                    onDedicated = false;
+                }
+                if (onDedicated) {
+                    const squatters = this._squattersOn(existing.dedicatedWs, win);
+                    this._log('place-keep', `${this._wd(win)} ded=${this._ws(existing.dedicatedWs)} ` +
+                        `squatters=${squatters.length} ${this._dumpState()}`);
+                    for (const other of squatters)
+                        this._guard._evict(other, existing.dedicatedWs, other.get_workspace());
+                    return;
+                }
+                // The window left its own space behind; the record is stale.
+                this._log('place-stale', `${this._wd(win)} was=${this._ws(existing.dedicatedWs)} ` +
+                    `now=${this._ws(win.get_workspace())}`);
+                this._state.delete(id);
+                if (this._guardEnabled) {
+                    this._guard.setOwner(existing.dedicatedWs, null);
+                    this._guard.remove(existing.dedicatedWs);
+                }
+            }
+
+            // Already isolated: keep the window where it is, but still register
+            // the workspace as dedicated so the guard keeps it exclusive while
+            // fullscreen - a bare skip is what let windows be dragged in.
+            if (this._isAloneOn(win.get_workspace(), win)) {
+                const here = win.get_workspace();
+                this._state.set(id, { dedicatedWs: here, created: false });
+                if (this._guardEnabled) {
+                    this._guard.add(here);
+                    this._guard.setOwner(here, win);
+                }
+                this._log('place-alone', `${this._wd(win)} ded=${this._ws(here)} no-move ${this._dumpState()}`);
                 return;
+            }
 
             const monitor = win.get_monitor();
             const manager = win.get_display().get_workspace_manager();
             const current = manager.get_active_workspace_index();
 
-            if (this._primaryOnly() && monitor !== win.get_display().get_primary_monitor())
+            if (this._primaryOnly() && monitor !== win.get_display().get_primary_monitor()) {
+                this._log('place-skip', `${this._wd(win)} off-primary monitor=${monitor}`);
                 return;
-
-            // If there are no other windows there is nothing to escape from.
-            if (this._isAloneOn(win.get_workspace(), win))
-                return;
+            }
 
             this._lock();
             const originWs = win.get_workspace();
             if (!originWs)
                 return;
 
-            const originIndex = originWs.index();
             let dedicatedWs = null;
             let created = false;
 
             // macOS model: every fullscreen window gets its own Space. Always
             // create a fresh workspace beside the current one instead of reusing
             // an empty one, so two fullscreen windows never share a workspace.
-            // Note: AutoMove hooks _checkWorkspaces and keeps trailing
-            // workspaces alive, but that only matters when REMOVING a workspace
-            // (handled in _restore), so creation is not gated on it.
             try {
                 const before = manager.get_n_workspaces();
                 manager.append_new_workspace(false, global.get_current_time());
@@ -1500,10 +1791,15 @@ export class FullscreenEmptyWorkspace {
             } catch (e) {
                 console.warn('Open Gnome Box: could not create a workspace: ' + e.message);
             }
-            if (!dedicatedWs)
+            if (!dedicatedWs) {
+                this._log('place-fail', `${this._wd(win)} no dedicated workspace`);
                 return;
+            }
 
-            this._state.set(id, { originWs, originIndex, dedicatedWs, created });
+            this._log('place', `${this._wd(win)} origin=${this._ws(originWs)} ` +
+                `-> ded=${this._ws(dedicatedWs)} created=${created} active=${current}`);
+
+            this._state.set(id, { dedicatedWs, created });
             // Register before moving so the guard already knows this workspace
             // is off-limits; the move itself runs with the guard bypassed.
             if (this._guardEnabled) {
@@ -1519,44 +1815,31 @@ export class FullscreenEmptyWorkspace {
             } catch (e) {
                 console.warn('Open Gnome Box: could not switch to the window workspace: ' + e.message);
             }
-
-            // The AutoMove integration keeps trailing empty workspaces alive so
-            // its rule numbers stay valid. That pinning also leaves an empty
-            // workspace sitting right after the dedicated one once it is
-            // inserted, which reads as a phantom occupied space. Drop the
-            // empties after the dedicated workspace so it is the last one,
-            // matching the macOS Space model; the tail stops at the first
-            // non-empty workspace and the active one is never touched.
-            try {
-                const dedicatedIndex = dedicatedWs.index();
-                for (let i = manager.get_n_workspaces() - 1; i > dedicatedIndex; i--) {
-                    const ws = manager.get_workspace_by_index(i);
-                    if (!ws || ws.index() !== i)
-                        continue;
-                    const empty = ws.list_windows().filter(w =>
-                        w.window_type !== Meta.WindowType.DESKTOP &&
-                        !w.is_always_on_all_workspaces()).length === 0;
-                    if (!empty)
-                        break;
-                    if (ws === manager.get_active_workspace())
-                        continue;
-                    manager.remove_workspace(ws, global.get_current_time());
-                }
-            } catch (e) {
-                console.warn('Open Gnome Box: could not drop empty workspaces: ' + e.message);
-            }
+            this._log('place-done', `${this._wd(win)} ${this._dumpState()}`);
         } catch (e) {
             console.warn('Open Gnome Box: could not place window on a dedicated workspace: ' + e.message);
-        } finally {
-            // The guard is released by its own timer; nothing to do here.
+        }
+    }
+
+    // Windows that are neither the owner nor sticky, sitting on a dedicated
+    // workspace.
+    _squattersOn(ws, owner) {
+        try {
+            return ws.list_windows()
+                .filter(w => w !== owner && !w.is_always_on_all_workspaces())
+                .filter(w => w.window_type === Meta.WindowType.NORMAL);
+        } catch (e) {
+            return [];
         }
     }
 
     // ---- restore -----------------------------------------------------------
 
     _restore(act) {
-        if (this._busy)
+        if (this._busy) {
+            this._log('restore-skip', `${this._wd(act?.meta_window)} busy ${this._dumpState()}`);
             return;
+        }
 
         try {
             const win = act?.meta_window;
@@ -1566,34 +1849,47 @@ export class FullscreenEmptyWorkspace {
             const st = this._state.get(id);
             // No record means we never moved it - ignore completely. This keeps
             // us from reacting to events caused by other extensions.
-            if (!st)
+            if (!st) {
+                this._log('restore-none', this._wd(win));
                 return;
+            }
 
             // Drop the record first so a re-entrant event finds nothing to do.
             this._state.delete(id);
             this._sizeChange.delete(id);
 
-            if (!this._isNormal(win))
+            if (!this._isNormal(win)) {
+                this._log('restore-skip', `${this._wd(win)} not normal`);
                 return;
+            }
+
+            // The window was fullscreened on a workspace it already had to
+            // itself: nothing was ever moved, so restoring only releases the
+            // guard and leaves window and workspace untouched.
+            if (!st.created) {
+                if (this._guardEnabled && st.dedicatedWs) {
+                    this._guard.setOwner(st.dedicatedWs, null);
+                    this._guard.remove(st.dedicatedWs);
+                }
+                this._log('restore-in-place', `${this._wd(win)} ded=${this._ws(st.dedicatedWs)} ${this._dumpState()}`);
+                return;
+            }
 
             this._lock();
 
             const manager = win.get_display().get_workspace_manager();
             const dedicatedWs = st.dedicatedWs;
 
-            // Move the window back to its origin workspace.
-            let target = null;
-            try {
-                if (st.originWs && st.originWs.index() >= 0)
-                    target = st.originWs;
-            } catch (e) {
-                target = null;
-            }
-            if (!target && Number.isInteger(st.originIndex) &&
-                st.originIndex >= 0 && st.originIndex < manager.get_n_workspaces())
-                target = manager.get_workspace_by_index(st.originIndex);
+            // Resolve the way back from the live layout: the original workspace
+            // may have been reordered by other windows or removed entirely, so
+            // never replay an index remembered at creation time.
+            const target = this._restoreTarget(dedicatedWs);
+            this._log('restore', `${this._wd(win)} ded=${this._ws(dedicatedWs)} ` +
+                `target=${this._ws(target)} fs=${win.fullscreen} ` +
+                `max=${win.is_maximized()} min=${win.minimized} ${this._dumpState()}`);
 
             if (!target) {
+                console.warn('Open Gnome Box: no workspace to restore ' + this._wd(win) + ' to');
                 return;
             }
 
@@ -1627,7 +1923,7 @@ export class FullscreenEmptyWorkspace {
                 // instead of being skipped - a skipped removal here would leave
                 // the space behind, and every fullscreen cycle would add one.
                 const removeDedicated = (via) => {
-                    if (this._disabling || !dedicatedWs)
+                    if (!this._enabled || !dedicatedWs)
                         return;
                     try {
                         const stillAloneNow = this._isAloneOn(dedicatedWs, win);
