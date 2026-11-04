@@ -855,11 +855,13 @@ export class DedicatedWorkspaceGuard {
             // A window created on a dedicated workspace never triggers
             // workspace-changed - it is born there, so the handler above cannot
             // catch it. That is exactly what happens when the dedicated space is
-            // the active one and an application launches. Slow-mapping
-            // applications (JetBrains) take seconds between window-created and
-            // landing on a workspace, so poll briefly instead of checking once;
-            // dialogs are left alone and the owner is protected.
-            const bornCheck = (tries) => {
+            // the active one and an application launches. Check immediately -
+            // before the window maps, so the squatter is never visible - and
+            // keep polling on a backoff schedule for slow-settling applications
+            // (JetBrains) that only land seconds after creation. Dialogs are
+            // left alone and the owner is protected.
+            const steps = [0, 100, 250, 500, 1000, 2000, 4000];
+            const bornCheck = (step) => {
                 if (!this._enabled)
                     return GLib.SOURCE_REMOVE;
                 let now = null;
@@ -869,15 +871,15 @@ export class DedicatedWorkspaceGuard {
                     return GLib.SOURCE_REMOVE; // window gone
                 }
                 if (now && this.isDedicated(now) && this._ownerOf(now) !== win) {
-                    this._log('born-intruder', `${this._wd(win)} ${this._ws(now)} tries=${9 - tries}`);
+                    this._log('born-intruder', `${this._wd(win)} ${this._ws(now)} t=${steps[step]}ms`);
                     this._evict(win, null, now);
                     return GLib.SOURCE_REMOVE;
                 }
-                if (tries > 0)
-                    return GLib.SOURCE_CONTINUE;
+                if (step + 1 < steps.length)
+                    GLib.timeout_add(GLib.PRIORITY_DEFAULT, steps[step + 1], () => bornCheck(step + 1));
                 return GLib.SOURCE_REMOVE;
             };
-            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => bornCheck(9));
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, steps[0], () => bornCheck(0));
             this._globalWindowIds.push({ win, id });
         } catch (e) {
             // Not every Meta.Window exposes the signal; ignore those.
