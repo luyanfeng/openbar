@@ -85,7 +85,9 @@ git tag -a v43 -m "..." <commit> && git push origin v43
 - CSS 中的图标 `url()` 指向运行时目录的 `assets/`（启动时从 `media/assets` 复制），新增图标放 `media/assets`。
 - CSS 选择器与 `extension.js` 添加的 class 强耦合，改一边要同步另一边。
 - `metadata.json` 的 `_generated` 字段来自 extensions.gnome.org，不要动。但 `version` 现在**由本仓库手动维护**（改走 GitHub Releases 发布后不再由 EGO 分配），见下方「发版」。
-- 导入/导出设置走 `dconf dump|load /org/gnome/shell/extensions/openbar/`（键值文本），不是 JSON。
+- 导入/导出设置走 `dconf dump|load /org/gnome/shell/extensions/opengnomebox/`（键值文本），不是 JSON。
+  **不要用 `/…/openbar/` 路径**：那是原版 OpenBar 的孤儿路径，本移植版的 schema path 是
+  `/org/gnome/shell/extensions/opengnomebox/`，往 `/openbar/` 写键不会有任何效果（2026-11-04 实测踩坑）。
 - 生命周期必须对称：`enable()` 里 `connect` 的信号/定时器，`disable()` 必须断开/清除。历史上
   `_settings.connect('changed')` 未断开，导致 disable 后 `_settings = null` 仍被回调解引用报错。
 - `applyMenuStyles()` 的 DateMenu 分支里 `clearBtn` 靠 `let` 在 if/else 外声明；曾经误用
