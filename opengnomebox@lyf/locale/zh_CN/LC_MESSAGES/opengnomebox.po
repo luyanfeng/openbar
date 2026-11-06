@@ -1127,3 +1127,42 @@ msgstr "自行管理位置的指示器。"
 msgid "Drop here"
 msgstr "拖到此处"
 
+
+msgid "Clear Favorite Marks"
+msgstr "清除已收藏标记"
+
+msgid "Favorite"
+msgstr "收藏"
+
+msgid "Favorite Weight"
+msgstr "收藏权重"
+
+msgid "Favorited: %d  ·  Gallery total: %d"
+msgstr "已收藏 %d 张 · 图库总数量 %d 张"
+
+msgid "Favorited: %d  ·  Gallery total: ?"
+msgstr "已收藏 %d 张 · 图库总数量 ？"
+
+msgid "Favorites"
+msgstr "收藏"
+
+msgid "In Random mode a starred wallpaper is drawn with this many times the weight of a plain one."
+msgstr "随机模式下，已收藏壁纸的抽取权重是非收藏壁纸的该倍数。"
+
+msgid "Random picks a weighted wallpaper; favorites are drawn more often."
+msgstr "随机模式按权重抽取壁纸，已收藏的更常出现。"
+
+msgid "Rotation Mode"
+msgstr "轮换模式"
+
+msgid "Sequential"
+msgstr "顺序"
+
+msgid "Star wallpapers with the tray star button. Starred ones are drawn more often in Random mode."
+msgstr "通过顶栏托盘的星标按钮收藏壁纸；随机模式下已收藏的更常出现。"
+
+msgid "Statistics"
+msgstr "统计"
+
+msgid "Window class name, e.g. \"KeePassXC\""
+msgstr "窗口类名，例如 \"KeePassXC\""
