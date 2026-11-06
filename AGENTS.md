@@ -42,6 +42,19 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
 - **改动代码后 `gnome-extensions disable/enable` 不会重新导入模块**（GJS ESM 模块缓存，
   状态切到 INACTIVE→ACTIVE 也不行，2026-11-03 两次实测确认）。改完 `.js` 并部署后，必须
   重新登录才能加载新代码；验证时先看新日志前缀（如 `###FS enable`）出现与否来确认版本。
+- **部署纪律（用户钦定，严禁违反）：必须「停用插件 → 整包部署 → 启用插件」，绝不允许
+  单文件 `cp` 覆盖已安装目录里的文件。** 扩展处于启用状态时，GNOME Shell 会监控扩展
+  目录并在文件变化时热重载（2026-11-06 实测：单文件 cp 覆盖 gschemas.compiled 的写入
+  瞬间被重载读到 → schema 键缺失 → Gjs abort（signal 6）→ 整个会话注销，用户被强制登出）。
+  正确流程：
+  ```bash
+  gnome-extensions disable opengnomebox@lyf
+  sleep 1
+  rsync -a --delete 'opengnomebox@lyf/' ~/.local/share/gnome-shell/extensions/opengnomebox@lyf/
+  gnome-extensions enable opengnomebox@lyf
+  ```
+  停用期间目录监视不会触发导入，整包替换完再启用，读到的文件必然完整一致。
+  启用后用 `###FS enable` / `###GUARD enable` 等标志日志确认版本与状态。
 - 安装用 `cp -r` 或 `gnome-extensions install`，不要用符号链接指向工作区。
 - 启用后核查：`gnome-extensions info <uuid>`（状态 ACTIVE）、
   `GetExtensionErrors` 返回 `@as []`、`$XDG_RUNTIME_DIR/io.github.neuromorph.openbar/stylesheet.css`
