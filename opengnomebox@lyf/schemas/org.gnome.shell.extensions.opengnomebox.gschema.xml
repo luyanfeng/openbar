@@ -1460,6 +1460,11 @@
       <summary>Slideshow interval</summary>
       <description>Number of interval units between wallpaper changes.</description>
     </key>
+    <key type="s" name="slideshow-last-path">
+      <default>''</default>
+      <summary>Last applied slideshow wallpaper</summary>
+      <description>Path of the wallpaper the slideshow last applied, used to resume rotation after a restart instead of starting over.</description>
+    </key>
     <key type="b" name="slideshow-paused">
       <default>false</default>
       <summary>Pause the wallpaper slideshow</summary>

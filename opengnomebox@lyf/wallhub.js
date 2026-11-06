@@ -381,6 +381,11 @@ export class WallhubManager {
     _applyAndPreview(path) {
         if (!path)
             return;
+        try {
+            this.settings.set_string('slideshow-last-path', path);
+        } catch (e) {
+            console.warn('Wallhub: could not persist last wallpaper: ' + e.message);
+        }
         this.setWallpaper(path)
             .then(() => this.updatePreview())
             .catch(e => console.error('Wallhub: setWallpaper failed: ' + e));
@@ -660,6 +665,22 @@ export class WallhubManager {
 
     // ---- Source scanning ----
 
+    // Point the cursor at the wallpaper the slideshow last applied, so a
+    // restart continues the rotation instead of starting over at queue[0].
+    // The queue is rebuilt on every update, so a remembered index would
+    // drift as files come and go; the applied path itself is the stable
+    // anchor. Falls back to the start when the path is no longer in the
+    // queue (its source was removed).
+    _resumeCursor() {
+        const last = this.settings.get_string('slideshow-last-path');
+        if (!last) {
+            this._cursor = -1;
+            return;
+        }
+        const idx = this.wallpaperQueue.indexOf(last);
+        this._cursor = idx >= 0 ? idx : -1;
+    }
+
     async updateQueue() {
         this.wallpaperQueue.clear();
         this._cursor = -1;
@@ -690,6 +711,7 @@ export class WallhubManager {
                 console.error('Wallhub: Invalid file type: ' + path);
             }
         }
+        this._resumeCursor();
     }
 
     async getWallpapersFromDirectory(directory) {
