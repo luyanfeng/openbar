@@ -158,16 +158,19 @@ export class WallhubManager {
         // Keep the default preview and the favorite star in sync when the
         // desktop wallpaper changes (e.g. our own rotation, or another program
         // setting it).
-        this._signalIds.push(this.bgSettings.connect('changed::picture-uri', () => {
+        // Keep the default preview and the favorite star in sync when the
+        // desktop wallpaper changes (e.g. our own rotation, or another program
+        // setting it). Both light and dark keys are watched: in dark mode the
+        // star reflects picture-uri-dark, so the dark write is what must
+        // refresh it.
+        const onWallpaperChanged = () => {
             if (!this.ext.disabling) {
                 this.updatePreview();
                 this.updateFavoriteButton();
             }
-        }));
-        this._signalIds.push(this.bgSettings.connect('changed::picture-uri-dark', () => {
-            if (!this.ext.disabling)
-                this.updatePreview();
-        }));
+        };
+        this._signalIds.push(this.bgSettings.connect('changed::picture-uri', onWallpaperChanged));
+        this._signalIds.push(this.bgSettings.connect('changed::picture-uri-dark', onWallpaperChanged));
         this.updateQueue()
             .then(() => {
                 this.startLoop();
