@@ -1,163 +1,103 @@
+# Open Gnome Box
 
-# Open Gnome Box (GNOME 45–50 Extension)  
+一个面向 GNOME Shell（45–50）的整合型桌面增强扩展：顶栏/菜单主题、指示器管理、
+剪贴板历史、全屏专用工作区、壁纸轮换等能力集中在一个扩展里。
 
+## ⚠️ 关于原创性（请先读这一段）
 
-A GNOME Shell extension for theming Gnome Top Bar / Top Panel, Menus, Dash/Dock, Gnome Shell and Gtk/Flatpak Apps.  
+**本项目不是原创作品。** 扩展的主体（主题引擎、设置界面与大部分面板能力）**fork 自
+[Open Bar](https://extensions.gnome.org/extension/6580/open-bar/)**；其它功能也是把
+社区已有扩展**移植、整合、汉化并做了改进与问题修复**，而非重新发明。代码与设计上的
+功劳属于下述原作者：
 
-### Open Gnome Box 2.0: 
-- Auto-theming completely renewed. Theme Options: Dark, Light, Pastel, True-Color
-- Apply styles to Bar, Menu, Dash / Dock and rest of the shell
-- Apply accent color and style Gtk/Flatpak apps
-- New UI for preferences/settings  
+| 功能 | 来源 |
+|---|---|
+| 主题引擎、面板/菜单样式、设置界面（整体基础） | **Open Bar**（fork） |
+| 壁纸轮换（托盘控制、动态壁纸、收藏加权） | **Wallhub**（`wallhub@sakithb.github.io`） |
+| 指示器分组（Lilypad 式折叠分组） | **Lilypad**（`lilypad@shendrew.github.io`，GPL-3.0） |
+| 全屏专用工作区 | **fullscreen-to-empty-workspace2**（`fullscreen-to-empty-workspace2@corgijan.dev`） |
+| Auto Move Windows、驱动器菜单等 | 来自 GNOME Shell 官方扩展集的思路与实现 |
+| 电池自动隐藏、状态区间距、四指手势 | 整合自社区扩展（随 Open Bar 一并带入） |
+| 剪贴板历史管理 | 移植整合自社区剪贴板管理扩展的思路与实现 |
 
-### Compatibility with Extensions:
-- It should be (mostly) compatible with user themes and other extensions that affect the Top Panel 
-- Some extensions do not use standard widget and API (e.g. 'PanelMenu.Button' and 'main.addToStatusArea') when adding indicator to Panel and fixing that makes them work correctly with Open Gnome Box (or user themes for that matter).
-  
+本项目的工作主要是：把这些能力合并到一个扩展里、适配 GNOME 45–50、补中文翻译、
+修 bug 与做局部增强。**如果只需要其中某一项功能，优先使用对应的原版扩展。**
 
-### Auto Theming:
-- Note: If you want to save your current settings, please use Export Settings option before applying Auto-theme. You can import it back whenever needed.
-- Auto-themes will use the color palette generated from the background image.
-- Other settings will be set as selected, by the user, in the preferences tabs.
-- Styles will apply to the Top Bar, Menus and optionally to the shell.
-        
-        - True Color     :  Palette colors as-is (biased towards dark). 
-        - Pastel Theme   :  Colors are pastelified (biased towards light).
-        - Dark Theme     :  Colors are darkened as needed.
-        - Light Theme    :  Colors are lightened as needed.
+## 功能一览
 
-- You can select themes separately for both Gnome Dark and Light modes. 
-- Once theme is applied, you can further tweak any of the manual settings, as usual, to finetune the theme. 
-- Color changes made in current mode will be saved for that mode alone. Other settings will apply to both modes.
-- There is an option for Auto-refreshing theme when background changes. This will overwrite current themes with newly generated ones when background is changed.
-- There are more settings in Auto-Theme. You can select if you want the secondary menu BG color to be derived from BG or auto-selected from palette. You can specify any preferred accent color or let the theme choose from the background. You can also select if foreground color should be auto-generated or use manual selection etc.
-- Since it is one size fit all solution, 'No Free Lunch' theorem applies. Not all options will work best for all backgrounds, so the additional knobs above will help you select the desired one. One of the theme combinations should work for you at least with little bit tweaking if needed.
-  
+### 外观与主题
+- 顶栏/面板样式：多种形态（Mainland / Floating / Islands / Trilands）、颜色、渐变、
+  圆角、边框、霓虹光晕、阴影，支持独立设置窗口最大化时的顶栏样式
+- 菜单样式：日期菜单、快捷设置，以及（可选）全 Shell 弹出菜单统一配色
+- Dash / Dock 样式、GTK3/GTK4 应用主题（自动备份原配置）与 Flatpak 全局主题覆盖
+- 自动取色：从当前壁纸提取配色生成主题；支持跟随 GNOME 强调色
+- 自定义字体与字号
 
+### 面板与指示器
+- 指示器分组：把多个托盘图标折叠进一个可展开按钮（Lilypad 式）
+- 状态区间距、电池/电源指示器自动隐藏（充电/满电/阈值）
+- Fitts 定律热区：无需精确瞄准面板按钮
+- 窗口最大化时顶栏样式联动
 
-### Customize:
-- Bar Type: Fixed, Floating or Islands / Trilands
-- Bar position, height, margin, paddings
-- Bar foreground color, font
-- Bar background color, transparency, gradient, shadow, highlights, candybar 
-- Shape rectangular to pill, border width, color, neon glow
-- Menu customizations: foreground / background colors, transparency, border, shadow,  active/selection, hover colors
-etc.
-- Includes a custom color palette in each color button popup. The palette is auto-generated from the desktop background.  
-- Window-Max Bar: Change Bar props when a window is maximized
-- Add accent hint to GTK/Flatpak apps' Headerbar, Sidebar or Card/Dialogs. Add Traffic Light controls, window border, popover styles etc.    
-- Import, export theme settings to file.
+### 桌面效率
+- Auto Move Windows：按 `应用:工作区` 规则自动把新窗口送到指定工作区
+- 四指触摸板手势映射为工作区切换（可三/四指互换）
+- 驱动器菜单：挂载/卸载移动存储
+- 剪贴板历史：搜索、置顶、标签、图片、快捷键、私有模式
+- 设置备份与导入/导出（JSON 文件）
 
-</br>   
+### 窗口与工作区
+- 全屏专用工作区：全屏窗口自动独占一个新的工作区，退出全屏后归还并清理；
+  非属主窗口无法停留在专用工作区内
 
-## Installation
+### 壁纸轮换
+- 顺序 / 加权随机两种轮换模式，随机模式下收藏壁纸权重可调（1–10 倍）
+- 托盘控制：上一张 / 下一张 / 随机 / 收藏 / 暂停，悬停预览下一张
+- 支持 GNOME 原生动态壁纸（`.xml`），自动排除其内部时间帧
+- 记住上次轮换位置，重启后接续而不是从头开始
 
-### Recommended
+## 安装
 
-[<img alt="" height="100" src="https://raw.githubusercontent.com/andyholmes/gnome-shell-extensions-badge/master/get-it-on-ego.svg?sanitize=true">](https://extensions.gnome.org/extension/6580/open-bar/)
+### 推荐：下载 Release 安装包
 
-It's recommended to install the extension from
-[extensions website](https://extensions.gnome.org/extension/6580/open-bar/), or from
-the _Extension Manager_ app.
+从本仓库的 Releases 页面下载 `opengnomebox@lyf.shell-extension.zip`，然后：
 
+```bash
+gnome-extensions install --force opengnomebox@lyf.shell-extension.zip
+```
 
-### How to manually install the extension (if needed)?
+安装后**注销并重新登录**（Wayland 必需；Xorg 可用 `Alt+F2` → `r` 重启 Shell），
+再在「扩展」应用（或 `gnome-extensions enable opengnomebox@lyf`）中启用。
+
+### 手动安装
+
+把仓库中的 `opengnomebox@lyf` 目录复制到：
 
 ```
-git clone https://github.com/luyanfeng/openGnomeBox.git \
-	~/.local/share/gnome-shell/extensions/opengnomebox@lyf
+~/.local/share/gnome-shell/extensions/opengnomebox@lyf/
 ```
-OR download the code zip file and unzip at location: ~/.local/share/gnome-shell/extensions/
-The extension's directory name should match its uuid i.e. "opengnomebox@lyf"
 
-Note: 
-Please download from following GitHub branch as per your Gnome version:
-- For Gnome 42-44: branch 'g42-44'
-- For Gnome 45+: branch 'main'
+目录名必须与扩展 uuid（`opengnomebox@lyf`）一致。同样需要重新登录后启用。
 
-Supported GNOME Shell versions (branch 'main'): 45, 46, 47, 48, 49, 50
+> 注意：扩展目录需完整复制（含 `schemas/`、`media/`、`locale/` 等），
+> 不要用 `gnome-extensions pack` 自行打包——它会漏掉资源文件。
 
-You will need to restart the Gnome Shell (for manual install):
+## 兼容性
 
-- Wayland: logout and login again 
-- Xorg: `alt+f2` then type `r` and `enter` 
+- GNOME Shell **45 – 50**
+- 与其它顶栏/主题类扩展可能冲突（扩展内置了常见冲突检测）
+- 启用后会改写 `~/.config/gtk-3.0/gtk.css`、`~/.config/gtk-4.0/gtk.css`
+  （原文件自动备份为 `gtk_backup_byOpenBar.css`）以及 Flatpak 全局主题覆盖，
+  这是主题功能的设计行为
 
-## Settings Notes
-If the panel/menu isn't looking right, you need to tweak some settings. There are a lot of knobs to allow for different setups/tastes. It can also make it a bit overwhelming if you are not familiar with css styles but with some experimentation it will become a lot easier. Here are brief notes:
-- BG/FG color: Background or Foreground colors. Foreground is typically text and icons.
-- Alpha: Transparency for the color. 0 is transparent while 1 is opaque.
-- Panel BG will affect the bar while Tri/Islands BG will affect the individual indicator buttons/combos (in Trilands/Islands mode).
-- Gradient goes from Start color to End color. If you want a single color fading, select same color for both with different Alphas. e.g. Setting end color alpha to 0 will form a gradient from Start color to transparent.
-- Highlight color: It is the background color upon hover or focus. You can choose to highlight with border instead.
-- Vertical padding: Controls size of highlights in Mainland/Floating. Also controls size of Islands/Trilands. Increase height if padding squeezes the text.
-- Panel Shadow: a downward shadow for the panel bar. Shadow Spread controls both shadow transparency and spread together.
-- Border: 
-    - Width controls thickness (grows inwards for Islands). Adjust bar height accordingly, after setting border width.  
-    - Radius will control the shape from rectangle at radius 0 to Pill at radius close to bar height. 
-    - Neon glow: adds a neon-light like glow to the border. You need dark, relatively opaque background with bright/neon colored, relatively opaque border. Neon will override Panel shadow in Mainland and Floating mode.
-- Menus: 
-    - FG/BG, border, highlight are similar to above but for menus.
-    - Selected/active color is for menu items that are active e.g. Today's day in Calendar or WiFi in Quick Settings or even an active menu item with opened submenu. 
-    - Shadow applies to the panel menu. Use white/bright color in dark theme and black/dark color in light theme for the effect to show and help with contrast. Using same color as menu border is also a good idea. Use the Alphas for both border and shadow to increase or reduce their effect.
-- Lastly, be a tiny bit gentler with the sliders in the settings as they modify the stylesheet behind the scene for every update.
+## 许可
 
+- 本项目整体：**GPL-2.0-or-later**
+- `lilypad.js` / `lilypadPrefs.js`（移植自 Lilypad）：**GPL-3.0-or-later**
+- 各上游项目的版权归其原作者所有，详见上方来源表
 
-## What's New (recent first)
-- GNOME Shell 50 support. Fixes the extension failing to enable on GNOME 49/50 and a settings handler left connected after disable.
-- Open Gnome Box 2.0: New Auto-theming, Apply Styles to Dash/Dock, Shell and Gtk/Flatpak apps
-- Automatic FG color, Panel Box color, Light-gradient for menus and creative tweaks for border width and radius
-- Auto-theming options 
-- Import, export theme settings to file.
-- Window-Max Bar: Change Bar props when a window is maximized
-- More settings in Menus: Menu panel and buttons radius, slider tweaks
-- Apply style to notification popups
-- Candy-bar palette for panel buttons
-- Menu secondary color override to allow selecting custom (high contrast) colors within the menu
-- Fixes for screencast/ remote sharing/ battery indicators and DND toggle switch etc.
-- Rewrite to fully use stylesheet approach. Several enhancements and fixes. New additions: 
-    - Desktop background color palette in every color button popup. This makes it very easy to select colors according to current wallpaper.
-    - Highlights with border.
-    - Horizontal and vertical paddings for buttons.
-    - Bar position Top vs Bottom.
-    - Compatibility with Arc Menu etc.
-- New Bar Type 'Trilands' and compatibility with 'Quick Settings Audio Panel' extension
-- New overhauled version with support for menus including Calendar, Notifications, Quick Settings etc.
-- Initial version created
+## 截图
 
-
-
-## Screenshots
-
-More recent screenshots can be found in the [Reddit post here](https://www.reddit.com/r/unixporn/comments/1ethgn2/ocgnome_open_bar_for_the_rice_guys/).
-
-Auto-Themes Examples:  
-
-![Screenshot](screens/ego01.png)
-![Screenshot](screens/ego02.png)
-![Screenshot](screens/ego03.png) 
-
-Candybar Example: 
-
-![Screenshot](screens/ego1.png) 
-
-Window-Max Bar Example: 
-
-![WindowMaxBar](https://github.com/neuromorph/openbar/issues/17#issue-2186440177) 
-
-More Examples: 
-![Screenshot](screens/ego2.png)
 ![Screenshot](screens/github0.png)
 ![Screenshot](screens/github1.png)
-![Screenshot](screens/github2.png) 
-
-Settings Window:
-![Screenshot](screens/OpenBarPrefs.png)  
-
-Some More Samples: 
-
-![Screenshot](screens/b1.png) 
-![Screenshot](screens/b2.png)
-![Screenshot](screens/b3.png)
-![Screenshot](screens/b4.png)
-
-
+![Screenshot](screens/github2.png)
