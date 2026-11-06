@@ -72,6 +72,7 @@ export class WallhubManager {
         this._previewBox = null;
         this._previewImage = null;
         this._lastPreviewPath = null;
+        this._previewCancellable = null;
         this._intervalItem = null;
         this._controlItem = null;
         this._randomIdx = null;
@@ -228,6 +229,10 @@ export class WallhubManager {
         this._intervalItem = null;
         this._controlItem = null;
         this._randomIdx = null;
+        if (this._previewCancellable) {
+            this._previewCancellable.cancel();
+            this._previewCancellable = null;
+        }
 
         this.wallpaperQueue = null;
         this.bgSettings = null;
@@ -590,36 +595,74 @@ export class WallhubManager {
         // time would be wasteful.
         if (imagePath === this._lastPreviewPath && this._previewItem.visible)
             return;
-        try {
-            const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-            const width = Math.round(PREVIEW_WIDTH * scale);
-            const height = Math.round(PREVIEW_HEIGHT * scale);
-            const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_size(imagePath, width, height);
-            const image = new St.ImageContent();
-            const args = [
-                pixbuf.get_pixels(),
-                pixbuf.get_has_alpha() ? Cogl.PixelFormat.RGBA_8888 : Cogl.PixelFormat.RGB_888,
-                pixbuf.get_width(),
-                pixbuf.get_height(),
-                pixbuf.get_rowstride(),
-            ];
-            if ((this.ext.gnomeVersion || 50) >= 48)
-                args.unshift(global.stage.context.get_backend().get_cogl_context());
-            const ok = image.set_data(...args);
-            if (!ok) {
-                console.warn('Wallhub: failed to build preview image');
-                this._previewItem.hide();
-                return;
-            }
-            this._previewImage.set_size(width, height);
-            this._previewImage.content = image;
-            this._lastPreviewPath = imagePath;
-            this._previewItem.show();
-        } catch (e) {
-            console.warn('Wallhub: preview render failed: ' + e);
-            this._lastPreviewPath = null;
-            this._previewItem.hide();
-        }
+
+        // Decoding a full-size wallpaper takes long enough to visibly stall
+        // the shell, so the whole chain (open + decode) runs asynchronously
+        // and is cancelled when the hover target changes before it lands.
+        // The previous preview stays on screen until the new one is ready.
+        if (this._previewCancellable)
+            this._previewCancellable.cancel();
+        const cancellable = new Gio.Cancellable();
+        this._previewCancellable = cancellable;
+
+        const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        const width = Math.round(PREVIEW_WIDTH * scale);
+        const height = Math.round(PREVIEW_HEIGHT * scale);
+
+        Gio.File.new_for_path(imagePath).read_async(GLib.PRIORITY_DEFAULT, cancellable,
+            (source, res) => {
+                let stream = null;
+                try {
+                    stream = source.read_finish(res);
+                } catch (e) {
+                    if (!cancellable.is_cancelled())
+                        console.warn('Wallhub: preview open failed: ' + e.message);
+                    return;
+                }
+                if (cancellable.is_cancelled()) {
+                    try { stream.close(null); } catch (e) {}
+                    return;
+                }
+                GdkPixbuf.Pixbuf.new_from_stream_at_scale_async(stream, width, height, true, cancellable,
+                    (src, res2) => {
+                        let pixbuf = null;
+                        try {
+                            pixbuf = GdkPixbuf.Pixbuf.new_from_stream_finish(res2);
+                        } catch (e) {
+                            if (!cancellable.is_cancelled())
+                                console.warn('Wallhub: preview decode failed: ' + e.message);
+                        }
+                        try { stream.close(null); } catch (e) {}
+                        if (!pixbuf || cancellable.is_cancelled())
+                            return;
+                        try {
+                            const image = new St.ImageContent();
+                            const args = [
+                                pixbuf.get_pixels(),
+                                pixbuf.get_has_alpha() ? Cogl.PixelFormat.RGBA_8888 : Cogl.PixelFormat.RGB_888,
+                                pixbuf.get_width(),
+                                pixbuf.get_height(),
+                                pixbuf.get_rowstride(),
+                            ];
+                            if ((this.ext.gnomeVersion || 50) >= 48)
+                                args.unshift(global.stage.context.get_backend().get_cogl_context());
+                            const ok = image.set_data(...args);
+                            if (!ok) {
+                                console.warn('Wallhub: failed to build preview image');
+                                this._previewItem.hide();
+                                return;
+                            }
+                            this._previewImage.set_size(width, height);
+                            this._previewImage.content = image;
+                            this._lastPreviewPath = imagePath;
+                            this._previewItem.show();
+                        } catch (e) {
+                            console.warn('Wallhub: preview render failed: ' + e);
+                            this._lastPreviewPath = null;
+                            this._previewItem.hide();
+                        }
+                    });
+            });
     }
 
     // Human-readable interval, e.g. "Every 10 seconds" / "Every 5 minutes".
