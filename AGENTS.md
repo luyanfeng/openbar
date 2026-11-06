@@ -56,6 +56,10 @@ dbus-run-session -- gnome-shell --headless --virtual-monitor 1920x1080 \
   停用期间目录监视不会触发导入，整包替换完再启用，读到的文件必然完整一致。
   启用后用 `###FS enable` / `###GUARD enable` 等标志日志确认版本与状态。
 - 安装用 `cp -r` 或 `gnome-extensions install`，不要用符号链接指向工作区。
+- **其它插件边界（用户钦定，严禁违反）**：只允许改动/启停/部署本扩展 `opengnomebox@lyf`
+  自身的文件与状态。系统里其它任何扩展（Astra Monitor、AppIndicator、lilypad@shendrew、
+  ubuntu-dock、blur-my-shell 等）的文件、设置、启用/禁用/卸载状态一律不碰。为兼容排查
+  只读其它扩展源码可以，但任何写操作或状态变更必须等用户本人明确授权，逐次确认。
 - 启用后核查：`gnome-extensions info <uuid>`（状态 ACTIVE）、
   `GetExtensionErrors` 返回 `@as []`、`$XDG_RUNTIME_DIR/io.github.neuromorph.openbar/stylesheet.css`
   已生成、`journalctl --user` 无 `JS ERROR` / `Gjs-CRITICAL`、shell pid 未变。
