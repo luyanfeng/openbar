@@ -26,6 +26,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
+import { WallpaperQueue, scanWallpapers } from './wallpaperscan.js';
 
 // Promisify the async GIO methods used for directory enumeration so they can be
 // awaited. Without these, the calls throw "At least 5 arguments required" because
@@ -36,42 +37,6 @@ Gio._promisify(Gio.FileEnumerator.prototype, 'next_files_async', 'next_files_fin
 
 const PREVIEW_WIDTH = 360;
 const PREVIEW_HEIGHT = 203;
-
-// ---- Bit flag helpers (wallpaper-paths-selected is an int bitmask) ----
-export function isBitSet(value, bit) {
-    return (value & (1 << bit)) !== 0;
-}
-
-export function setBit(value, bit) {
-    return value | (1 << bit);
-}
-
-export function clearBit(value, bit) {
-    return value & ~(1 << bit);
-}
-
-// ---- Wallpaper rotation queue ----
-export class WallpaperQueue extends Array {
-    enqueue(path) {
-        if (!this.includes(path))
-            this.push(path);
-    }
-
-    dequeue() {
-        if (this.length === 0)
-            return null;
-        // Rotate: pick a pseudo-random entry from the first 80% and move it to
-        // the end, so the same image does not repeat too soon.
-        const index = Math.floor(Math.random() * (this.length * 0.8));
-        const wallpaper = this.splice(index, 1)[0];
-        this.push(wallpaper);
-        return wallpaper;
-    }
-
-    clear() {
-        this.length = 0;
-    }
-}
 
 // ---- Dynamic wallpaper (.xml) parser ----
 export function parseDynamicWallpaper(xml) {
@@ -110,6 +75,7 @@ export class WallhubManager {
         this._intervalItem = null;
         this._controlItem = null;
         this._randomIdx = null;
+        this._favoriteButton = null;
     }
 
     enable() {
@@ -124,6 +90,7 @@ export class WallhubManager {
         this.slideshowIntervalUnit = this.settings.get_enum('slideshow-interval-unit');
         this.slideshowInterval = this.settings.get_uint('slideshow-interval');
         this._paused = this.settings.get_boolean('slideshow-paused');
+        this.favorites = this.settings.get_strv('wallpaper-favorites');
 
         // First run with no configured sources: seed the system wallpaper
         // directory so the slideshow works out of the box and is visible in prefs.
@@ -164,9 +131,19 @@ export class WallhubManager {
             this.startLoop();
             this.updatePauseButton();
         }));
+        // Prefs can clear the favorites set; keep the tray star in sync.
+        this._signalIds.push(this.settings.connect('changed::wallpaper-favorites', () => {
+            try {
+                this.favorites = this.settings.get_strv('wallpaper-favorites');
+            } catch (e) {
+                return;
+            }
+            this.updateFavoriteButton();
+        }));
 
         this.buildIndicator();
         this.updateIntervalLabel();
+        this.updateFavoriteButton();
         // Refresh preview and pick a fresh random candidate whenever the menu
         // is opened, so both always reflect the current state.
         this.indicator.menu.connect('open-state-changed', (menu, isOpen) => {
@@ -174,13 +151,17 @@ export class WallhubManager {
                 return;
             this._randomIdx = null;
             this.updateIntervalLabel();
+            this.updateFavoriteButton();
             this.updatePreview();
         });
-        // Keep the default preview in sync when the desktop wallpaper changes
-        // (e.g. our own rotation, or another program setting it).
+        // Keep the default preview and the favorite star in sync when the
+        // desktop wallpaper changes (e.g. our own rotation, or another program
+        // setting it).
         this._signalIds.push(this.bgSettings.connect('changed::picture-uri', () => {
-            if (!this.ext.disabling)
+            if (!this.ext.disabling) {
                 this.updatePreview();
+                this.updateFavoriteButton();
+            }
         }));
         this._signalIds.push(this.bgSettings.connect('changed::picture-uri-dark', () => {
             if (!this.ext.disabling)
@@ -362,6 +343,8 @@ export class WallhubManager {
             return btn;
         };
 
+        this._favoriteButton = makeButton('starred-symbolic', _('Favorite'),
+            () => this.toggleFavorite(), null);
         makeButton('media-skip-backward-symbolic', _('Previous'),
             () => this.prevWallpaper(), () => this._peekPrev());
         makeButton('media-skip-forward-symbolic', _('Next'),
@@ -444,8 +427,84 @@ export class WallhubManager {
             return null;
         if (this._randomIdx === undefined || this._randomIdx === null ||
             this._randomIdx < 0 || this._randomIdx >= len)
-            this._randomIdx = Math.floor(Math.random() * len);
+            this._randomIdx = this._weightedRandomIndex();
         return this._randomIdx;
+    }
+
+    // Weighted pick: a favorited wallpaper carries slideshow-favorite-weight
+    // times the weight of a plain one, so starred images come up more often.
+    // The wallpaper currently on the desktop gets zero weight (when there is
+    // more than one candidate) so the same image never repeats back to back.
+    _weightedRandomIndex() {
+        const len = this.wallpaperQueue.length;
+        if (len === 0)
+            return null;
+        let weight;
+        try {
+            weight = this.settings.get_uint('slideshow-favorite-weight');
+        } catch (e) {
+            weight = 5;
+        }
+        const last = this.settings.get_string('slideshow-last-path');
+        let total = 0;
+        const weights = this.wallpaperQueue.map(path => {
+            if (len > 1 && path === last)
+                return 0;
+            const w = this.favorites && this.favorites.includes(path) ? weight : 1;
+            total += w;
+            return w;
+        });
+        if (total <= 0)
+            return Math.floor(Math.random() * len);
+        let r = Math.random() * total;
+        for (let i = 0; i < len; i++) {
+            r -= weights[i];
+            if (r < 0)
+                return i;
+        }
+        return len - 1;
+    }
+
+    // ---- Favorites ----
+
+    _favoriteIconName() {
+        const current = this._currentDesktopWallpaper();
+        return current && this.favorites && this.favorites.includes(current)
+            ? 'starred-symbolic'
+            : 'non-starred-symbolic';
+    }
+
+    updateFavoriteButton() {
+        if (!this._favoriteButton)
+            return;
+        try {
+            this._favoriteButton.child.icon_name = this._favoriteIconName();
+        } catch (e) {
+            // icon updates must never break the menu
+        }
+    }
+
+    // Star or unstar the wallpaper currently on the desktop. The path is the
+    // anchor (same as slideshow-last-path): it works for read-only system
+    // directories and for dynamic .xml wallpapers alike.
+    toggleFavorite() {
+        const current = this._currentDesktopWallpaper();
+        if (!current) {
+            console.warn('Wallhub: no current wallpaper to favorite');
+            return;
+        }
+        const idx = this.favorites.indexOf(current);
+        if (idx >= 0)
+            this.favorites.splice(idx, 1);
+        else
+            this.favorites.push(current);
+        try {
+            this.settings.set_strv('wallpaper-favorites', this.favorites);
+        } catch (e) {
+            console.warn('Wallhub: could not persist favorites: ' + e.message);
+            return;
+        }
+        this.updateFavoriteButton();
     }
 
     // Path that randomWallpaper() would apply (for the hover preview).
@@ -618,9 +677,25 @@ export class WallhubManager {
                 this.loopSourceId = null;
                 return GLib.SOURCE_REMOVE;
             }
-            this.nextWallpaper();
+            this._autoTick();
             return GLib.SOURCE_CONTINUE;
         });
+    }
+
+    // One automatic rotation step. Sequential mode walks the queue in order;
+    // Random mode draws a weighted pick (favorites get extra weight). Manual
+    // previous/next always navigate sequentially regardless of the mode.
+    _autoTick() {
+        let mode;
+        try {
+            mode = this.settings.get_enum('slideshow-mode');
+        } catch (e) {
+            mode = 1;
+        }
+        if (mode === 0)
+            this.nextWallpaper();
+        else
+            this.randomWallpaper();
     }
 
     // Toggle automatic rotation. Manual prev/next/random stay available.
@@ -687,66 +762,13 @@ export class WallhubManager {
         if (!this.wallpaperPaths || this.wallpaperPaths.length === 0)
             return;
 
-        for (let i = 0; i < this.wallpaperPaths.length; i++) {
-            const path = this.wallpaperPaths[i];
-            if (!isBitSet(this.wallpaperPathsSelected, i))
-                continue;
-            if (!path) {
-                console.error('Wallhub: Empty path at index ' + i);
-                continue;
-            }
-            const file = Gio.File.new_for_path(path);
-            const fileType = file.query_file_type(Gio.FileQueryInfoFlags.NONE, null);
-            if (fileType === Gio.FileType.REGULAR) {
-                this.wallpaperQueue.enqueue(path);
-            } else if (fileType === Gio.FileType.DIRECTORY) {
-                const wallpapers = await this.getWallpapersFromDirectory(file);
-                if (wallpapers == null) {
-                    console.error('Wallhub: Failed to get wallpapers from directory: ' + path);
-                    return;
-                }
-                for (const wallpaper of wallpapers)
-                    this.wallpaperQueue.enqueue(wallpaper);
-            } else {
-                console.error('Wallhub: Invalid file type: ' + path);
-            }
-        }
+        const { wallpapers, directories } =
+            await scanWallpapers(this.wallpaperPaths, this.wallpaperPathsSelected);
+        for (const directory of directories)
+            this.createDirectoryMonitor(Gio.File.new_for_path(directory));
+        for (const wallpaper of wallpapers)
+            this.wallpaperQueue.enqueue(wallpaper);
         this._resumeCursor();
-    }
-
-    async getWallpapersFromDirectory(directory) {
-        const enumerator = await directory.enumerate_children_async(
-            'standard::*',
-            Gio.FileQueryInfoFlags.NONE,
-            GLib.PRIORITY_DEFAULT,
-            null
-        );
-        const wallpapers = [];
-        while (true) {
-            const fileInfos = await enumerator.next_files_async(10, GLib.PRIORITY_DEFAULT, null);
-            if (fileInfos.length === 0)
-                break;
-            for (const fileInfo of fileInfos) {
-                const name = fileInfo.get_name();
-                // Skip hidden files and unsupported formats (e.g. SVG, which the
-                // GNOME background does not support).
-                if (name.startsWith('.'))
-                    continue;
-                const lower = name.toLowerCase();
-                if (lower.endsWith('.svg'))
-                    continue;
-                const file = directory.get_child(name);
-                const fileType = fileInfo.get_file_type();
-                if (fileType === Gio.FileType.REGULAR) {
-                    wallpapers.push(file.get_path());
-                } else if (fileType === Gio.FileType.DIRECTORY) {
-                    const childWallpapers = await this.getWallpapersFromDirectory(file);
-                    wallpapers.push(...childWallpapers);
-                }
-            }
-        }
-        this.createDirectoryMonitor(directory);
-        return wallpapers;
     }
 
     createDirectoryMonitor(file) {

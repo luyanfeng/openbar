@@ -35,6 +35,7 @@ import {
 import { buildClipboardPrefsPage } from './clipboardPrefs.js';
 import { LilypadPrefsContent } from './lilypadPrefs.js';
 import { BackupPage } from './backupPrefs.js';
+import { scanWallpapers } from './wallpaperscan.js';
 
 // Retain compatibility with GLib < 2.80, which lacks GioUnix (from GSConnect extension)
 let GioUnix;
@@ -2909,6 +2910,83 @@ class OpenbarPrefs {
             Gio.SettingsBindFlags.DEFAULT
         );
         generalGroup.add(pauseRow);
+
+        // Rotation mode: weighted random (default) or in-order walk.
+        let modeRow = new Adw.ComboRow({
+            title: _('Rotation Mode'),
+            subtitle: _('Random picks a weighted wallpaper; favorites are drawn more often.'),
+        });
+        const modeModel = new Gtk.StringList();
+        modeModel.append(_('Sequential'));
+        modeModel.append(_('Random'));
+        modeRow.model = modeModel;
+        // Enum values (0=Sequential, 1=Random) equal the dropdown indices.
+        modeRow.selected = this._settings.get_enum('slideshow-mode');
+        modeRow.connect('notify::selected', () => {
+            this._settings.set_enum('slideshow-mode', modeRow.selected);
+        });
+        generalGroup.add(modeRow);
+
+        // Favorite weight (only meaningful in Random mode).
+        let weightRow = new Adw.SpinRow({
+            title: _('Favorite Weight'),
+            subtitle: _('In Random mode a starred wallpaper is drawn with this many times the weight of a plain one.'),
+            adjustment: new Gtk.Adjustment({
+                lower: 1,
+                upper: 10,
+                step_increment: 1,
+                page_increment: 1,
+                value: this._settings.get_uint('slideshow-favorite-weight'),
+            }),
+        });
+        this._settings.bind(
+            'slideshow-favorite-weight',
+            weightRow,
+            'value',
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        generalGroup.add(weightRow);
+
+        // --- Favorites group ---
+        const favoritesGroup = new Adw.PreferencesGroup({
+            title: _('Favorites'),
+            description: _('Star wallpapers with the tray star button. Starred ones are drawn more often in Random mode.'),
+        });
+        page.add(favoritesGroup);
+
+        const countsRow = new Adw.ActionRow({ title: _('Statistics') });
+        favoritesGroup.add(countsRow);
+
+        const clearFavBtn = new Gtk.Button({
+            label: _('Clear Favorite Marks'),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['destructive-action'],
+        });
+        clearFavBtn.connect('clicked', () => {
+            this._settings.set_strv('wallpaper-favorites', []);
+        });
+        countsRow.add_suffix(clearFavBtn);
+
+        // Gallery size comes from re-scanning the enabled sources here in the
+        // prefs process, via the shared scan module.
+        this._wallhubRefreshCounts = () => {
+            const favs = this._settings.get_strv('wallpaper-favorites').length;
+            const paths = this._settings.get_strv('wallpaper-paths');
+            const selected = this._settings.get_int('wallpaper-paths-selected');
+            scanWallpapers(paths, selected)
+                .then(({ wallpapers }) => {
+                    countsRow.subtitle =
+                        _('Favorited: %d  ·  Gallery total: %d').format(favs, wallpapers.length);
+                })
+                .catch(e => {
+                    console.warn('Wallhub prefs: could not scan wallpapers: ' + e.message);
+                    countsRow.subtitle = _('Favorited: %d  ·  Gallery total: ?').format(favs);
+                });
+        };
+        this._wallhubRefreshCounts();
+        this._settings.connect('changed::wallpaper-favorites', () => this._wallhubRefreshCounts());
+        this._settings.connect('changed::wallpaper-paths', () => this._wallhubRefreshCounts());
+        this._settings.connect('changed::wallpaper-paths-selected', () => this._wallhubRefreshCounts());
 
         // --- Wallpaper paths group ---
         const pathsGroup = new Adw.PreferencesGroup({

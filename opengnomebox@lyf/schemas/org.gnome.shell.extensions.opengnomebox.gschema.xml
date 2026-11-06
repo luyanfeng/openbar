@@ -5,6 +5,10 @@
     <value nick="Minutes" value="60" />
     <value nick="Seconds" value="1" />
   </enum>
+  <enum id="org.gnome.shell.extensions.opengnomebox.slideshow-modes">
+    <value nick="Sequential" value="0" />
+    <value nick="Random" value="1" />
+  </enum>
   <schema id="org.gnome.shell.extensions.opengnomebox" path="/org/gnome/shell/extensions/opengnomebox/">
 
     <key type="s" name="bartype">
@@ -1469,6 +1473,23 @@
       <default>false</default>
       <summary>Pause the wallpaper slideshow</summary>
       <description>When true, the automatic wallpaper rotation is stopped. Manual previous/next/random still work.</description>
+    </key>
+    <key name="slideshow-mode"
+      enum="org.gnome.shell.extensions.opengnomebox.slideshow-modes">
+      <default>'Random'</default>
+      <summary>Slideshow rotation mode</summary>
+      <description>Sequential walks the queue in order; Random picks a weighted random wallpaper, favoriting starred ones.</description>
+    </key>
+    <key type="u" name="slideshow-favorite-weight">
+      <default>5</default>
+      <range min="1" max="10" />
+      <summary>Favorite weight</summary>
+      <description>In Random mode, a favorited wallpaper is drawn with this many times the weight of a non-favorited one.</description>
+    </key>
+    <key type="as" name="wallpaper-favorites">
+      <default>[]</default>
+      <summary>Favorite wallpapers</summary>
+      <description>Paths of wallpapers starred in the tray indicator; they get extra weight in Random mode.</description>
     </key>
 
     <!-- Integrated small extensions -->
