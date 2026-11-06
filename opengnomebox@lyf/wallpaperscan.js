@@ -65,6 +65,36 @@ async function scanDirectory(directory) {
     return wallpapers;
 }
 
+// Collect every image path referenced by a GNOME-native dynamic wallpaper
+// (.xml) into `excluded`: the <static>/<transition> images are the animation's
+// internal time-of-day slides, not standalone wallpapers. Leaving them in the
+// queue makes the rotation look like it keeps switching between different
+// states of the same dynamic wallpaper. Recognises the tags used by GNOME's
+// timed format (<file>/<from>/<to>) and the simple filename variants
+// (<filename>/<filename-dark>, also Wallhub's dwp format).
+function collectDynamicFrames(xmlPath, xmlText, excluded) {
+    const matches = xmlText.match(
+        /<(?:file|from|to|filename|filename-dark)>([^<]*)<\/(?:file|from|to|filename|filename-dark)>/g
+    ) ?? [];
+    const dir = GLib.path_get_dirname(xmlPath);
+    for (const m of matches) {
+        const value = m.slice(m.indexOf('>') + 1, m.lastIndexOf('<'))
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        // A single tag may carry a light#dark pair.
+        for (const part of value.split('#')) {
+            const p = part.trim();
+            if (!p)
+                continue;
+            if (p.startsWith('/')) {
+                excluded.add(p);
+                continue;
+            }
+            // Paths in the GNOME spec are relative to the XML's directory.
+            excluded.add(GLib.build_filenamev([dir, p]));
+        }
+    }
+}
+
 // Resolve every enabled source into a flat, de-duplicated queue. Returns the
 // wallpapers plus the directories that contributed, so callers that need live
 // change monitoring can attach their own watches.
@@ -90,5 +120,24 @@ export async function scanWallpapers(paths, selectedBitmask) {
             console.warn(`Wallpapers: path is neither a file nor a directory: ${path}`);
         }
     }
-    return { wallpapers, directories };
+
+    // Exclude the internal frames of dynamic wallpapers.
+    const excluded = new Set();
+    for (const w of wallpapers) {
+        if (!w.toLowerCase().endsWith('.xml'))
+            continue;
+        try {
+            const file = Gio.File.new_for_path(w);
+            const [ok, contents] = file.load_contents(null);
+            if (!ok)
+                continue;
+            collectDynamicFrames(w, new TextDecoder().decode(contents), excluded);
+        } catch (e) {
+            console.warn(`Wallpapers: could not read dynamic wallpaper ${w}: ${e.message}`);
+        }
+    }
+    const filtered = excluded.size > 0
+        ? wallpapers.filter(w => !excluded.has(w))
+        : wallpapers;
+    return { wallpapers: filtered, directories };
 }

@@ -377,6 +377,8 @@ export class WallhubManager {
         } catch (e) {
             console.warn('Wallhub: could not persist last wallpaper: ' + e.message);
         }
+        console.log(`###WALL apply ${path} q=${this.wallpaperQueue.length} ` +
+            `fav=${this.favorites.length} mode=${this.settings.get_enum('slideshow-mode')}`);
         this.setWallpaper(path)
             .then(() => this.updatePreview())
             .catch(e => console.error('Wallhub: setWallpaper failed: ' + e));
