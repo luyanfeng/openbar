@@ -98,6 +98,10 @@ gnome-extensions install --force opengnomebox@lyf.shell-extension.zip
 
 ## 截图
 
+![效果](screens/效果1.png)
+
+![设置界面](screens/设置.png)
+
 ![Screenshot](screens/github0.png)
 ![Screenshot](screens/github1.png)
 ![Screenshot](screens/github2.png)
