@@ -1166,3 +1166,108 @@ msgstr "统计"
 
 msgid "Window class name, e.g. \"KeePassXC\""
 msgstr "窗口类名，例如 \"KeePassXC\""
+
+msgid "Bottom"
+msgstr "底部"
+
+msgid "Custom Colors (as below)"
+msgstr "自定义颜色（见下方）"
+
+msgid "Dark Theme"
+msgstr "深色主题"
+
+msgid "Dashed"
+msgstr "虚线"
+
+msgid "Default"
+msgstr "默认"
+
+msgid "Double"
+msgstr "双线"
+
+msgid "Float - Bottom Right"
+msgstr "浮动 - 右下"
+
+msgid "Floating"
+msgstr "浮动"
+
+msgid "Font for Panel text"
+msgstr "面板文字字体"
+
+msgid "Horizontal"
+msgstr "水平"
+
+msgid "Islands"
+msgstr "岛屿"
+
+msgid "It will reset all Open Gnome Box settings to their default values"
+msgstr "将把所有 Open Gnome Box 设置重置为默认值"
+
+msgid "Keep Default Theme"
+msgstr "保持默认主题"
+
+msgid "Light Theme"
+msgstr "浅色主题"
+
+msgid "Mainland"
+msgstr "大陆"
+
+msgid "None"
+msgstr "无"
+
+msgid "Pastel Theme"
+msgstr "柔和主题"
+
+msgid "Reset"
+msgstr "重置"
+
+msgid "Reset Open Gnome Box settings?"
+msgstr "重置 Open Gnome Box 设置？"
+
+msgid "Reset to default font"
+msgstr "重置为默认字体"
+
+msgid "Reset ⚙"
+msgstr "重置 ⚙"
+
+msgid "Select Theme"
+msgstr "选择主题"
+
+msgid "Solid"
+msgstr "实线"
+
+msgid "This will reset all the Open Gnome Box settings to their default values. If needed, you can save the current settings by exporting them to a file before you reset."
+msgstr "这将把所有 Open Gnome Box 设置重置为默认值。如有需要，请在重置前先将当前设置导出到文件。"
+
+msgid "To Bottom"
+msgstr "向下"
+
+msgid "To Bottom Left"
+msgstr "向左下"
+
+msgid "To Bottom Right"
+msgstr "向右下"
+
+msgid "To Left"
+msgstr "向左"
+
+msgid "To Right"
+msgstr "向右"
+
+msgid "Top"
+msgstr "顶部"
+
+msgid "Trilands"
+msgstr "三岛"
+
+msgid "True Color"
+msgstr "真彩色"
+
+msgid "Use Menu Colors"
+msgstr "使用菜单颜色"
+
+msgid "Use Top Bar Colors"
+msgstr "使用顶栏颜色"
+
+msgid "Vertical"
+msgstr "垂直"
