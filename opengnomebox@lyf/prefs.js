@@ -346,7 +346,7 @@ class OpenbarPrefs {
 
     createCandyPalette(window, paletteBox1, paletteBox2) {
         for(let i=1; i<=16; i++) {
-            let candyColor = this.createColorWidget(window, 'Candybar Color', '', 'candy'+i);
+            let candyColor = this.createColorWidget(window, _('Candybar Color'), '', 'candy'+i);
             if(i <= 8)
                 paletteBox1.append(candyColor);
             else
@@ -536,7 +536,7 @@ class OpenbarPrefs {
 
         // Add a title label
         let titleLabel = new Gtk.Label({
-            label: `<span size="x-large">Top Bar and Beyond      </span>\n\n<span underline="none"><b>${_('Version:')} ${this.openbar.metadata.version}  |  <a href="${this.openbar.metadata.url}">Home</a>  |  © <a href="https://extensions.gnome.org/accounts/profile/neuromorph">neuromorph</a>  |  <a href="${this.openbar.metadata.url}">☆ Star</a>  |  <a href="https://www.buymeacoffee.com/neuromorph"> ☕      </a></b></span>`,
+            label: `<span size="x-large">${_('Top Bar and Beyond')}      </span>\n\n<span underline="none"><b>${_('Version:')} ${this.openbar.metadata.version}  |  <a href="${this.openbar.metadata.url}">${_('Home')}</a>  |  © <a href="https://extensions.gnome.org/accounts/profile/neuromorph">neuromorph</a>  |  <a href="${this.openbar.metadata.url}">${_('☆ Star')}</a>  |  <a href="https://www.buymeacoffee.com/neuromorph"> ☕      </a></b></span>`,
             halign: Gtk.Align.CENTER,
             valign: Gtk.Align.CENTER,
             justify: Gtk.Justification.CENTER,
@@ -914,7 +914,7 @@ class OpenbarPrefs {
 
         // Label for Top Bar Properties
         let topBarLbl = new Gtk.Label({
-            label: `<span size="large">Top Bar Properties\n\n</span>`,
+            label: _(`<span size="large">Top Bar Properties\n\n</span>`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             css_classes: [titleClass],
@@ -954,7 +954,7 @@ class OpenbarPrefs {
         });
         bargrid.attach(notifPosLbl, 1, rowbar, 1, 1);
 
-        let notifPos = this.createSwitchWidget('set-notif-position', 'Move notification popups as per the bar position (Top/Bottom)');
+        let notifPos = this.createSwitchWidget('set-notif-position', _('Move notification popups as per the bar position (Top/Bottom)'));
         bargrid.attach(notifPos, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1015,7 +1015,7 @@ class OpenbarPrefs {
         });
         bargrid.attach(overviewLabel, 1, rowbar, 1, 1);
 
-        let overviewSwitch = this.createSwitchWidget('set-overview', 'Turn off to get transparent bar in Overview');
+        let overviewSwitch = this.createSwitchWidget('set-overview', _('Turn off to get transparent bar in Overview'));
         bargrid.attach(overviewSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1048,7 +1048,7 @@ class OpenbarPrefs {
         // Add a Bar Props Note label
         let barNoteLabel = new Gtk.Label({
             use_markup: true,
-            label: `<span allow_breaks="true">\n\nNote:\n•  Horizontal and Vertical paddings can be set in <b>Bar Highlights</b> tab.\n•  Accent color can be set in <b>Popup Menus</b> tab.\n•  Bar rounding radius can be set in <b>Bar Border</b> tab.</span>`,
+            label: _(`<span allow_breaks="true">\n\nNote:\n•  Horizontal and Vertical paddings can be set in <b>Bar Highlights</b> tab.\n•  Accent color can be set in <b>Popup Menus</b> tab.\n•  Bar rounding radius can be set in <b>Bar Border</b> tab.</span>`),
             halign: Gtk.Align.START,
             wrap: true,
             width_chars: 55,
@@ -1065,7 +1065,7 @@ class OpenbarPrefs {
 
         // Label for WMax Bar Properties
         let wmaxBarPropLabel = new Gtk.Label({
-            label: `<span size="large">Window-Max Bar Properties\n\n</span>`,
+            label: _(`<span size="large">Window-Max Bar Properties\n\n</span>`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -1077,7 +1077,7 @@ class OpenbarPrefs {
         // Add a WMax Bar label
         let wmaxBarLabel = new Gtk.Label({
             use_markup: true,
-            label: `<span allow_breaks="true">When Window-Max bar is enabled, the following properties will apply to the Bar when a window is maximized.\n</span>`,
+            label: _(`<span allow_breaks="true">When Window-Max bar is enabled, the following properties will apply to the Bar when a window is maximized.\n</span>`),
             halign: Gtk.Align.START,
             wrap: true,
             width_chars: 55,
@@ -1105,7 +1105,7 @@ class OpenbarPrefs {
         });
         bargridwmax.attach(wmaxBgLabel, 1, rowbar, 1, 1);
 
-        let wmaxBg = this.createColorWidget(window, 'Background Color', 'Background color for the WMax bar', 'bgcolor-wmax');
+        let wmaxBg = this.createColorWidget(window, _('Background Color'), _('Background color for the WMax bar'), 'bgcolor-wmax');
         bargridwmax.attach(wmaxBg, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1129,7 +1129,7 @@ class OpenbarPrefs {
         });
         bargridwmax.attach(wmaxHbarLabel, 1, rowbar, 1, 1);
 
-        let wmaxHbarSwitch = this.createSwitchWidget('wmax-hbarhint', 'Match the background color of WMax bar with the Gtk headerbar hint - refer Gtk/Flatpak Apps tab');
+        let wmaxHbarSwitch = this.createSwitchWidget('wmax-hbarhint', _('Match the background color of WMax bar with the Gtk headerbar hint - refer Gtk/Flatpak Apps tab'));
         bargridwmax.attach(wmaxHbarSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1165,7 +1165,7 @@ class OpenbarPrefs {
         });
         bargridwmax.attach(wmaxBtnBGLabel, 1, rowbar, 1, 1);
 
-        let wmaxBtnBGSwitch = this.createSwitchWidget('buttonbg-wmax', 'Keep BG color of buttons. If disabled, buttons will be transparent');
+        let wmaxBtnBGSwitch = this.createSwitchWidget('buttonbg-wmax', _('Keep BG color of buttons. If disabled, buttons will be transparent'));
         bargridwmax.attach(wmaxBtnBGSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1202,7 +1202,7 @@ class OpenbarPrefs {
 
         // Add a Bar Foreground label
         let fgLabel = new Gtk.Label({
-            label: `<span size="large">Bar Foreground\n\n</span>`,
+            label: _(`<span size="large">Bar Foreground\n\n</span>`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -1218,7 +1218,7 @@ class OpenbarPrefs {
         });
         fggrid.attach(autofgBarLabel, 1, rowbar, 1, 1);
 
-        let autofgBarSwitch = this.createSwitchWidget('autofg-bar', 'Automatically set white/black FG color as per background color of bar/buttons');
+        let autofgBarSwitch = this.createSwitchWidget('autofg-bar', _('Automatically set white/black FG color as per background color of bar/buttons'));
         fggrid.attach(autofgBarSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1230,7 +1230,7 @@ class OpenbarPrefs {
         });
         fggrid.attach(fgColorLbl, 1, rowbar, 1, 1);
 
-        let fgColor = this.createColorWidget(window, 'Foreground Color', 'Foreground color for the bar', 'fgcolor');
+        let fgColor = this.createColorWidget(window, _('Foreground Color'), _('Foreground color for the bar'), 'fgcolor');
         fggrid.attach(fgColor, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1309,7 +1309,7 @@ class OpenbarPrefs {
 
         // Add a Bar Background label
         let bgLabel = new Gtk.Label({
-            label: `<span size="large">Bar Background\n\n</span>`,
+            label: _(`<span size="large">Bar Background\n\n</span>`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -1321,7 +1321,7 @@ class OpenbarPrefs {
         // Add a Bar BG Note label
         let barBGNoteLabel = new Gtk.Label({
             use_markup: true,
-            label: `<span allow_breaks="true">Transparent Bar:\n•  Set Box/Margins Alpha to '0' and also Bar BG Alpha to '0'.\n•  Turn Off Panel Blur in 'Blur My Shell', if applied.\n</span>`,
+            label: _(`<span allow_breaks="true">Transparent Bar:\n•  Set Box/Margins Alpha to '0' and also Bar BG Alpha to '0'.\n•  Turn Off Panel Blur in 'Blur My Shell', if applied.\n</span>`),
             halign: Gtk.Align.START,
             wrap: true,
             width_chars: 55,
@@ -1337,7 +1337,7 @@ class OpenbarPrefs {
         });
         bggrid.attach(boxColorLbl, 1, rowbar, 1, 1);
 
-        let boxColor = this.createColorWidget(window, 'Panel-Box Background Color', 'Background color for the panel box / margins', 'boxcolor');
+        let boxColor = this.createColorWidget(window, _('Panel-Box Background Color'), _('Background color for the panel box / margins'), 'boxcolor');
         bggrid.attach(boxColor, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1362,7 +1362,7 @@ class OpenbarPrefs {
         });
         bggrid.attach(bgColorLbl, 1, rowbar, 1, 1);
 
-        let bgColor = this.createColorWidget(window, 'Background Color', 'Background or gradient start color for the bar', 'bgcolor');
+        let bgColor = this.createColorWidget(window, _('Background Color'), _('Background or gradient start color for the bar'), 'bgcolor');
         bggrid.attach(bgColor, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1386,7 +1386,7 @@ class OpenbarPrefs {
         });
         bggrid.attach(islandsColorLabel, 1, rowbar, 1, 1);
 
-        let islandsColorChooser = this.createColorWidget(window, 'Islands/Trilands Background Color', 'Background or gradient start color for Islands/Trilands', 'iscolor');
+        let islandsColorChooser = this.createColorWidget(window, _('Islands/Trilands Background Color'), _('Background or gradient start color for Islands/Trilands'), 'iscolor');
         bggrid.attach(islandsColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1422,7 +1422,7 @@ class OpenbarPrefs {
         });
         bggrid.attach(grColorLbl, 1, rowbar, 1, 1);
 
-        let grColor = this.createColorWidget(window, 'Gradient End Color', 'Second color of gradient', 'bgcolor2');
+        let grColor = this.createColorWidget(window, _('Gradient End Color'), _('Second color of gradient'), 'bgcolor2');
         bggrid.attach(grColor, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1460,7 +1460,7 @@ class OpenbarPrefs {
         bggrid.attach(candybarLbl, 1, rowbar, 1, 1);
 
         // Add a candybar switch
-        let candybar = this.createSwitchWidget('candybar', 'Click on the color buttons to edit colors');
+        let candybar = this.createSwitchWidget('candybar', _('Click on the color buttons to edit colors'));
         bggrid.attach(candybar, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1505,12 +1505,12 @@ class OpenbarPrefs {
 
         // Add a shadow switch
         let shadowLabel = new Gtk.Label({
-            label: `Panel Shadow`,
+            label: _(`Panel Shadow`),
             halign: Gtk.Align.START,
         });
         bggrid.attach(shadowLabel, 1, rowbar, 1, 1);
 
-        let shadowSwitch = this.createSwitchWidget('shadow', 'Not applicable to Mainland/Floating bar if "neon glow" is On (under Bar Border)');
+        let shadowSwitch = this.createSwitchWidget('shadow', _('Not applicable to Mainland/Floating bar if "neon glow" is On (under Bar Border)'));
         bggrid.attach(shadowSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1522,7 +1522,7 @@ class OpenbarPrefs {
         });
         bggrid.attach(shColorLabel, 1, rowbar, 1, 1);
 
-        let shColorChooser = this.createColorWidget(window, 'Panel Shadow Color', 'Shadow color for the Panel. Choose light color for dark theme and dark for light.', 'shcolor');
+        let shColorChooser = this.createColorWidget(window, _('Panel Shadow Color'), _('Shadow color for the Panel. Choose light color for dark theme and dark for light.'), 'shcolor');
         bggrid.attach(shColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1547,7 +1547,7 @@ class OpenbarPrefs {
 
         // Bar Highlights label
         let highlightsLbl = new Gtk.Label({
-            label: `<span size="large">Bar Highlights (Hover - Focus)</span>\n\n`,
+            label: _(`<span size="large">Bar Highlights (Hover - Focus)</span>\n\n`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             css_classes: [titleClass],
@@ -1558,7 +1558,7 @@ class OpenbarPrefs {
 
         // Bar highlights info label
         let highlightInfo = new Gtk.Label({
-            label: '<span>Hover/focus highlight colors and paddings for Panel Buttons.</span>\n',
+            label: _('<span>Hover/focus highlight colors and paddings for Panel Buttons.</span>\n'),
             use_markup: true,
             halign: Gtk.Align.CENTER,
         });
@@ -1573,7 +1573,7 @@ class OpenbarPrefs {
         });
         hgrid.attach(autohgBarLabel, 1, rowbar, 1, 1);
 
-        let autohgBarSwitch = this.createSwitchWidget('autohg-bar', 'Automatically set highlight color as per background color of bar/buttons');
+        let autohgBarSwitch = this.createSwitchWidget('autohg-bar', _('Automatically set highlight color as per background color of bar/buttons'));
         hgrid.attach(autohgBarSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1585,7 +1585,7 @@ class OpenbarPrefs {
         });
         hgrid.attach(highlightColorLabel, 1, rowbar, 1, 1);
 
-        let highlightColorChooser = this.createColorWidget(window, 'Highlight Color', 'Highlight color for hover, focus etc.', 'hcolor');
+        let highlightColorChooser = this.createColorWidget(window, _('Highlight Color'), _('Highlight color for hover, focus etc.'), 'hcolor');
         // highlightColorChooser.connect('color-set', () => {
         //     this.triggerStyleReload();
         // });
@@ -1607,7 +1607,7 @@ class OpenbarPrefs {
 
         // Add a 'hover with border' effect switch
         let hEffectLabel = new Gtk.Label({
-            label: `Highlight with Border`,
+            label: _(`Highlight with Border`),
             halign: Gtk.Align.START,
         });
         hgrid.attach(hEffectLabel, 1, rowbar, 1, 1);
@@ -1664,7 +1664,7 @@ class OpenbarPrefs {
 
         // Bar Border label
         let borderBarLabel = new Gtk.Label({
-            label: `<span size="large">Bar Border\n\n</span>`,
+            label: _(`<span size="large">Bar Border\n\n</span>`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -1687,7 +1687,7 @@ class OpenbarPrefs {
 
         // Add Apply Border-Width label
         let borderWidthApplyLabel = new Gtk.Label({
-            label: `Apply Width to`,
+            label: _(`Apply Width to`),
             halign: Gtk.Align.START,
         });
         bgrid.attach(borderWidthApplyLabel, 1, rowbar, 1, 1);
@@ -1728,7 +1728,7 @@ class OpenbarPrefs {
 
         // Add Apply Radius to Corner label
         let bRadiusApplyLabel = new Gtk.Label({
-            label: `Apply Radius to`,
+            label: _(`Apply Radius to`),
             halign: Gtk.Align.START,
         });
         bgrid.attach(bRadiusApplyLabel, 1, rowbar, 1, 1);
@@ -1763,7 +1763,7 @@ class OpenbarPrefs {
         });
         bgrid.attach(borderColorLabel, 1, rowbar, 1, 1);
 
-        let borderColorChooser = this.createColorWidget(window, 'Border Color', 'Border Color', 'bcolor');
+        let borderColorChooser = this.createColorWidget(window, _('Border Color'), _('Border Color'), 'bcolor');
         bgrid.attach(borderColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1782,12 +1782,12 @@ class OpenbarPrefs {
 
         // Add a neon switch
         let neonLbl = new Gtk.Label({
-            label: `Neon Glow`,
+            label: _(`Neon Glow`),
             halign: Gtk.Align.START,
         });
         bgrid.attach(neonLbl, 1, rowbar, 1, 1);
 
-        let neon = this.createSwitchWidget('neon', 'Adds neon-glow effect. Select bright/neon color for border and dark-opaque background for Bar/Islands');
+        let neon = this.createSwitchWidget('neon', _('Adds neon-glow effect. Select bright/neon color for border and dark-opaque background for Bar/Islands'));
         bgrid.attach(neon, 2, rowbar, 1, 1);
 
         ////////////////////////////////////////////////////////////////////
@@ -1800,7 +1800,7 @@ class OpenbarPrefs {
 
         // Popup Menus label
         let popupMenuLabel = new Gtk.Label({
-            label: `\n<span size="large">Popup Menus\n\n</span>`,
+            label: _(`\n<span size="large">Popup Menus\n\n</span>`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -1811,12 +1811,12 @@ class OpenbarPrefs {
 
         // Add Menu style Enable / Disable switch
         let menuStyleLabel = new Gtk.Label({
-            label: `Enable Menu Styles`,
+            label: _(`Enable Menu Styles`),
             halign: Gtk.Align.START,
         });
         menugrid.attach(menuStyleLabel, 1, rowbar, 1, 1);
 
-        let menuStyleSwitch = this.createSwitchWidget('menustyle', 'Turn Off to disable Open Gnome Box menu styles below and instead retain your installed theme');
+        let menuStyleSwitch = this.createSwitchWidget('menustyle', _('Turn Off to disable Open Gnome Box menu styles below and instead retain your installed theme'));
         menugrid.attach(menuStyleSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1
@@ -1833,7 +1833,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(autofgMenuLabel, 1, rowbar, 1, 1);
 
-        let autofgMenuSwitch = this.createSwitchWidget('autofg-menu', 'Automatically set white/black FG color as per background color of menu widgets');
+        let autofgMenuSwitch = this.createSwitchWidget('autofg-menu', _('Automatically set white/black FG color as per background color of menu widgets'));
         menugrid.attach(autofgMenuSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1845,7 +1845,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menuFGColorLabel, 1, rowbar, 1, 1);
 
-        let menuFGColorChooser = this.createColorWidget(window, 'Menu Foreground Color', 'Foreground color for the dropdown menus', 'mfgcolor');
+        let menuFGColorChooser = this.createColorWidget(window, _('Menu Foreground Color'), _('Foreground color for the dropdown menus'), 'mfgcolor');
         menugrid.attach(menuFGColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1869,7 +1869,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menuBGColorLabel, 1, rowbar, 1, 1);
 
-        let menuBGColorChooser = this.createColorWidget(window, 'Menu Background Color', 'Background color for the dropdown menus', 'mbgcolor');
+        let menuBGColorChooser = this.createColorWidget(window, _('Menu Background Color'), _('Background color for the dropdown menus'), 'mbgcolor');
         menugrid.attach(menuBGColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1888,12 +1888,12 @@ class OpenbarPrefs {
 
         // Add an SVG menu BG gradient switch
         let mbgGradientLbl = new Gtk.Label({
-            label: `Light Gradient`,
+            label: _(`Light Gradient`),
             halign: Gtk.Align.START,
         });
         menugrid.attach(mbgGradientLbl, 1, rowbar, 1, 1);
 
-        let mbgGradientSwitch = this.createSwitchWidget('mbg-gradient', 'Light gradient effect from top-left on menu background');
+        let mbgGradientSwitch = this.createSwitchWidget('mbg-gradient', _('Light gradient effect from top-left on menu background'));
         menugrid.attach(mbgGradientSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1901,12 +1901,12 @@ class OpenbarPrefs {
         // Secondary menu color Override
         // Add an override switch
         let smbgOLbl = new Gtk.Label({
-            label: `Override Secondary?`,
+            label: _(`Override Secondary?`),
             halign: Gtk.Align.START,
         });
         menugrid.attach(smbgOLbl, 1, rowbar, 1, 1);
 
-        let smbgOSwitch = this.createSwitchWidget('smbgoverride', 'Override Secondary Menu BG Color?');
+        let smbgOSwitch = this.createSwitchWidget('smbgoverride', _('Override Secondary Menu BG Color?'));
         menugrid.attach(smbgOSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1918,7 +1918,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(smenuBGColorLabel, 1, rowbar, 1, 1);
 
-        let smenuBGColorChooser = this.createColorWidget(window, 'Secondary Menu Background Color', 'Secondary background color override for the dropdown menus', 'smbgcolor');
+        let smenuBGColorChooser = this.createColorWidget(window, _('Secondary Menu Background Color'), _('Secondary background color override for the dropdown menus'), 'smbgcolor');
         menugrid.attach(smenuBGColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1930,7 +1930,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menubColorLabel, 1, rowbar, 1, 1);
 
-        let menubColorChooser = this.createColorWidget(window, 'Menu Border Color', 'Border color for the dropdown menus', 'mbcolor');
+        let menubColorChooser = this.createColorWidget(window, _('Menu Border Color'), _('Border color for the dropdown menus'), 'mbcolor');
         menugrid.attach(menubColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1954,7 +1954,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(autohgMenuLabel, 1, rowbar, 1, 1);
 
-        let autohgMenuSwitch = this.createSwitchWidget('autohg-menu', 'Automatically set highlight color as per background color of menu widgets');
+        let autohgMenuSwitch = this.createSwitchWidget('autohg-menu', _('Automatically set highlight color as per background color of menu widgets'));
         menugrid.attach(autohgMenuSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1966,7 +1966,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menuhColorLabel, 1, rowbar, 1, 1);
 
-        let menuhColorChooser = this.createColorWidget(window, 'Menu Highlight Color', 'Highlight color for hover/focus on menu items', 'mhcolor');
+        let menuhColorChooser = this.createColorWidget(window, _('Menu Highlight Color'), _('Highlight color for hover/focus on menu items'), 'mhcolor');
         menugrid.attach(menuhColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -1990,7 +1990,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menusColorLabel, 1, rowbar, 1, 1);
 
-        let menusColorChooser = this.createColorWidget(window, 'Menu Active/Accent Color', 'Selected/Active color for the menu items', 'mscolor');
+        let menusColorChooser = this.createColorWidget(window, _('Menu Active/Accent Color'), _('Selected/Active color for the menu items'), 'mscolor');
         menugrid.attach(menusColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -2014,7 +2014,7 @@ class OpenbarPrefs {
         });
         menugrid.attach(menushColorLabel, 1, rowbar, 1, 1);
 
-        let menushColorChooser = this.createColorWidget(window, 'Menu Shadow Color', 'Shadow color for the dropdown menus. Choose light color for dark theme and dark for light.', 'mshcolor');
+        let menushColorChooser = this.createColorWidget(window, _('Menu Shadow Color'), _('Shadow color for the dropdown menus. Choose light color for dark theme and dark for light.'), 'mshcolor');
         menugrid.attach(menushColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -2099,7 +2099,7 @@ class OpenbarPrefs {
 
         // Dash / Dock Label
         let dashLbl = new Gtk.Label({
-            label: `<span size="large">Dash / Dock Style\n\n</span>`,
+            label: _(`<span size="large">Dash / Dock Style\n\n</span>`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -2110,7 +2110,7 @@ class OpenbarPrefs {
 
         // Add a dash to dock info label
         let dashInfoLabel = new Gtk.Label({
-            label: `<span allow_breaks="true">Note for Dash-to-Dock:\n•  Enable 'Use built-in theme' in its settings under 'Appearance' tab.\n•  Set 'Icon size limit' as needed in its 'Position and Size' tab.\n </span>`,
+            label: _(`<span allow_breaks="true">Note for Dash-to-Dock:\n•  Enable 'Use built-in theme' in its settings under 'Appearance' tab.\n•  Set 'Icon size limit' as needed in its 'Position and Size' tab.\n </span>`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             wrap: true,
@@ -2123,7 +2123,7 @@ class OpenbarPrefs {
 
         // Add dash-dock style combo
         let applyDashLbl = new Gtk.Label({
-            label: `Dash / Dock Style`,
+            label: _(`Dash / Dock Style`),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(applyDashLbl, 1, rowbar, 1, 1);
@@ -2140,7 +2140,7 @@ class OpenbarPrefs {
         });
         dashgrid.attach(dashBgColorLabel, 1, rowbar, 1, 1);
 
-        let dashBgColorChooser = this.createColorWidget(window, 'Dash/Dock BG Color', 'Custom BG color for the Dash/Dock.', 'dbgcolor');
+        let dashBgColorChooser = this.createColorWidget(window, _('Dash/Dock BG Color'), _('Custom BG color for the Dash/Dock.'), 'dbgcolor');
         dashgrid.attach(dashBgColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -2183,24 +2183,24 @@ class OpenbarPrefs {
 
         // Add a border switch
         let dashBorderLbl = new Gtk.Label({
-            label: `Enable Border`,
+            label: _(`Enable Border`),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(dashBorderLbl, 1, rowbar, 1, 1);
 
-        let dashBorderSwitch = this.createSwitchWidget('dborder', 'Show dash border.');
+        let dashBorderSwitch = this.createSwitchWidget('dborder', _('Show dash border.'));
         dashgrid.attach(dashBorderSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a shadow switch
         let dashShadowLbl = new Gtk.Label({
-            label: `Enable Shadow`,
+            label: _(`Enable Shadow`),
             halign: Gtk.Align.START,
         });
         dashgrid.attach(dashShadowLbl, 1, rowbar, 1, 1);
 
-        let dashShadowSwitch = this.createSwitchWidget('dshadow', 'Show dash shadow.');
+        let dashShadowSwitch = this.createSwitchWidget('dshadow', _('Show dash shadow.'));
         dashgrid.attach(dashShadowSwitch, 2, rowbar, 1, 1);
 
         ////////////////////////////////////////////////////////////////////
@@ -2213,7 +2213,7 @@ class OpenbarPrefs {
 
         // Gnome Shell label
         let shellLabel = new Gtk.Label({
-            label: `<span size="large">Gnome Shell Styles</span>\n`,
+            label: _(`<span size="large">Gnome Shell Styles</span>\n`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             css_classes: [titleClass],
@@ -2224,7 +2224,7 @@ class OpenbarPrefs {
 
         // Add a Gnome Shell info label
         let beyondLabel = new Gtk.Label({
-            label: `<span allow_breaks="true">Styles primarily derived from panel menus will be applied to shell components as selected:</span>\n`,
+            label: _(`<span allow_breaks="true">Styles primarily derived from panel menus will be applied to shell components as selected:</span>\n`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             wrap: true,
@@ -2236,48 +2236,48 @@ class OpenbarPrefs {
 
         // Add apply Menu to notifications switch
         let appNotifLbl = new Gtk.Label({
-            label: `Apply Menu Styles to Notifications`,
+            label: _(`Apply Menu Styles to Notifications`),
             halign: Gtk.Align.START,
         });
         beyondgrid.attach(appNotifLbl, 1, rowbar, 1, 1);
 
-        let appNotifSwitch = this.createSwitchWidget('apply-menu-notif', 'Apply Menu styles to notifications banners');
+        let appNotifSwitch = this.createSwitchWidget('apply-menu-notif', _('Apply Menu styles to notifications banners'));
         beyondgrid.attach(appNotifSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add apply Menu to Shell pop-ups switch
         let appMenuLbl = new Gtk.Label({
-            label: `Apply Menu Styles to all Shell Pop-ups`,
+            label: _(`Apply Menu Styles to all Shell Pop-ups`),
             halign: Gtk.Align.START,
         });
         beyondgrid.attach(appMenuLbl, 1, rowbar, 1, 1);
 
-        let appMenuSwitch = this.createSwitchWidget('apply-menu-shell', 'Apply Menu styles to all Shell pop-up menus');
+        let appMenuSwitch = this.createSwitchWidget('apply-menu-shell', _('Apply Menu styles to all Shell pop-up menus'));
         beyondgrid.attach(appMenuSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add apply Accent to Shell switch
         let appAccentLbl = new Gtk.Label({
-            label: `Apply Accent to Shell allover`,
+            label: _(`Apply Accent to Shell allover`),
             halign: Gtk.Align.START,
         });
         beyondgrid.attach(appAccentLbl, 1, rowbar, 1, 1);
 
-        let appAccentSwitch = this.createSwitchWidget('apply-accent-shell', 'Apply only Accent color to Shell components');
+        let appAccentSwitch = this.createSwitchWidget('apply-accent-shell', _('Apply only Accent color to Shell components'));
         beyondgrid.attach(appAccentSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add apply All styles to Shell switch
         let appAllLbl = new Gtk.Label({
-            label: `Apply All Styles to Shell allover`,
+            label: _(`Apply All Styles to Shell allover`),
             halign: Gtk.Align.START,
         });
         beyondgrid.attach(appAllLbl, 1, rowbar, 1, 1);
 
-        let appAllSwitch = this.createSwitchWidget('apply-all-shell', 'Apply Accent, FG, BG colors to Shell components');
+        let appAllSwitch = this.createSwitchWidget('apply-all-shell', _('Apply Accent, FG, BG colors to Shell components'));
         beyondgrid.attach(appAllSwitch, 2, rowbar, 1, 1);
 
         ////////////////////////////////////////////////////////////////////
@@ -2290,7 +2290,7 @@ class OpenbarPrefs {
 
         // GTK FLATPAK label
         let gtkflatpakLabel = new Gtk.Label({
-            label: `<span size="large">GTK / Flatpak Apps   🧪</span>\n`,
+            label: _(`<span size="large">GTK / Flatpak Apps   🧪</span>\n`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             tooltip_text: _('App theming is experimental'),
@@ -2302,7 +2302,7 @@ class OpenbarPrefs {
 
         // Add a Gtk/Flatpak info label
         let appInfoLabel = new Gtk.Label({
-            label: `<span>This applies theme Accent Color and below styles to Gtk / Flatpak apps:\n•  Set desired styles and Turn-On 'Apply to Gtk/Flatpak' below.\n•  Reload the apps (or Gnome) for changes to take effect.\n•  You may need to set 'theme' in apps (e.g. Terminal) to 'System' or 'Default'.</span>\n`,
+            label: _(`<span>This applies theme Accent Color and below styles to Gtk / Flatpak apps:\n•  Set desired styles and Turn-On 'Apply to Gtk/Flatpak' below.\n•  Reload the apps (or Gnome) for changes to take effect.\n•  You may need to set 'theme' in apps (e.g. Terminal) to 'System' or 'Default'.</span>\n`),
             use_markup: true,
             halign: Gtk.Align.START,
             wrap: true,
@@ -2320,7 +2320,7 @@ class OpenbarPrefs {
 
         // Add a HSCD info label
         let hscdLabel = new Gtk.Label({
-            label: `<span><b>Headerbar | Sidebar | Card | Dialog</b></span>`,
+            label: _(`<span><b>Headerbar | Sidebar | Card | Dialog</b></span>`),
             use_markup: true,
             halign: Gtk.Align.START,
             margin_top: 10,
@@ -2331,19 +2331,19 @@ class OpenbarPrefs {
 
         // Add a HSCD color button
         let hscdColorLbl = new Gtk.Label({
-            label: `Hint Color`,
+            label: _(`Hint Color`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(hscdColorLbl, 1, rowbar, 1, 1);
 
-        let hscdColorBtn = this.createColorWidget(window, 'Headerbar/Sidebar Hint Color', 'Headerbar/Sidebar/Card/Dialog Hint Color', 'hscd-color');
+        let hscdColorBtn = this.createColorWidget(window, _('Headerbar/Sidebar Hint Color'), _('Headerbar/Sidebar/Card/Dialog Hint Color'), 'hscd-color');
         appgrid.attach(hscdColorBtn, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a headerbar tint scale
         let hbHintLbl = new Gtk.Label({
-            label: `Headerbar Hint`,
+            label: _(`Headerbar Hint`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(hbHintLbl, 1, rowbar, 1, 1);
@@ -2355,19 +2355,19 @@ class OpenbarPrefs {
 
         // Add a Headerbar for Gtk3-Only switch
         let hbarGtk3Lbl = new Gtk.Label({
-            label: `Headerbar - Gtk3 Only`,
+            label: _(`Headerbar - Gtk3 Only`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(hbarGtk3Lbl, 1, rowbar, 1, 1);
 
-        let hbarGtk3Switch = this.createSwitchWidget('hbar-gtk3only', 'Apply Headerbar Hint only to Gtk3 apps, since new Gtk4 apps tend to prefer split-view without headerbar');
+        let hbarGtk3Switch = this.createSwitchWidget('hbar-gtk3only', _('Apply Headerbar Hint only to Gtk3 apps, since new Gtk4 apps tend to prefer split-view without headerbar'));
         appgrid.attach(hbarGtk3Switch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a sidebar tint scale
         let sbHintLbl = new Gtk.Label({
-            label: `Sidebar Hint`,
+            label: _(`Sidebar Hint`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(sbHintLbl, 1, rowbar, 1, 1);
@@ -2379,7 +2379,7 @@ class OpenbarPrefs {
 
         // Add sidebar gradient style combo
         let sbGradComboLbl = new Gtk.Label({
-            label: `Sidebar Gradient`,
+            label: _(`Sidebar Gradient`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(sbGradComboLbl, 1, rowbar, 1, 1);
@@ -2391,7 +2391,7 @@ class OpenbarPrefs {
 
         // Add a Card / Dialog tint scale
         let cdHintLbl = new Gtk.Label({
-            label: `Card/Dialog Hint`,
+            label: _(`Card/Dialog Hint`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(cdHintLbl, 1, rowbar, 1, 1);
@@ -2408,7 +2408,7 @@ class OpenbarPrefs {
 
         // Add a VW info label
         let vwLabel = new Gtk.Label({
-            label: `<span><b>View Pane | Window</b></span>`,
+            label: _(`<span><b>View Pane | Window</b></span>`),
             use_markup: true,
             halign: Gtk.Align.START,
             margin_top: 10,
@@ -2419,19 +2419,19 @@ class OpenbarPrefs {
 
         // Add a vw color button
         let vwColorLbl = new Gtk.Label({
-            label: `Hint Color`,
+            label: _(`Hint Color`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(vwColorLbl, 1, rowbar, 1, 1);
 
-        let vwColorBtn = this.createColorWidget(window, 'View/Window Hint Color', 'View/Window Hint Color', 'vw-color');
+        let vwColorBtn = this.createColorWidget(window, _('View/Window Hint Color'), _('View/Window Hint Color'), 'vw-color');
         appgrid.attach(vwColorBtn, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a view tint scale
         let viewHintLbl = new Gtk.Label({
-            label: `View Pane Hint`,
+            label: _(`View Pane Hint`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(viewHintLbl, 1, rowbar, 1, 1);
@@ -2443,7 +2443,7 @@ class OpenbarPrefs {
 
         // Add a window tint scale
         let windowHintLbl = new Gtk.Label({
-            label: `Window Hint`,
+            label: _(`Window Hint`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(windowHintLbl, 1, rowbar, 1, 1);
@@ -2460,7 +2460,7 @@ class OpenbarPrefs {
 
         // Add a Window Border info label
         let wbLabel = new Gtk.Label({
-            label: `<span><b>Window Border</b></span>`,
+            label: _(`<span><b>Window Border</b></span>`),
             use_markup: true,
             halign: Gtk.Align.START,
             margin_top: 10,
@@ -2471,19 +2471,19 @@ class OpenbarPrefs {
 
         // Add a window border color button
         let winBColorLbl = new Gtk.Label({
-            label: `Border Color`,
+            label: _(`Border Color`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(winBColorLbl, 1, rowbar, 1, 1);
 
-        let winBColorBtn = this.createColorWidget(window, 'Window Border Color', 'Window Border Color', 'winbcolor');
+        let winBColorBtn = this.createColorWidget(window, _('Window Border Color'), _('Window Border Color'), 'winbcolor');
         appgrid.attach(winBColorBtn, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a window border alpha scale
         let winBAlphaLbl = new Gtk.Label({
-            label: `Border Alpha`,
+            label: _(`Border Alpha`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(winBAlphaLbl, 1, rowbar, 1, 1);
@@ -2495,7 +2495,7 @@ class OpenbarPrefs {
 
         // Add a window border width scale
         let winBWidthLbl = new Gtk.Label({
-            label: `Border Width`,
+            label: _(`Border Width`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(winBWidthLbl, 1, rowbar, 1, 1);
@@ -2507,19 +2507,19 @@ class OpenbarPrefs {
 
         // Add a window corner radius switch
         let winBRadSwitchLbl = new Gtk.Label({
-            label: `Apply Corner Radius`,
+            label: _(`Apply Corner Radius`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(winBRadSwitchLbl, 1, rowbar, 1, 1);
 
-        let winBRadiusSwitch = this.createSwitchWidget('corner-radius', 'Enable custom Window Corner Radius as selected below');
+        let winBRadiusSwitch = this.createSwitchWidget('corner-radius', _('Enable custom Window Corner Radius as selected below'));
         appgrid.attach(winBRadiusSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a window corner radius scale
         let winBRadiusLbl = new Gtk.Label({
-            label: `Corner Radius`,
+            label: _(`Corner Radius`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(winBRadiusLbl, 1, rowbar, 1, 1);
@@ -2536,7 +2536,7 @@ class OpenbarPrefs {
 
         // Add a More info label
         let moreLabel = new Gtk.Label({
-            label: `<span><b>And More</b></span>`,
+            label: _(`<span><b>And More</b></span>`),
             use_markup: true,
             halign: Gtk.Align.START,
             margin_top: 10,
@@ -2547,19 +2547,19 @@ class OpenbarPrefs {
 
         // Add a Gtk Popover style switch
         let popoverLbl = new Gtk.Label({
-            label: `Popover Styles`,
+            label: _(`Popover Styles`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(popoverLbl, 1, rowbar, 1, 1);
 
-        let popoverSwitch = this.createSwitchWidget('gtk-popover', 'Apply Top Panel menu styles to app popovers');
+        let popoverSwitch = this.createSwitchWidget('gtk-popover', _('Apply Top Panel menu styles to app popovers'));
         appgrid.attach(popoverSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add window shadow style combo
         let wShadowComboLbl = new Gtk.Label({
-            label: `Window Shadow Style`,
+            label: _(`Window Shadow Style`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(wShadowComboLbl, 1, rowbar, 1, 1);
@@ -2571,19 +2571,19 @@ class OpenbarPrefs {
 
         // Add a traffic light switch
         let trfLightLbl = new Gtk.Label({
-            label: `Traffic Light Controls`,
+            label: _(`Traffic Light Controls`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(trfLightLbl, 1, rowbar, 1, 1);
 
-        let trfLightSwitch = this.createSwitchWidget('traffic-light', 'Apply Traffic Light Window Control Buttons');
+        let trfLightSwitch = this.createSwitchWidget('traffic-light', _('Apply Traffic Light Window Control Buttons'));
         appgrid.attach(trfLightSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add a transparency switch
         let winTransLbl = new Gtk.Label({
-            label: `⚠ Transparency / Alpha`,
+            label: _(`⚠ Transparency / Alpha`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(winTransLbl, 1, rowbar, 1, 1);
@@ -2596,7 +2596,7 @@ class OpenbarPrefs {
         // Add a Yaru Theme Note label
         let yaruNoteLabel = new Gtk.Label({
             use_markup: true,
-            label: `<span allow_breaks="true">\nAuto-Set Gtk/Icons Yaru theme that is closest to Open Gnome Box Accent.\nYaru themes need to be installed (default in Ubuntu).</span>`,
+            label: _(`<span allow_breaks="true">\nAuto-Set Gtk/Icons Yaru theme that is closest to Open Gnome Box Accent.\nYaru themes need to be installed (default in Ubuntu).</span>`),
             halign: Gtk.Align.START,
             wrap: true,
         });
@@ -2606,12 +2606,12 @@ class OpenbarPrefs {
 
         // Add a Yaru theme switch
         let yaruThemeLbl = new Gtk.Label({
-            label: `Set Yaru Theme`,
+            label: _(`Set Yaru Theme`),
             halign: Gtk.Align.START,
         });
         appgrid.attach(yaruThemeLbl, 1, rowbar, 1, 1);
 
-        let yaruThemeSwitch = this.createSwitchWidget('set-yarutheme', 'Auto-set Yaru theme closest to the accent color');
+        let yaruThemeSwitch = this.createSwitchWidget('set-yarutheme', _('Auto-set Yaru theme closest to the accent color'));
         appgrid.attach(yaruThemeSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -2623,7 +2623,7 @@ class OpenbarPrefs {
 
         // Add a Apply Styles info label
         let applyLabel = new Gtk.Label({
-            label: `<span><b>Apply App Styles</b></span>`,
+            label: _(`<span><b>Apply App Styles</b></span>`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             margin_top: 10,
@@ -2634,7 +2634,7 @@ class OpenbarPrefs {
 
         // Add a Gtk info label
         let appLabel = new Gtk.Label({
-            label: `<span><b>GTK3 / GTK4</b></span>\n\n<span size="small" allow_breaks="true">⚠ It will write to 'gtk.css' under '$XDG_CONFIG_HOME/gtk-3.0/' and 'gtk-4.0'.\n     For existing gtk.css, Open Gnome Box will create a backup and restore it on disable.\n     You are advised to also take a manual backup as a failsafe.</span>`,
+            label: _(`<span><b>GTK3 / GTK4</b></span>\n\n<span size="small" allow_breaks="true">⚠ It will write to 'gtk.css' under '$XDG_CONFIG_HOME/gtk-3.0/' and 'gtk-4.0'.\n     For existing gtk.css, Open Gnome Box will create a backup and restore it on disable.\n     You are advised to also take a manual backup as a failsafe.</span>`),
             use_markup: true,
             halign: Gtk.Align.START,
             wrap: true,
@@ -2646,20 +2646,20 @@ class OpenbarPrefs {
 
         // Add apply Accent to Gtk switch
         let appGtkLbl = new Gtk.Label({
-            label: `<b>Apply to Gtk Apps</b>`,
+            label: _(`<b>Apply to Gtk Apps</b>`),
             use_markup: true,
             halign: Gtk.Align.START,
         });
         appgrid.attach(appGtkLbl, 1, rowbar, 1, 1);
 
-        let appGtkSwitch = this.createSwitchWidget('apply-gtk', 'Apply Accent color to Gtk app components');
+        let appGtkSwitch = this.createSwitchWidget('apply-gtk', _('Apply Accent color to Gtk app components'));
         appgrid.attach(appGtkSwitch, 2, rowbar, 1, 1);
 
         rowbar += 2;
 
         // Add a Flatpak info label
         let flatLabel = new Gtk.Label({
-            label: `<span><b>FLATPAK</b></span>\n\n<span size="small" allow_breaks="true">⚠ Applies overrides to provide flatpak apps access to Gtk configs.\n     Overrides will be removed on disable.\n     Requires 'Apply to Gtk Apps' to be turned On.</span>`,
+            label: _(`<span><b>FLATPAK</b></span>\n\n<span size="small" allow_breaks="true">⚠ Applies overrides to provide flatpak apps access to Gtk configs.\n     Overrides will be removed on disable.\n     Requires 'Apply to Gtk Apps' to be turned On.</span>`),
                     use_markup: true,
             halign: Gtk.Align.START,
             wrap: true,
@@ -2671,13 +2671,13 @@ class OpenbarPrefs {
 
         // Add an apply to flatpak switch
         let flatpakLabel = new Gtk.Label({
-            label: `<b>Apply to Flatpak Apps</b>`,
+            label: _(`<b>Apply to Flatpak Apps</b>`),
             use_markup: true,
             halign: Gtk.Align.START,
         });
         appgrid.attach(flatpakLabel, 1, rowbar, 1, 1);
 
-        let flatpakSwitch = this.createSwitchWidget('apply-flatpak', 'Apply to Flatpak app components');
+        let flatpakSwitch = this.createSwitchWidget('apply-flatpak', _('Apply to Flatpak app components'));
         appgrid.attach(flatpakSwitch, 2, rowbar, 1, 1);
 
         ////////////////////////////////////////////////////////////////////
@@ -2692,7 +2692,7 @@ class OpenbarPrefs {
 
         // Reset Settings Label
         let resetTitleLabel = new Gtk.Label({
-            label: `\n\n\n<span size="large">Reset Settings</span>\n`,
+            label: _(`\n\n\n<span size="large">Reset Settings</span>\n`),
             use_markup: true,
             halign: Gtk.Align.CENTER,
             css_classes: [titleClass],
@@ -2703,7 +2703,7 @@ class OpenbarPrefs {
 
         // Add a Reset Settings button
         let resetLbl = new Gtk.Label({
-            label: `⚠ Reset all Open Gnome Box settings to default values`,
+            label: _(`⚠ Reset all Open Gnome Box settings to default values`),
             halign: Gtk.Align.START,
         });
         iegrid.attach(resetLbl, 1, rowbar, 1, 1);

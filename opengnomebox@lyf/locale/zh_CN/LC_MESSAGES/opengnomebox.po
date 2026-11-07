@@ -1161,9 +1161,6 @@ msgstr "通过顶栏托盘的星标按钮收藏壁纸；随机模式下已收藏
 msgid "Statistics"
 msgstr "统计"
 
-msgid "Window class name, e.g. \"KeePassXC\""
-msgstr "窗口类名，例如 \"KeePassXC\""
-
 msgid "Bottom"
 msgstr "底部"
 
@@ -1356,5 +1353,365 @@ msgstr "<span  allow_breaks=\"true\">\n•  为深色/浅色模式选择主题�
 msgid "<span>\n<b>Desktop Background Color Palette</b></span>\n\n<span allow_breaks=\"true\">•  The palette will auto-refresh when the background changes.\n•  Unless the extension is disabled during the change.\n•  Click on 'Get' button to manually refresh the palette.\n•  This palette is available in each color button popup (under default one).</span>"
 msgstr "<span>\n<b>桌面壁纸配色板</b></span>\n\n<span allow_breaks=\"true\">•  壁纸变化时配色板会自动刷新。\n•  除非变化期间扩展处于禁用状态。\n•  点击“获取”按钮可手动刷新配色板。\n•  每个颜色按钮的弹出面板中都能看到该配色板（位于默认颜色下方）。</span>"
 
-msgid "(log truncated to the last ~1 MB; use the filter to narrow it down)\n"
-msgstr "（日志已截断为最后约 1 MB，请用过滤条件缩小范围）\n"
+msgid "\n\n\n<span size=\"large\">Reset Settings</span>\n"
+msgstr "\n\n\n<span size=\"large\">重置设置</span>\n"
+
+msgid "\n<span size=\"large\">Popup Menus\n\n</span>"
+msgstr "\n<span size=\"large\">弹出菜单\n\n</span>"
+
+msgid "<b>Apply to Flatpak Apps</b>"
+msgstr "<b>应用到 Flatpak 应用</b>"
+
+msgid "<b>Apply to Gtk Apps</b>"
+msgstr "<b>应用到 GTK 应用</b>"
+
+msgid "<span allow_breaks=\"true\">\n\nNote:\n•  Horizontal and Vertical paddings can be set in <b>Bar Highlights</b> tab.\n•  Accent color can be set in <b>Popup Menus</b> tab.\n•  Bar rounding radius can be set in <b>Bar Border</b> tab.</span>"
+msgstr "<span allow_breaks=\"true\">\n\n注意：\n•  水平与垂直内边距可在<b>顶栏高亮</b>标签页中设置。\n•  强调色可在<b>弹出菜单</b>标签页中设置。\n•  顶栏圆角可在<b>顶栏边框</b>标签页中设置。</span>"
+
+msgid "<span allow_breaks=\"true\">\nAuto-Set Gtk/Icons Yaru theme that is closest to Open Gnome Box Accent.\nYaru themes need to be installed (default in Ubuntu).</span>"
+msgstr "<span allow_breaks=\"true\">\n自动设置最接近 Open Gnome Box 强调色的 Gtk/图标 Yaru 主题。\n需要已安装 Yaru 主题（Ubuntu 默认自带）。</span>"
+
+msgid "<span allow_breaks=\"true\">Note for Dash-to-Dock:\n•  Enable 'Use built-in theme' in its settings under 'Appearance' tab.\n•  Set 'Icon size limit' as needed in its 'Position and Size' tab.\n </span>"
+msgstr "<span allow_breaks=\"true\">Dash-to-Dock 提示：\n•  在其设置的「外观」标签页中启用「使用内置主题」。\n•  在「位置与大小」标签页中按需设置「图标尺寸限制」。\n </span>"
+
+msgid "<span allow_breaks=\"true\">Styles primarily derived from panel menus will be applied to shell components as selected:</span>\n"
+msgstr "<span allow_breaks=\"true\">主要从面板菜单推导出的样式将按所选应用到 Shell 组件：</span>\n"
+
+msgid "<span allow_breaks=\"true\">Transparent Bar:\n•  Set Box/Margins Alpha to '0' and also Bar BG Alpha to '0'.\n•  Turn Off Panel Blur in 'Blur My Shell', if applied.\n</span>"
+msgstr "<span allow_breaks=\"true\">透明顶栏：\n•  将「盒/边距透明度」设为 0，同时将「顶栏背景透明度」设为 0。\n•  如果使用了「Blur My Shell」，请关闭其中的面板模糊。\n</span>"
+
+msgid "<span allow_breaks=\"true\">When Window-Max bar is enabled, the following properties will apply to the Bar when a window is maximized.\n</span>"
+msgstr "<span allow_breaks=\"true\">启用 Window-Max 顶栏后，窗口最大化时以下属性将应用于顶栏。\n</span>"
+
+msgid "<span size=\"large\">Bar Background\n\n</span>"
+msgstr "<span size=\"large\">顶栏背景\n\n</span>"
+
+msgid "<span size=\"large\">Bar Border\n\n</span>"
+msgstr "<span size=\"large\">顶栏边框\n\n</span>"
+
+msgid "<span size=\"large\">Bar Foreground\n\n</span>"
+msgstr "<span size=\"large\">顶栏前景色\n\n</span>"
+
+msgid "<span size=\"large\">Bar Highlights (Hover - Focus)</span>\n\n"
+msgstr "<span size=\"large\">顶栏高亮（悬停 - 聚焦）</span>\n\n"
+
+msgid "<span size=\"large\">Dash / Dock Style\n\n</span>"
+msgstr "<span size=\"large\">Dash / Dock 样式\n\n</span>"
+
+msgid "<span size=\"large\">GTK / Flatpak Apps   🧪</span>\n"
+msgstr "<span size=\"large\">GTK / Flatpak 应用   🧪</span>\n"
+
+msgid "<span size=\"large\">Gnome Shell Styles</span>\n"
+msgstr "<span size=\"large\">GNOME Shell 样式</span>\n"
+
+msgid "<span size=\"large\">Top Bar Properties\n\n</span>"
+msgstr "<span size=\"large\">顶栏属性\n\n</span>"
+
+msgid "<span size=\"large\">Window-Max Bar Properties\n\n</span>"
+msgstr "<span size=\"large\">Window-Max 顶栏属性\n\n</span>"
+
+msgid "<span><b>And More</b></span>"
+msgstr "<span><b>更多</b></span>"
+
+msgid "<span><b>Apply App Styles</b></span>"
+msgstr "<span><b>应用程序样式</b></span>"
+
+msgid "<span><b>FLATPAK</b></span>\n\n<span size=\"small\" allow_breaks=\"true\">⚠ Applies overrides to provide flatpak apps access to Gtk configs.\n     Overrides will be removed on disable.\n     Requires 'Apply to Gtk Apps' to be turned On.</span>"
+msgstr "<span><b>FLATPAK</b></span>\n\n<span size=\"small\" allow_breaks=\"true\">⚠ 通过覆盖项为 flatpak 应用提供 GTK 配置访问。\n     禁用时覆盖项将被移除。\n     需要先开启「应用到 Gtk 应用」。</span>"
+
+msgid "<span><b>GTK3 / GTK4</b></span>\n\n<span size=\"small\" allow_breaks=\"true\">⚠ It will write to 'gtk.css' under '$XDG_CONFIG_HOME/gtk-3.0/' and 'gtk-4.0'.\n     For existing gtk.css, Open Gnome Box will create a backup and restore it on disable.\n     You are advised to also take a manual backup as a failsafe.</span>"
+msgstr "<span><b>GTK3 / GTK4</b></span>\n\n<span size=\"small\" allow_breaks=\"true\">⚠ 会写入 '$XDG_CONFIG_HOME/gtk-3.0/' 与 'gtk-4.0' 下的 'gtk.css'。\n     对于已存在的 gtk.css，Open Gnome Box 会先创建备份，并在禁用时恢复。\n     建议你另外手动备份以防万一。</span>"
+
+msgid "<span><b>Headerbar | Sidebar | Card | Dialog</b></span>"
+msgstr "<span><b>标题栏 | 侧边栏 | 卡片 | 对话框</b></span>"
+
+msgid "<span><b>View Pane | Window</b></span>"
+msgstr "<span><b>视图区 | 窗口</b></span>"
+
+msgid "<span><b>Window Border</b></span>"
+msgstr "<span><b>窗口边框</b></span>"
+
+msgid "<span>Hover/focus highlight colors and paddings for Panel Buttons.</span>\n"
+msgstr "<span>面板按钮的悬停/聚焦高亮颜色与内边距。</span>\n"
+
+msgid "<span>This applies theme Accent Color and below styles to Gtk / Flatpak apps:\n•  Set desired styles and Turn-On 'Apply to Gtk/Flatpak' below.\n•  Reload the apps (or Gnome) for changes to take effect.\n•  You may need to set 'theme' in apps (e.g. Terminal) to 'System' or 'Default'.</span>\n"
+msgstr "<span>这将把主题强调色及以下样式应用到 Gtk / Flatpak 应用：\n•  设置所需样式并开启下方「应用到 Gtk/Flatpak」。\n•  重新加载应用（或 GNOME）后更改才会生效。\n•  你可能需要在应用（如终端）中把「主题」设为「系统」或「默认」。</span>\n"
+
+msgid "Adds neon-glow effect. Select bright/neon color for border and dark-opaque background for Bar/Islands"
+msgstr "添加霓虹光晕效果。为边框选择明亮/霓虹色，为顶栏/岛屿选择深色不透明背景"
+
+msgid "Apply Accent color to Gtk app components"
+msgstr "对 GTK 应用组件应用强调色"
+
+msgid "Apply Accent to Shell allover"
+msgstr "在 Shell 全局应用强调色"
+
+msgid "Apply Accent, FG, BG colors to Shell components"
+msgstr "对 Shell 组件应用强调色、前景色与背景色"
+
+msgid "Apply All Styles to Shell allover"
+msgstr "在 Shell 全局应用所有样式"
+
+msgid "Apply Corner Radius"
+msgstr "应用圆角"
+
+msgid "Apply Headerbar Hint only to Gtk3 apps, since new Gtk4 apps tend to prefer split-view without headerbar"
+msgstr "仅对 GTK3 应用应用标题栏提示色（新版 GTK4 应用倾向于无标题栏的分栏视图）"
+
+msgid "Apply Menu Styles to Notifications"
+msgstr "对通知应用菜单样式"
+
+msgid "Apply Menu Styles to all Shell Pop-ups"
+msgstr "对所有 Shell 弹出菜单应用样式"
+
+msgid "Apply Menu styles to all Shell pop-up menus"
+msgstr "对所有 Shell 弹出菜单应用菜单样式"
+
+msgid "Apply Menu styles to notifications banners"
+msgstr "对通知横幅应用菜单样式"
+
+msgid "Apply Radius to"
+msgstr "应用圆角到"
+
+msgid "Apply Top Panel menu styles to app popovers"
+msgstr "将顶栏菜单样式应用到应用弹出框"
+
+msgid "Apply Traffic Light Window Control Buttons"
+msgstr "应用交通灯窗口控制按钮"
+
+msgid "Apply Width to"
+msgstr "应用宽度到"
+
+msgid "Apply only Accent color to Shell components"
+msgstr "仅对 Shell 组件应用强调色"
+
+msgid "Apply to Flatpak app components"
+msgstr "对 Flatpak 应用组件应用样式"
+
+msgid "Auto-set Yaru theme closest to the accent color"
+msgstr "自动设置最接近强调色的 Yaru 主题"
+
+msgid "Automatically set highlight color as per background color of bar/buttons"
+msgstr "根据顶栏/按钮的背景色自动设置高亮色"
+
+msgid "Automatically set highlight color as per background color of menu widgets"
+msgstr "根据菜单控件的背景色自动设置高亮色"
+
+msgid "Automatically set white/black FG color as per background color of bar/buttons"
+msgstr "根据顶栏/按钮的背景色自动设置黑/白前景色"
+
+msgid "Automatically set white/black FG color as per background color of menu widgets"
+msgstr "根据菜单控件的背景色自动设置黑/白前景色"
+
+msgid "Background Color"
+msgstr "背景颜色"
+
+msgid "Background color for the WMax bar"
+msgstr "Window-Max 顶栏的背景颜色"
+
+msgid "Background color for the dropdown menus"
+msgstr "下拉菜单的背景色"
+
+msgid "Background color for the panel box / margins"
+msgstr "面板盒/边距的背景颜色"
+
+msgid "Background or gradient start color for Islands/Trilands"
+msgstr "岛屿/三岛的背景色或渐变起始色"
+
+msgid "Background or gradient start color for the bar"
+msgstr "顶栏的背景色或渐变起始色"
+
+msgid "Border Width"
+msgstr "边框宽度"
+
+msgid "Border color for the dropdown menus"
+msgstr "下拉菜单的边框颜色"
+
+msgid "Candybar Color"
+msgstr "Candybar 颜色"
+
+msgid "Card/Dialog Hint"
+msgstr "卡片/对话框提示色"
+
+msgid "Custom BG color for the Dash/Dock."
+msgstr "Dash/Dock 的自定义背景色。"
+
+msgid "Dash / Dock Style"
+msgstr "Dash / Dock 样式"
+
+msgid "Dash/Dock BG Color"
+msgstr "Dash/Dock 背景色"
+
+msgid "Enable Border"
+msgstr "启用边框"
+
+msgid "Enable Menu Styles"
+msgstr "启用菜单样式"
+
+msgid "Enable Shadow"
+msgstr "启用阴影"
+
+msgid "Enable custom Window Corner Radius as selected below"
+msgstr "启用下方所选的窗口圆角"
+
+msgid "Foreground Color"
+msgstr "前景色"
+
+msgid "Foreground color for the bar"
+msgstr "顶栏的前景色"
+
+msgid "Foreground color for the dropdown menus"
+msgstr "下拉菜单的前景色"
+
+msgid "Headerbar - Gtk3 Only"
+msgstr "标题栏 - 仅 GTK3"
+
+msgid "Headerbar Hint"
+msgstr "标题栏提示色"
+
+msgid "Headerbar/Sidebar Hint Color"
+msgstr "标题栏/侧边栏提示色"
+
+msgid "Headerbar/Sidebar/Card/Dialog Hint Color"
+msgstr "标题栏/侧边栏/卡片/对话框提示色"
+
+msgid "Highlight color for hover, focus etc."
+msgstr "悬停、聚焦等状态的高亮色"
+
+msgid "Highlight color for hover/focus on menu items"
+msgstr "菜单项悬停/聚焦的高亮色"
+
+msgid "Highlight with Border"
+msgstr "用边框高亮"
+
+msgid "Hint Color"
+msgstr "提示色"
+
+msgid "Home"
+msgstr "主页"
+
+msgid "Islands/Trilands Background Color"
+msgstr "岛屿/三岛背景色"
+
+msgid "Keep BG color of buttons. If disabled, buttons will be transparent"
+msgstr "保留按钮的背景色。关闭后按钮为透明"
+
+msgid "Light Gradient"
+msgstr "浅色渐变"
+
+msgid "Light gradient effect from top-left on menu background"
+msgstr "菜单背景左上角的浅色渐变效果"
+
+msgid "Match the background color of WMax bar with the Gtk headerbar hint - refer Gtk/Flatpak Apps tab"
+msgstr "让 Window-Max 顶栏的背景色与 GTK 标题栏提示色一致——参见 Gtk/Flatpak 应用标签页"
+
+msgid "Menu Active/Accent Color"
+msgstr "菜单激活/强调颜色"
+
+msgid "Menu Background Color"
+msgstr "菜单背景色"
+
+msgid "Menu Border Color"
+msgstr "菜单边框颜色"
+
+msgid "Menu Foreground Color"
+msgstr "菜单前景色"
+
+msgid "Menu Highlight Color"
+msgstr "菜单高亮颜色"
+
+msgid "Menu Shadow Color"
+msgstr "菜单阴影颜色"
+
+msgid "Neon Glow"
+msgstr "霓虹光晕"
+
+msgid "Not applicable to Mainland/Floating bar if \"neon glow\" is On (under Bar Border)"
+msgstr "当「霓虹光晕」开启时（位于顶栏边框页），对大陆/浮动顶栏不适用"
+
+msgid "Override Secondary Menu BG Color?"
+msgstr "覆盖次级菜单背景色？"
+
+msgid "Override Secondary?"
+msgstr "覆盖次级颜色？"
+
+msgid "Panel Shadow"
+msgstr "面板阴影"
+
+msgid "Panel Shadow Color"
+msgstr "面板阴影颜色"
+
+msgid "Panel-Box Background Color"
+msgstr "面板盒背景颜色"
+
+msgid "Popover Styles"
+msgstr "弹出框样式"
+
+msgid "Second color of gradient"
+msgstr "渐变的第二种颜色"
+
+msgid "Secondary Menu Background Color"
+msgstr "次级菜单背景色"
+
+msgid "Secondary background color override for the dropdown menus"
+msgstr "下拉菜单的次级背景色覆盖"
+
+msgid "Selected/Active color for the menu items"
+msgstr "菜单项的选中/激活颜色"
+
+msgid "Set Yaru Theme"
+msgstr "设置 Yaru 主题"
+
+msgid "Shadow color for the Panel. Choose light color for dark theme and dark for light."
+msgstr "面板的阴影颜色。深色主题用浅色阴影，浅色主题用深色阴影。"
+
+msgid "Shadow color for the dropdown menus. Choose light color for dark theme and dark for light."
+msgstr "下拉菜单的阴影颜色。深色主题用浅色阴影，浅色主题用深色阴影。"
+
+msgid "Show dash border."
+msgstr "显示 Dash 边框。"
+
+msgid "Show dash shadow."
+msgstr "显示 Dash 阴影。"
+
+msgid "Sidebar Gradient"
+msgstr "侧边栏渐变"
+
+msgid "Sidebar Hint"
+msgstr "侧边栏提示色"
+
+msgid "Top Bar and Beyond"
+msgstr "顶栏及更多"
+
+msgid "Traffic Light Controls"
+msgstr "交通灯窗口按钮"
+
+msgid "Turn Off to disable Open Gnome Box menu styles below and instead retain your installed theme"
+msgstr "关闭后将禁用下方 Open Gnome Box 菜单样式，保留你已安装的主题"
+
+msgid "Turn off to get transparent bar in Overview"
+msgstr "关闭后概览中的顶栏为透明"
+
+msgid "View Pane Hint"
+msgstr "视图区提示色"
+
+msgid "View/Window Hint Color"
+msgstr "视图/窗口提示色"
+
+msgid "Window Border Color"
+msgstr "窗口边框颜色"
+
+msgid "Window Hint"
+msgstr "窗口提示色"
+
+msgid "Window Shadow Style"
+msgstr "窗口阴影样式"
+
+msgid "☆ Star"
+msgstr "☆ 星标"
+
+msgid "⚠ Reset all Open Gnome Box settings to default values"
+msgstr "⚠ 将 Open Gnome Box 所有设置重置为默认值"
+
+msgid "⚠ Transparency / Alpha"
+msgstr "⚠ 透明度 / Alpha"
