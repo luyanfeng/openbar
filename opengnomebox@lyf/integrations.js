@@ -1506,8 +1506,13 @@ export class FullscreenEmptyWorkspace {
     // True when `ws` holds only `win` (ignoring always-on-all-workspaces ones).
     _isAloneOn(ws, win) {
         try {
+            // Desktop windows (the icon layer) follow the monitor rather than
+            // being occupants: counting them made every "empty" dedicated
+            // workspace look occupied and blocked its removal, so each
+            // fullscreen cycle left another phantom workspace behind.
             return ws.list_windows()
-                .filter(w => w !== win && !w.is_always_on_all_workspaces())
+                .filter(w => w !== win && !w.is_always_on_all_workspaces() &&
+                    w.window_type !== Meta.WindowType.DESKTOP)
                 .length === 0;
         } catch (e) {
             return false;
@@ -1908,18 +1913,32 @@ export class FullscreenEmptyWorkspace {
                     target.activate(global.get_current_time());
             } catch (e) {}
 
-            // The workspace is no longer off-limits once the owner has left.
-            if (this._guardEnabled && dedicatedWs) {
-                this._guard.setOwner(dedicatedWs, null);
-                this._guard.remove(dedicatedWs);
-            }
-
             // Remove the workspace we created for this window. Do not rely on
             // mutter's automatic cleanup: it only reliably removes trailing
             // empty workspaces and skips the active one, so a workspace in the
             // middle would linger after the window left.
             if (st.created && dedicatedWs && dedicatedWs.index() >= 0) {
                 const stillAlone = this._isAloneOn(dedicatedWs, win);
+                // A window that slipped onto the dedicated space (born there
+                // while the guard lost a race, or left behind) keeps the space
+                // non-empty. Evict it BEFORE unregistering the workspace: the
+                // guard only moves windows off workspaces it still tracks.
+                if (!stillAlone) {
+                    const squatters = dedicatedWs.list_windows().filter(w => w !== win)
+                        .filter(w => !w.is_always_on_all_workspaces() &&
+                            w.window_type === Meta.WindowType.NORMAL);
+                    console.log(`###RESTORE squatters=${squatters.length}`);
+                    for (const other of squatters)
+                        this._guard._evict(other, dedicatedWs, other.get_workspace());
+                }
+
+                // The workspace is no longer off-limits once the owner has left
+                // and any squatters have been sent away.
+                if (this._guardEnabled && dedicatedWs) {
+                    this._guard.setOwner(dedicatedWs, null);
+                    this._guard.remove(dedicatedWs);
+                }
+
                 // The view was switched back above; if that switch is still
                 // settling (animations), the removal runs on the next pass
                 // instead of being skipped - a skipped removal here would leave
@@ -1960,17 +1979,9 @@ export class FullscreenEmptyWorkspace {
                         removeDedicated('direct');
                     }
                 } else {
-                    // A window born on the dedicated space while it was active
-                    // (the guard's birth check can lose the race against a
-                    // slow-mapping application) keeps the space non-empty and
-                    // the removal skipped forever. Send squatters on first, then
-                    // the space is empty and the removal always goes through.
-                    const squatters = dedicatedWs.list_windows().filter(w => w !== win)
-                        .filter(w => !w.is_always_on_all_workspaces() &&
-                            w.window_type === Meta.WindowType.NORMAL);
-                    console.log(`###RESTORE squatters=${squatters.length}`);
-                    for (const other of squatters)
-                        this._guard._evict(other, dedicatedWs, other.get_workspace());
+                    // The evictions above ran while the workspace was still
+                    // registered; give mutter one pass to apply them, then the
+                    // space is empty and the removal goes through.
                     removeDedicated('after-evict');
                 }
             }
