@@ -38,6 +38,24 @@ import {
     conflictingExtensionEnabled,
 } from './conflicts.js';
 
+// A window configured to show on all workspaces (Meta's "on all workspaces"
+// state - the same switch the UI calls sticky) follows the active workspace:
+// it is never an occupant of a dedicated workspace and never needs to be
+// evicted from one. Test the effective on-all-workspaces state, not the
+// internal always-on flag: applications can request the former without mutter
+// reporting the latter.
+function onAllWorkspaces(win) {
+    try {
+        return win.is_on_all_workspaces();
+    } catch (e) {
+        try {
+            return win.is_always_on_all_workspaces();
+        } catch (e2) {
+            return false;
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 1. Autohide Battery
 //
@@ -908,8 +926,8 @@ export class DedicatedWorkspaceGuard {
                 this._log('evict-skip', `${this._wd(win)} type=${win?.window_type}`);
                 return;
             }
-            if (win.is_always_on_all_workspaces()) {
-                this._log('evict-skip', `${this._wd(win)} sticky`);
+            if (onAllWorkspaces(win)) {
+                this._log('evict-skip', `${this._wd(win)} on-all-workspaces`);
                 return;
             }
 
@@ -1498,7 +1516,7 @@ export class FullscreenEmptyWorkspace {
 
     _isNormal(win) {
         return !!win && win.window_type === Meta.WindowType.NORMAL &&
-            !win.is_always_on_all_workspaces();
+            !onAllWorkspaces(win);
     }
 
     // ---- guards -----------------------------------------------------------
@@ -1511,7 +1529,7 @@ export class FullscreenEmptyWorkspace {
             // workspace look occupied and blocked its removal, so each
             // fullscreen cycle left another phantom workspace behind.
             return ws.list_windows()
-                .filter(w => w !== win && !w.is_always_on_all_workspaces() &&
+                .filter(w => w !== win && !onAllWorkspaces(w) &&
                     w.window_type !== Meta.WindowType.DESKTOP)
                 .length === 0;
         } catch (e) {
@@ -1687,7 +1705,7 @@ export class FullscreenEmptyWorkspace {
                         if (ded.index() >= 0 &&
                             ded.list_windows().filter(w =>
                                 w.window_type !== Meta.WindowType.DESKTOP &&
-                                !w.is_always_on_all_workspaces()).length === 0 &&
+                                !onAllWorkspaces(w)).length === 0 &&
                             ded.index() !== manager.get_active_workspace_index())
                             manager.remove_workspace(ded, global.get_current_time());
                     } catch (e) {}
@@ -1833,7 +1851,7 @@ export class FullscreenEmptyWorkspace {
     _squattersOn(ws, owner) {
         try {
             return ws.list_windows()
-                .filter(w => w !== owner && !w.is_always_on_all_workspaces())
+                .filter(w => w !== owner && !onAllWorkspaces(w))
                 .filter(w => w.window_type === Meta.WindowType.NORMAL);
         } catch (e) {
             return [];
@@ -1925,7 +1943,7 @@ export class FullscreenEmptyWorkspace {
                 // guard only moves windows off workspaces it still tracks.
                 if (!stillAlone) {
                     const squatters = dedicatedWs.list_windows().filter(w => w !== win)
-                        .filter(w => !w.is_always_on_all_workspaces() &&
+                        .filter(w => !onAllWorkspaces(w) &&
                             w.window_type === Meta.WindowType.NORMAL);
                     console.log(`###RESTORE squatters=${squatters.length}`);
                     for (const other of squatters)
