@@ -37,6 +37,7 @@ import * as Quantize from './quantize.js';
 import * as AutoThemes from './autothemes.js';
 import * as StyleSheets from './stylesheets.js';
 import { WallhubManager } from './wallhub.js';
+import { resolveDynamicWallpaperFrame } from './wallpaperscan.js';
 import { IntegrationsManager } from './integrations.js';
 import { ClipboardManager } from './clipboard.js';
 import { LilypadManager } from './lilypad.js';
@@ -171,12 +172,26 @@ export default class Openbar extends Extension {
             darklight = (i==0) ? 'dark' : 'light';
             pictureUri = uriArr[i];
 
-            if(pictureUri.endsWith('.xml') || pictureUri.endsWith('.XML'))
-                continue;
+            // Dynamic wallpapers have no single image: sample the frame that is
+            // on screen right now, so the palette follows animated wallpapers
+            // instead of being skipped entirely.
+            let paletteUri = pictureUri;
+            if(pictureUri.endsWith('.xml') || pictureUri.endsWith('.XML')) {
+                let framePath = null;
+                try {
+                    framePath = resolveDynamicWallpaperFrame(
+                        Gio.File.new_for_uri(pictureUri).get_path(), darklight == 'dark');
+                } catch (e) {
+                    framePath = null;
+                }
+                if(!framePath)
+                    continue;
+                paletteUri = Gio.File.new_for_path(framePath).get_uri();
+            }
 
             // Generate palette only once if both URI are same
             if(!sameUri || i == 0) {
-                [palette12, count12] = this.getPaletteFromImage(pictureUri);
+                [palette12, count12] = this.getPaletteFromImage(paletteUri);
             }
 
             // Save palette and counts to settings

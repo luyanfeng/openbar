@@ -95,6 +95,92 @@ function collectDynamicFrames(xmlPath, xmlText, excluded) {
     }
 }
 
+// Resolve the image a GNOME dynamic wallpaper (.xml) is showing right now, so
+// color sampling has a real file to read. Handles both the timed format
+// (<starttime> + a sequence of <static>/<transition> segments) and the simple
+// <filename>/<filename-dark> variant. Returns a filesystem path, or null when
+// nothing usable can be found.
+export function resolveDynamicWallpaperFrame(xmlPath, preferDark = false) {
+    let xml;
+    try {
+        const [ok, contents] = Gio.File.new_for_path(xmlPath).load_contents(null);
+        if (!ok)
+            return null;
+        xml = new TextDecoder().decode(contents);
+    } catch (e) {
+        return null;
+    }
+
+    const dir = GLib.path_get_dirname(xmlPath);
+    const resolve = p => {
+        const clean = p.trim()
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        if (!clean)
+            return null;
+        return clean.startsWith('/') ? clean : GLib.build_filenamev([dir, clean]);
+    };
+
+    // Segments in document order: <static>…</static> and <transition …>…</transition>
+    const segments = [];
+    for (const m of xml.matchAll(/<(static|transition)[^>]*>([\s\S]*?)<\/\1>/g)) {
+        const body = m[2];
+        const file = body.match(/<file>([^<]*)<\/file>/);
+        const from = body.match(/<from>([^<]*)<\/from>/);
+        const to = body.match(/<to>([^<]*)<\/to>/);
+        const dur = body.match(/<duration>([^<]*)<\/duration>/);
+        const duration = dur ? parseFloat(dur[1]) : 0;
+        if (!Number.isFinite(duration) || duration <= 0)
+            continue;
+        segments.push({
+            kind: m[1],
+            duration,
+            file: file ? resolve(file[1]) : null,
+            from: from ? resolve(from[1]) : null,
+            to: to ? resolve(to[1]) : null,
+        });
+    }
+
+    if (segments.length > 0) {
+        // GNOME positions the animation by (now - starttime) mod total duration.
+        let elapsed = 0;
+        const st = xml.match(/<starttime>([\s\S]*?)<\/starttime>/);
+        if (st) {
+            const num = tag => {
+                const hit = st[1].match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+                return hit ? parseInt(hit[1], 10) : NaN;
+            };
+            const year = num('year'), month = num('month'), day = num('day');
+            const hour = num('hour'), minute = num('minute'), second = num('second');
+            if ([year, month, day, hour, minute, second].every(Number.isFinite)) {
+                const start = GLib.DateTime.new_local(year, month, day, hour, minute, second);
+                const now = GLib.DateTime.new_now_local();
+                const diffSeconds = now.difference(start) / 1e6;
+                elapsed = diffSeconds;
+            }
+        }
+        const total = segments.reduce((sum, s) => sum + s.duration, 0);
+        elapsed = ((elapsed % total) + total) % total;
+        let offset = 0;
+        for (const seg of segments) {
+            if (elapsed < offset + seg.duration) {
+                if (seg.kind === 'static')
+                    return seg.file;
+                const progress = (elapsed - offset) / seg.duration;
+                return progress < 0.5 ? (seg.from ?? seg.to) : (seg.to ?? seg.from);
+            }
+            offset += seg.duration;
+        }
+        const last = segments[segments.length - 1];
+        return last.kind === 'static' ? last.file : (last.to ?? last.from);
+    }
+
+    // Simple format: one image per color scheme.
+    const light = xml.match(/<filename>([^<]*)<\/filename>/);
+    const dark = xml.match(/<filename-dark>([^<]*)<\/filename-dark>/);
+    const chosen = (preferDark && dark) ? dark[1] : (light ? light[1] : (dark ? dark[1] : null));
+    return chosen ? resolve(chosen) : null;
+}
+
 // Resolve every enabled source into a flat, de-duplicated queue. Returns the
 // wallpapers plus the directories that contributed, so callers that need live
 // change monitoring can attach their own watches.
