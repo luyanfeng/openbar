@@ -604,7 +604,7 @@ class OpenbarPrefs {
         rowbar = 1;
 
         let wecomeLabel = new Gtk.Label({
-            label: `\n<span size="large">Welcome to Open Gnome Box!</span>\n`,
+            label: _(`\n<span size="large">Welcome to Open Gnome Box!</span>\n`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -615,7 +615,7 @@ class OpenbarPrefs {
 
         // Welcome Info Expander
         const welcomeExpander = new Gtk.Expander({
-            label: `<b>Introduction</b>`,
+            label: _(`<b>Introduction</b>`),
             expanded: false,
             use_markup: true,
             margin_top: 5,
@@ -624,18 +624,7 @@ class OpenbarPrefs {
         });
 
         let welcomeNotesLabel = new Gtk.Label({
-            label: `<span  allow_breaks="true">\
-            \n•  Open Gnome Box allows you to theme the Top Bar, Pop-up Menus, Dash, Dock and rest of the Gnome Shell.\
-            \n•  You can also extend the theme to Gtk and Flatpak apps to the extent possible with CSS.\
-            \n•  You can choose any color for Accent and for everything else in the shell.\
-            \n•  There are a lot of settings to allow full customization and they are grouped as tabs in the left panel.\
-            \n•  To make things easier, there is an auto-theme feature that picks colors from the desktop background.\
-            \n•  You can start with selecting the Type of bar, then select the desired Auto-Theme and apply.\
-            \n•  Floating or Island bars are great on the desktop but when a window is maximized, you must try Window-Max bar.\
-            \n•  Next, you can apply styles to Dash/Dock, Shell and Apps as desired for full theming experience.\
-            \n•  Lastly, feel free to play with the settings and things will start becoming much easier.\
-            \n\n Open the theming bar and let the colors flow!
-        </span>`,
+            label: _(`<span  allow_breaks="true">\n•  Open Gnome Box allows you to theme the Top Bar, Pop-up Menus, Dash, Dock and rest of the Gnome Shell.\n•  You can also extend the theme to Gtk and Flatpak apps to the extent possible with CSS.\n•  You can choose any color for Accent and for everything else in the shell.\n•  There are a lot of settings to allow full customization and they are grouped as tabs in the left panel.\n•  To make things easier, there is an auto-theme feature that picks colors from the desktop background.\n•  You can start with selecting the Type of bar, then select the desired Auto-Theme and apply.\n•  Floating or Island bars are great on the desktop but when a window is maximized, you must try Window-Max bar.\n•  Next, you can apply styles to Dash/Dock, Shell and Apps as desired for full theming experience.\n•  Lastly, feel free to play with the settings and things will start becoming much easier.\n\n Open the theming bar and let the colors flow!\n        </span>`),
             wrap: true,
             use_markup: true,
             halign: Gtk.Align.START,
@@ -653,7 +642,7 @@ class OpenbarPrefs {
         rowbar = 1;
 
         let autoThemeLabel = new Gtk.Label({
-            label: `\n<span size="large">Automatic Themes from Desktop Background</span>\n`,
+            label: _(`\n<span size="large">Automatic Themes from Desktop Background</span>\n`),
             halign: Gtk.Align.CENTER,
             use_markup: true,
             css_classes: [titleClass],
@@ -664,7 +653,7 @@ class OpenbarPrefs {
 
         // Auto Themes Info Expander
         const themesExpander = new Gtk.Expander({
-            label: `<b>Auto Themes Introduction</b>`,
+            label: _(`<b>Auto Themes Introduction</b>`),
             expanded: false,
             use_markup: true,
             margin_top: 5,
@@ -673,13 +662,7 @@ class OpenbarPrefs {
         });
 
         let autoThemeNotesLabel = new Gtk.Label({
-            label: `<span  allow_breaks="true">\n•  Auto-themes will use the <b>colors</b> derived from the background image.\n•  Other settings will be set as selected, by the user, in the other tabs.\n•  Styles will apply to the Top Bar, Menus and optionally to the shell.\n•  You may further tweak the styles after applying auto-theme.
-
-        <b><tt>True Color  </tt></b>   :  Palette colors as-is (biased towards dark).
-        <b><tt>Pastel Theme</tt></b>   :  Colors are pastelified (biased towards light).
-        <b><tt>Dark Theme  </tt></b>   :  Colors are darkened as needed.
-        <b><tt>Light Theme </tt></b>   :  Colors are lightened as needed.
-        </span>`,
+            label: _(`<span  allow_breaks="true">\n•  Auto-themes will use the <b>colors</b> derived from the background image.\n•  Other settings will be set as selected, by the user, in the other tabs.\n•  Styles will apply to the Top Bar, Menus and optionally to the shell.\n•  You may further tweak the styles after applying auto-theme.\n\n<b><tt>True Color  </tt></b>   :  Palette colors as-is (biased towards dark).\n<b><tt>Pastel Theme</tt></b>   :  Colors are pastelified (biased towards light).\n<b><tt>Dark Theme  </tt></b>   :  Colors are darkened as needed.\n<b><tt>Light Theme </tt></b>   :  Colors are lightened as needed.\n        </span>`),
             wrap: true,
             use_markup: true,
             halign: Gtk.Align.START,
@@ -692,49 +675,49 @@ class OpenbarPrefs {
         rowbar += 1;
 
         let autoThemeChgLabel = new Gtk.Label({
-            label: `<span>Auto-Refresh theme on change of Background</span>`,
+            label: _(`<span>Auto-Refresh theme on change of Background</span>`),
             use_markup: true,
             halign: Gtk.Align.START,
         });
         palettegrid.attach(autoThemeChgLabel, 1, rowbar, 1, 1);
 
-        let autoThemeChgSwitch = this.createSwitchWidget('autotheme-refresh', 'If enabled, current theme will be overridden with new auto-theme when desktop background is changed');
+        let autoThemeChgSwitch = this.createSwitchWidget('autotheme-refresh', _('If enabled, current theme will be overridden with new auto-theme when desktop background is changed'));
         palettegrid.attach(autoThemeChgSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         let autoAlphaSetLabel = new Gtk.Label({
-            label: `<span>Auto-Set Bar, Margins and Islands BG Alpha</span>`,
+            label: _(`<span>Auto-Set Bar, Margins and Islands BG Alpha</span>`),
             use_markup: true,
             halign: Gtk.Align.START,
         });
         palettegrid.attach(autoAlphaSetLabel, 1, rowbar, 1, 1);
 
-        let autoAlphaSetSwitch = this.createSwitchWidget('auto-bgalpha', 'Turn Off to retain user-set values for BG alpha (background opacity)');
+        let autoAlphaSetSwitch = this.createSwitchWidget('auto-bgalpha', _('Turn Off to retain user-set values for BG alpha (background opacity)'));
         palettegrid.attach(autoAlphaSetSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         let autoFgBarLabel = new Gtk.Label({
-            label: `<span>Auto-Set Bar foreground color</span>`,
+            label: _(`<span>Auto-Set Bar foreground color</span>`),
             use_markup: true,
             halign: Gtk.Align.START,
         });
         palettegrid.attach(autoFgBarLabel, 1, rowbar, 1, 1);
 
-        let autoFgBarSwitch = this.createSwitchWidget('autofg-bar', 'Turn Off to retain user-set values for Bar FG (foreground) color');
+        let autoFgBarSwitch = this.createSwitchWidget('autofg-bar', _('Turn Off to retain user-set values for Bar FG (foreground) color'));
         palettegrid.attach(autoFgBarSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         let autoFgMenuLabel = new Gtk.Label({
-            label: `<span>Auto-Set Menu foreground color</span>`,
+            label: _(`<span>Auto-Set Menu foreground color</span>`),
             use_markup: true,
             halign: Gtk.Align.START,
         });
         palettegrid.attach(autoFgMenuLabel, 1, rowbar, 1, 1);
 
-        let autoFgMenuSwitch = this.createSwitchWidget('autofg-menu', 'Turn Off to retain user-set values for Menu FG (foreground) color');
+        let autoFgMenuSwitch = this.createSwitchWidget('autofg-menu', _('Turn Off to retain user-set values for Menu FG (foreground) color'));
         palettegrid.attach(autoFgMenuSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -742,24 +725,24 @@ class OpenbarPrefs {
         // Secondary menu color Override
         // Add a secondary color override switch
         let autosmbgOLbl = new Gtk.Label({
-            label: `Alternate Secondary Menu BG Color (auto)`,
+            label: _(`Alternate Secondary Menu BG Color (auto)`),
             halign: Gtk.Align.START,
         });
         palettegrid.attach(autosmbgOLbl, 1, rowbar, 1, 1);
 
-        let autosmbgOSwitch = this.createSwitchWidget('smbgoverride', 'Auto-Theme will choose alternate secondary/sub-menu color instead of deriving from BG color');
+        let autosmbgOSwitch = this.createSwitchWidget('smbgoverride', _('Auto-Theme will choose alternate secondary/sub-menu color instead of deriving from BG color'));
         palettegrid.attach(autosmbgOSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Add an accent color override switch
         let accentOLbl = new Gtk.Label({
-            label: `Override auto-theme Accent Color (as selected below)`,
+            label: _(`Override auto-theme Accent Color (as selected below)`),
             halign: Gtk.Align.START,
         });
         palettegrid.attach(accentOLbl, 1, rowbar, 1, 1);
 
-        let accentOSwitch = this.createSwitchWidget('accent-override', 'Use accent color selected below instead of auto-generated one');
+        let accentOSwitch = this.createSwitchWidget('accent-override', _('Use accent color selected below instead of auto-generated one'));
         palettegrid.attach(accentOSwitch, 2, rowbar, 1, 1);
 
         rowbar += 1;
@@ -771,14 +754,14 @@ class OpenbarPrefs {
         });
         palettegrid.attach(accentOColorLabel, 1, rowbar, 1, 1);
 
-        let accentOColorChooser = this.createColorWidget(window, 'Auto Theme Accent Color', 'Select preferred accent color', 'accent-color');
+        let accentOColorChooser = this.createColorWidget(window, _('Auto Theme Accent Color'), _('Select preferred accent color'), 'accent-color');
         palettegrid.attach(accentOColorChooser, 2, rowbar, 1, 1);
 
         rowbar += 1;
 
         // Auto Themes Modes Expander
         const modesExpander = new Gtk.Expander({
-            label: `<b>Auto Themes for Dark/Light Modes</b>`,
+            label: _(`<b>Auto Themes for Dark/Light Modes</b>`),
             expanded: false,
             use_markup: true,
             margin_top: 15,
@@ -786,7 +769,7 @@ class OpenbarPrefs {
         });
 
         let autoThemeModesLabel = new Gtk.Label({
-            label: `<span  allow_breaks="true">\n•  Select themes for Dark/Light modes and click Apply.\n•  You may further tweak styles after applying auto-theme.\n•  Color changes made in current mode will be saved for that mode.\n•  Themes can be regenerated by clicking Apply or on background change.</span>`,
+            label: _(`<span  allow_breaks="true">\n•  Select themes for Dark/Light modes and click Apply.\n•  You may further tweak styles after applying auto-theme.\n•  Color changes made in current mode will be saved for that mode.\n•  Themes can be regenerated by clicking Apply or on background change.</span>`),
             wrap: true,
             use_markup: true,
             halign: Gtk.Align.START,
@@ -804,7 +787,7 @@ class OpenbarPrefs {
 
         // Add a Dark mode label
         let darkModeLabel = new Gtk.Label({
-            label: `<b>Gnome Dark Mode:</b>`,
+            label: _(`<b>Gnome Dark Mode:</b>`),
             halign: Gtk.Align.START,
             use_markup: true,
         });
@@ -817,7 +800,7 @@ class OpenbarPrefs {
 
         // Add a Light mode label
         let lightModeLabel = new Gtk.Label({
-            label: `<b>Gnome Light Mode:</b>`,
+            label: _(`<b>Gnome Light Mode:</b>`),
             halign: Gtk.Align.START,
             use_markup: true,
         });
@@ -851,14 +834,14 @@ class OpenbarPrefs {
             let themeDark = themeTypeDark.get_active_id();
             let themeLight = themeTypeLight.get_active_id();
             if(themeDark == 'Select Theme' && themeLight == 'Select Theme') {
-                applyThemeErrLbl.label = `<span color="#ff8c00">Please select desired themes to apply.</span>`;
+                applyThemeErrLbl.label = _(`<span color="#ff8c00">Please select desired themes to apply.</span>`);
                 applyThemeErrLbl.sensitive = true;
                 setTimeout(() => { applyThemeErrLbl.label = ``;
                                     applyThemeErrLbl.sensitive = false;}, 3000);
                 return;
             }
             else {
-                applyThemeErrLbl.label = `<span color="#00ddee">Selected theme will apply in respective mode.</span>`;
+                applyThemeErrLbl.label = _(`<span color="#00ddee">Selected theme will apply in respective mode.</span>`);
                 applyThemeErrLbl.sensitive = true;
                 setTimeout(() => { applyThemeErrLbl.label = ``;
                                     applyThemeErrLbl.sensitive = false;}, 3000);
@@ -874,7 +857,7 @@ class OpenbarPrefs {
         rowbar += 1;
 
         let paletteLabel = new Gtk.Label({
-            label: `<span>\n<b>Desktop Background Color Palette</b></span>\n\n<span allow_breaks="true">•  The palette will auto-refresh when the background changes.\n•  Unless the extension is disabled during the change.\n•  Click on 'Get' button to manually refresh the palette.\n•  This palette is available in each color button popup (under default one).</span>`,
+            label: _(`<span>\n<b>Desktop Background Color Palette</b></span>\n\n<span allow_breaks="true">•  The palette will auto-refresh when the background changes.\n•  Unless the extension is disabled during the change.\n•  Click on 'Get' button to manually refresh the palette.\n•  This palette is available in each color button popup (under default one).</span>`),
             use_markup: true,
             margin_top: 0,
             wrap: true,
@@ -885,7 +868,7 @@ class OpenbarPrefs {
         rowbar += 1;
 
         let getPaletteLabel = new Gtk.Label({
-            label: `<span>Manual trigger to get/ refresh the palette</span>`,
+            label: _(`<span>Manual trigger to get/ refresh the palette</span>`),
             use_markup: true,
             halign: Gtk.Align.START,
             margin_top: 10,
@@ -893,7 +876,7 @@ class OpenbarPrefs {
         palettegrid.attach(getPaletteLabel, 1, rowbar, 1, 1);
 
         const getPaletteBtn = new Gtk.Button({
-            label: `🔄 Get`,
+            label: _(`🔄 Get`),
             halign: Gtk.Align.END,
             margin_top: 10,
             tooltip_text: _('Generate/ Refresh Color Palette from desktop background')

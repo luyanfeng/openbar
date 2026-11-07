@@ -12,9 +12,6 @@ msgstr "%s 行"
 msgid "(invalid)"
 msgstr "（无效）"
 
-msgid "(log truncated to the last ~1 MB; use the filter to narrow it down)\\n"
-msgstr "（日志已截断为最后约 1 MB，请用过滤条件缩小范围）\\n"
-
 msgid "(no applications found)"
 msgstr "（未找到应用）"
 
@@ -1271,3 +1268,93 @@ msgstr "使用顶栏颜色"
 
 msgid "Vertical"
 msgstr "垂直"
+
+msgid "<b>Introduction</b>"
+msgstr "<b>简介</b>"
+
+msgid "<b>Auto Themes Introduction</b>"
+msgstr "<b>自动主题说明</b>"
+
+msgid "<span>Auto-Refresh theme on change of Background</span>"
+msgstr "<span>壁纸变化时自动刷新主题</span>"
+
+msgid "If enabled, current theme will be overridden with new auto-theme when desktop background is changed"
+msgstr "启用后，桌面背景变化时将用新的自动主题覆盖当前主题"
+
+msgid "<span>Auto-Set Bar, Margins and Islands BG Alpha</span>"
+msgstr "<span>自动设置顶栏、边距与岛屿的背景透明度</span>"
+
+msgid "Turn Off to retain user-set values for BG alpha (background opacity)"
+msgstr "关闭则保留用户设置的背景透明度"
+
+msgid "<span>Auto-Set Bar foreground color</span>"
+msgstr "<span>自动设置顶栏前景色</span>"
+
+msgid "Turn Off to retain user-set values for Bar FG (foreground) color"
+msgstr "关闭则保留用户设置的顶栏前景色"
+
+msgid "<span>Auto-Set Menu foreground color</span>"
+msgstr "<span>自动设置菜单前景色</span>"
+
+msgid "Turn Off to retain user-set values for Menu FG (foreground) color"
+msgstr "关闭则保留用户设置的菜单前景色"
+
+msgid "Alternate Secondary Menu BG Color (auto)"
+msgstr "自动选择次级菜单背景色"
+
+msgid "Auto-Theme will choose alternate secondary/sub-menu color instead of deriving from BG color"
+msgstr "自动主题将选择替代的次级/子菜单颜色，而非从背景色推导"
+
+msgid "Override auto-theme Accent Color (as selected below)"
+msgstr "覆盖自动主题强调色（使用下方所选颜色）"
+
+msgid "Use accent color selected below instead of auto-generated one"
+msgstr "使用下方选择的强调色，替代自动生成的颜色"
+
+msgid "Auto Theme Accent Color"
+msgstr "自动主题强调色"
+
+msgid "Select preferred accent color"
+msgstr "选择偏好的强调色"
+
+msgid "<b>Auto Themes for Dark/Light Modes</b>"
+msgstr "<b>深色/浅色模式的自动主题</b>"
+
+msgid "<b>Gnome Dark Mode:</b>"
+msgstr "<b>GNOME 深色模式：</b>"
+
+msgid "<b>Gnome Light Mode:</b>"
+msgstr "<b>GNOME 浅色模式：</b>"
+
+msgid "<span color=\"#ff8c00\">Please select desired themes to apply.</span>"
+msgstr "<span color=\"#ff8c00\">请先选择要应用的主题。</span>"
+
+msgid "<span color=\"#00ddee\">Selected theme will apply in respective mode.</span>"
+msgstr "<span color=\"#00ddee\">所选主题将在对应模式下生效。</span>"
+
+msgid "<span>Manual trigger to get/ refresh the palette</span>"
+msgstr "<span>手动获取/刷新配色板</span>"
+
+msgid "🔄 Get"
+msgstr "🔄 获取"
+
+msgid "\n<span size=\"large\">Welcome to Open Gnome Box!</span>\n"
+msgstr "\n<span size=\"large\">欢迎使用 Open Gnome Box！</span>\n"
+
+msgid "<span  allow_breaks=\"true\">\n•  Open Gnome Box allows you to theme the Top Bar, Pop-up Menus, Dash, Dock and rest of the Gnome Shell.\n•  You can also extend the theme to Gtk and Flatpak apps to the extent possible with CSS.\n•  You can choose any color for Accent and for everything else in the shell.\n•  There are a lot of settings to allow full customization and they are grouped as tabs in the left panel.\n•  To make things easier, there is an auto-theme feature that picks colors from the desktop background.\n•  You can start with selecting the Type of bar, then select the desired Auto-Theme and apply.\n•  Floating or Island bars are great on the desktop but when a window is maximized, you must try Window-Max bar.\n•  Next, you can apply styles to Dash/Dock, Shell and Apps as desired for full theming experience.\n•  Lastly, feel free to play with the settings and things will start becoming much easier.\n\n Open the theming bar and let the colors flow!\n        </span>"
+msgstr "<span  allow_breaks=\"true\">\n•  Open Gnome Box 可以为主题化顶栏、弹出菜单、Dash、Dock 以及 GNOME Shell 的其余部分。\n•  你还可以尽可能地把主题扩展到 GTK 与 Flatpak 应用（受 CSS 能力所限）。\n•  强调色以及 Shell 中的其它一切颜色都可以自定义。\n•  设置项很多，足以实现完全定制，它们以标签页形式分组在左侧面板。\n•  为了更省事，提供了从桌面壁纸自动取色的自动主题功能。\n•  可以从选择顶栏类型开始，然后选中想要的自动主题并应用。\n•  浮动/岛屿风格在桌面上很好看，但窗口最大化时一定要试试 Window-Max 顶栏。\n•  接下来，可以按需为 Dash/Dock、Shell 与应用程序应用样式，获得完整的主题体验。\n•  最后，尽情调参吧，用起来会越来越顺手。\n\n 打开主题栏，让色彩流动起来！\n        </span>"
+
+msgid "\n<span size=\"large\">Automatic Themes from Desktop Background</span>\n"
+msgstr "\n<span size=\"large\">从桌面壁纸自动生成主题</span>\n"
+
+msgid "<span  allow_breaks=\"true\">\n•  Auto-themes will use the <b>colors</b> derived from the background image.\n•  Other settings will be set as selected, by the user, in the other tabs.\n•  Styles will apply to the Top Bar, Menus and optionally to the shell.\n•  You may further tweak the styles after applying auto-theme.\n\n<b><tt>True Color  </tt></b>   :  Palette colors as-is (biased towards dark).\n<b><tt>Pastel Theme</tt></b>   :  Colors are pastelified (biased towards light).\n<b><tt>Dark Theme  </tt></b>   :  Colors are darkened as needed.\n<b><tt>Light Theme </tt></b>   :  Colors are lightened as needed.\n        </span>"
+msgstr "<span  allow_breaks=\"true\">\n•  自动主题会使用从背景图片提取的<b>颜色</b>。\n•  其它设置保持用户在各标签页中的选择。\n•  样式将应用于顶栏、菜单，并可选择性应用到 Shell。\n•  应用自动主题后仍可继续微调样式。\n\n<b><tt>真彩色    </tt></b>   :  直接使用配色板颜色（偏暗）。\n<b><tt>柔和主题</tt></b>   :  颜色柔化（偏亮）。\n<b><tt>深色主题  </tt></b>   :  按需加深颜色。\n<b><tt>浅色主题 </tt></b>   :  按需提亮颜色。\n        </span>"
+
+msgid "<span  allow_breaks=\"true\">\n•  Select themes for Dark/Light modes and click Apply.\n•  You may further tweak styles after applying auto-theme.\n•  Color changes made in current mode will be saved for that mode.\n•  Themes can be regenerated by clicking Apply or on background change.</span>"
+msgstr "<span  allow_breaks=\"true\">\n•  为深色/浅色模式选择主题并点击“应用”。\n•  应用自动主题后仍可继续微调样式。\n•  在当前模式下所做的颜色修改会保存到该模式。\n•  点击“应用”或在壁纸变化时可重新生成主题。</span>"
+
+msgid "<span>\n<b>Desktop Background Color Palette</b></span>\n\n<span allow_breaks=\"true\">•  The palette will auto-refresh when the background changes.\n•  Unless the extension is disabled during the change.\n•  Click on 'Get' button to manually refresh the palette.\n•  This palette is available in each color button popup (under default one).</span>"
+msgstr "<span>\n<b>桌面壁纸配色板</b></span>\n\n<span allow_breaks=\"true\">•  壁纸变化时配色板会自动刷新。\n•  除非变化期间扩展处于禁用状态。\n•  点击“获取”按钮可手动刷新配色板。\n•  每个颜色按钮的弹出面板中都能看到该配色板（位于默认颜色下方）。</span>"
+
+msgid "(log truncated to the last ~1 MB; use the filter to narrow it down)\n"
+msgstr "（日志已截断为最后约 1 MB，请用过滤条件缩小范围）\n"
