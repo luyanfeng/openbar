@@ -686,18 +686,6 @@ class OpenbarPrefs {
 
         rowbar += 1;
 
-        let autoAlphaSetLabel = new Gtk.Label({
-            label: _(`<span>Auto-Set Bar, Margins and Islands BG Alpha</span>`),
-            use_markup: true,
-            halign: Gtk.Align.START,
-        });
-        palettegrid.attach(autoAlphaSetLabel, 1, rowbar, 1, 1);
-
-        let autoAlphaSetSwitch = this.createSwitchWidget('auto-bgalpha', _('Turn Off to retain user-set values for BG alpha (background opacity)'));
-        palettegrid.attach(autoAlphaSetSwitch, 2, rowbar, 1, 1);
-
-        rowbar += 1;
-
         let autoFgBarLabel = new Gtk.Label({
             label: _(`<span>Auto-Set Bar foreground color</span>`),
             use_markup: true,

@@ -970,22 +970,14 @@ export function autoApplyBGPalette(obar, requestMode) {
     let menuHighlightColor = menuBorderColor;
 
 
-    let bgcolorWmax, bgcolor, bgalpha, iscolor, isalpha, bgcolor2, shcolor, hcolor, halpha, bcolor, balpha,
+    let bgcolorWmax, bgcolor, iscolor, bgcolor2, shcolor, hcolor, halpha, bcolor, balpha,
     mbgcolor, mbgalpha, smbgcolor, smbgalpha, mbcolor, mbalpha, mhcolor, mhalpha, mshcolor, mshalpha, mscolor, msalpha;
 
     let bartype = obar._settings.get_string('bartype');
-    let autobgAlpha = obar._settings.get_boolean('auto-bgalpha');
 
     // BAR
     bgcolor = getStrv(barBgColor);
-    if(bartype == 'Mainland' || bartype == 'Floating') {
-        bgalpha = 0.95;
-    }
-    else {
-        bgalpha = 0;
-    }
     iscolor = getStrv(barBgColor);
-    isalpha = 0.95;
     bgcolor2 = getStrv(smbgColor);
     bcolor = getStrv(barBorderColor);
     // hcolor = getStrv(barHighlight);
@@ -1005,19 +997,15 @@ export function autoApplyBGPalette(obar, requestMode) {
     // Update settings for bar and menu
 
     // BAR
+    // Transparency (alpha) settings are user-controlled only: auto themes
+    // write colors and nothing else, so a palette refresh can never reset
+    // the alphas the user chose.
     if(bartype == 'Trilands' || bartype == 'Islands')
         obar._settings.set_boolean('shadow', false);
-    if(autobgAlpha) {
-        obar._settings.set_double('boxalpha', 0);
-        obar._settings.set_double('bgalpha', bgalpha);
-        obar._settings.set_double('isalpha', isalpha);
-    }
-    obar._settings.set_double('fgalpha', 1.0);
     // obar._settings.set_boolean('autofg-bar', true);
     obar._settings.set_boolean('autohg-bar', true);
 
     // MENU
-    obar._settings.set_double('mfgalpha', 1.0);
     // obar._settings.set_boolean('autofg-menu', true);
     obar._settings.set_boolean('autohg-menu', true);
 
