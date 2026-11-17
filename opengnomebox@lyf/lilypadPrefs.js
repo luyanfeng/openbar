@@ -234,14 +234,35 @@ export class LilypadPrefsContent {
         card.expander.remove(row);
     }
 
+    _ownerExpander(row) {
+        // After a cross-card move the row still hangs off its old expander until
+        // it is detached there, and add_row() aborts while the child has a
+        // parent, so look up the expander that actually holds the row.
+        let parent = row.get_parent();
+        while (parent) {
+            if (parent instanceof Adw.ExpanderRow)
+                return parent;
+            parent = parent.get_parent();
+        }
+        return null;
+    }
+
     _rebuildCards() {
+        const attached = [];
+        for (const [, card] of this._cards) {
+            attached.push(...card.rows);
+            if (card.placeholder)
+                attached.push(card.placeholder);
+        }
+        for (const row of attached) {
+            const owner = this._ownerExpander(row);
+            if (owner)
+                owner.remove(row);
+        }
+
         for (const [key, card] of this._cards) {
             const placeholder = this._ensurePlaceholder(key);
 
-            // The placeholder stays attached between rebuilds; re-adding a row
-            // that is already in the list would trip GTK.
-            for (const row of [...card.rows, placeholder])
-                card.expander.remove(row);
             for (const row of card.rows)
                 card.expander.add_row(row);
             card.expander.add_row(placeholder);
@@ -307,8 +328,6 @@ export class LilypadPrefsContent {
                 const bounds = beforeRow.get_allocation();
                 if (y > bounds.height / 2)
                     at += 1;
-                if (sourceKey === key && from < at)
-                    at -= 1;
             }
             targetCard.rows.splice(at, 0, row);
         } else {
