@@ -33,6 +33,14 @@ import {
     disableWholeConflict,
 } from './conflicts.js';
 import { buildClipboardPrefsPage } from './clipboardPrefs.js';
+import {
+    FONT_WEIGHT_OPTIONS,
+    TEXT_ALIGN_OPTIONS,
+    formatPattern,
+    systemCalendar,
+    systemLocale,
+    systemTimezone,
+} from './dateformat.js';
 import { LilypadPrefsContent } from './lilypadPrefs.js';
 import { BackupPage } from './backupPrefs.js';
 import { scanWallpapers } from './wallpaperscan.js';
@@ -49,6 +57,40 @@ try {
 }
 
 const SCHEMA_PATH = '/org/gnome/shell/extensions/opengnomebox/';
+
+// Calendars offered for the formatted clock. Values are what Intl and Luxon
+// understand for `outputCalendar`; an empty value follows the system calendar.
+//
+// This is a function, not a module-level table: translations are bound inside
+// fillPreferencesWindow, after this module has been evaluated.
+function calendarOptions() {
+    return [
+        ['gregory', _('Gregorian')],
+        ['buddhist', _('Buddhist')],
+        ['chinese', _('Chinese')],
+        ['coptic', _('Coptic')],
+        ['ethioaa', _('Ethiopic (Amete Alem)')],
+        ['ethiopic', _('Ethiopic')],
+        ['hebrew', _('Hebrew')],
+        ['indian', _('Indian')],
+        ['islamic', _('Islamic')],
+        ['islamic-civil', _('Islamic Civil')],
+        ['iso8601', _('ISO 8601')],
+        ['japanese', _('Japanese')],
+        ['persian', _('Persian')],
+        ['roc', _('Minguo')],
+    ];
+}
+
+// Refresh rate of the formatted clock: 0 is once a minute, 1..15 is that many
+// times per second (same scale as the source extension).
+function clockRateLabel(level) {
+    if (level === 0)
+        return _('Once a minute');
+    if (level === 1)
+        return _('Once a second');
+    return _('%s times a second').format(level);
+}
 
 //-----------------------------------------------
 
@@ -2791,12 +2833,6 @@ class OpenbarPrefs {
         // Build the integrated small extensions page
         this.buildExtensionsPage(window);
 
-        // Build the clipboard history page
-        this.buildClipboardPage(window);
-
-        // Build the top bar grouping page
-        this.buildLilypadPage(window);
-
         // Build the settings backup page. Like the log viewer this is a utility
         // rather than an everyday setting, so it sits at the right of the tab bar.
         this.buildBackupPage(window);
@@ -3122,34 +3158,18 @@ class OpenbarPrefs {
         clamp.tightening_threshold = 2048;
     }
 
-    buildLilypadPage(window) {
-        const page = new Adw.PreferencesPage({
-            name: 'lilypad',
-            title: _('Indicator Group'),
-            icon_name: 'view-grid-symbolic',
-        });
-        window.add(page);
+    _buildLilypadPanel(panel) {
+        panel.append(this._makeFeatureHeader(
+            _('Indicator Group'),
+            _('Collect chosen top bar indicators into one collapsible button and reorder the rest.'),
+            'lilypad-enabled',
+            'view-grid-symbolic'));
 
-        // Master switch with the usual conflict handling: the standalone
-        // Lilypad patches the same panel entry point.
-        const masterGroup = new Adw.PreferencesGroup({
-            title: _('Top Bar Indicator Group'),
-            description: _('Collect chosen top bar indicators into one collapsible ' +
-                'button and reorder the rest.'),
-        });
-        page.add(masterGroup);
-
-        const masterRow = new Adw.ExpanderRow({ title: _('Enable indicator grouping') });
-        const masterSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
-        this._bindConflictingFeature('lilypad-enabled', masterSwitch);
-        masterRow.add_suffix(masterSwitch);
-        masterGroup.add(masterRow);
-
-        // One page holds everything; the lists are greyed out instead of the
-        // pages being added and removed (Adw.PreferencesWindow only appends
-        // pages, so re-adding them would shuffle the page order on every toggle).
+        // One panel holds everything; the lists are greyed out while grouping
+        // is disabled instead of the panel being rebuilt on every toggle.
         this._lilyContent = new LilypadPrefsContent(this._settings, _);
-        this._lilyController = this._lilyContent.build(page);
+        this._lilyController = this._lilyContent.build(
+            { add: widget => panel.append(widget) });
 
         const sync = () =>
             this._lilyController.setSensitive(this._settings.get_boolean('lilypad-enabled'));
@@ -3412,23 +3432,46 @@ class OpenbarPrefs {
         }
     }
 
-    _makeFeatureExpander(group, { title, subtitle, enabledKey }) {
-        const expander = new Adw.ExpanderRow({ title, subtitle: subtitle ?? '' });
-        if (enabledKey) {
-            const toggle = new Gtk.Switch({ valign: Gtk.Align.CENTER });
-            // Features that a standalone extension also provides go through
-            // _bindConflictingFeature: the user is asked before two copies of
-            // the same hook end up running at once.
-            if (CONFLICTING_EXTENSIONS[enabledKey]) {
-                this._bindConflictingFeature(enabledKey, toggle);
-            } else {
-                this._settings.bind(enabledKey, toggle, 'active',
-                    Gio.SettingsBindFlags.DEFAULT);
-            }
-            expander.add_suffix(toggle);
-        }
-        group.add(expander);
-        return expander;
+    // Header of a feature detail panel: icon, name, description and the
+    // enable switch. Features that a standalone extension also provides go
+    // through _bindConflictingFeature: the user is asked before two copies of
+    // the same hook end up running at once.
+    _makeFeatureHeader(title, description, enabledKey, iconName) {
+        const header = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            spacing: 14,
+            css_classes: ['openbar-feature-header'],
+        });
+        header.append(new Gtk.Image({ icon_name: iconName, pixel_size: 28 }));
+
+        const textBox = new Gtk.Box({
+            orientation: Gtk.Orientation.VERTICAL,
+            spacing: 2,
+            hexpand: true,
+        });
+        textBox.append(new Gtk.Label({
+            label: title,
+            xalign: 0,
+            css_classes: ['title-4'],
+        }));
+        textBox.append(new Gtk.Label({
+            label: description,
+            xalign: 0,
+            css_classes: ['dim-label'],
+            wrap: true,
+            wrap_mode: Gtk.WrapMode.WORD,
+        }));
+        header.append(textBox);
+
+        const toggle = new Gtk.Switch({ valign: Gtk.Align.CENTER });
+        if (CONFLICTING_EXTENSIONS[enabledKey])
+            this._bindConflictingFeature(enabledKey, toggle);
+        else
+            this._settings.bind(enabledKey, toggle, 'active',
+                Gio.SettingsBindFlags.DEFAULT);
+        header.append(toggle);
+
+        return header;
     }
 
     // Bind a switch whose feature has a standalone counterpart.
@@ -3577,30 +3620,332 @@ class OpenbarPrefs {
         }
     }
 
-    buildClipboardPage(window) {
-        const page = new Adw.PreferencesPage({
-            name: 'clipboard',
-            title: _('Clipboard'),
-            icon_name: 'edit-paste-symbolic',
+    _buildClipboardPanel(panel) {
+        panel.append(this._makeFeatureHeader(
+            _('Clipboard'),
+            _('Keep a history of copied text and images in a menu on the top bar.'),
+            'clipboard-enabled',
+            'edit-paste-symbolic'));
+
+        // The section builder only appends its group to the page, so a small
+        // adapter lets it target the feature panel instead.
+        buildClipboardPrefsPage({ add: widget => panel.append(widget) },
+            this._settings, _);
+    }
+
+    // Clock formatting and the magic lamp window effect. Both are ports of
+    // standalone extensions, so their master switches go through the same
+    // conflict handling as the other integrated features.
+    _buildClockPanel(panel, window) {
+        panel.append(this._makeFeatureHeader(
+            _('Format the clock'),
+            _('Render the date menu clock from a date pattern.'),
+            'date-menu-format-enabled',
+            'preferences-system-time-symbolic'));
+
+        const clockGroup = new Adw.PreferencesGroup({});
+        panel.append(clockGroup);
+
+        const patternRow = new Adw.EntryRow({
+            title: _('Pattern'),
+            tooltip_text: _('For example: %s').format('MM月dd日 H:mm EEE'),
         });
-        window.add(page);
+        this._settings.bind('date-menu-format-pattern', patternRow, 'text',
+            Gio.SettingsBindFlags.DEFAULT);
+        clockGroup.add(patternRow);
 
-        // The master switch goes through the same conflict handling as the
-        // other built-in features: the standalone Clipboard Indicator may
-        // already own the clipboard.
-        const masterGroup = new Adw.PreferencesGroup({
-            title: _('Clipboard History'),
-            description: _('Keep a history of copied text and images in a menu on the top bar.'),
+        // A pattern that has to be typed from memory is unusable. Offer the
+        // common shapes first; anything typed by hand shows up as "Custom".
+        const presets = [
+            ['HH:mm', _('24-hour time')],
+            ['HH:mm:ss', _('24-hour time with seconds')],
+            ['EEE, MMM d  H:mm', _('Weekday, month day, time')],
+            ['MM月dd日 H:mm EEE', _('Chinese date and time')],
+            ['yyyy-MM-dd HH:mm', _('Full date and time')],
+            ['yyyy年MM月dd日 EEEE HH:mm', _('Full Chinese date and time')],
+        ];
+        const presetRow = new Adw.ComboRow({ title: _('Preset') });
+        const presetModel = new Gtk.StringList();
+        presets.forEach(([, label]) => presetModel.append(label));
+        presetModel.append(_('Custom'));
+        presetRow.model = presetModel;
+        const presetIndex = presets.findIndex(
+            ([value]) => value === this._settings.get_string('date-menu-format-pattern'));
+        // Custom only keeps whatever is in the pattern field, it never writes.
+        presetRow.selected = presetIndex >= 0 ? presetIndex : presets.length;
+        presetRow.connect('notify::selected', () => {
+            const selected = presetRow.selected;
+            if (selected < 0 || selected >= presets.length)
+                return;
+            const value = presets[selected][0];
+            if (this._settings.get_string('date-menu-format-pattern') !== value)
+                this._settings.set_string('date-menu-format-pattern', value);
         });
-        page.add(masterGroup);
+        clockGroup.add(presetRow);
 
-        const masterRow = new Adw.ExpanderRow({ title: _('Enable clipboard history') });
-        const masterSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER });
-        this._bindConflictingFeature('clipboard-enabled', masterSwitch);
-        masterRow.add_suffix(masterSwitch);
-        masterGroup.add(masterRow);
+        const previewRow = new Adw.ActionRow({ title: _('Preview') });
+        const previewLabel = new Gtk.Label({
+            xalign: 1,
+            ellipsize: 3,
+            css_classes: ['dim-label'],
+        });
+        previewRow.add_suffix(previewLabel);
+        clockGroup.add(previewRow);
 
-        buildClipboardPrefsPage(page, this._settings, _);
+        // Token reference: the pattern is Luxon's format string, and without a
+        // list of what each letter means nobody can write one.
+        const tokensExp = new Adw.ExpanderRow({
+            title: _('Pattern tokens'),
+            subtitle: _('The letters a pattern understands; everything else is copied as is.'),
+        });
+        const tokenRows = [
+            ['y / yyyy', _('year'), '2026'],
+            ['M / MM', _('month, as a number'), '11'],
+            ['MMM / MMMM', _('month, as a name'), '11月 / 十一月'],
+            ['d / dd', _('day of the month'), '13'],
+            ['EEE / EEEE', _('weekday, short / full'), '周五 / 星期五'],
+            ['H / HH', _('hour, 24-hour clock'), '21'],
+            ['h / hh / a', _('hour, 12-hour clock / AM-PM'), '9 下午'],
+            ['m / mm', _('minute'), '05'],
+            ['s / ss', _('second'), '09'],
+            ["'text'", _('literal text'), ''],
+            ['\\n', _('line break'), ''],
+        ];
+        for (const [token, meaning, example] of tokenRows) {
+            const tokenRow = new Adw.ActionRow({ title: token, subtitle: meaning });
+            if (example) {
+                tokenRow.add_suffix(new Gtk.Label({
+                    label: example,
+                    css_classes: ['dim-label'],
+                }));
+            }
+            tokensExp.add_row(tokenRow);
+        }
+        const TOKENS_URL = 'https://moment.github.io/luxon/#/formatting?id=table-of-tokens';
+        const linkRow = new Adw.ActionRow({
+            title: _('Full token reference'),
+            subtitle: TOKENS_URL,
+            activatable: true,
+        });
+        linkRow.connect('activated', () => {
+            try {
+                Gio.AppInfo.launch_default_for_uri(TOKENS_URL, null);
+            } catch (e) {
+                console.warn(`Open Gnome Box: could not open ${TOKENS_URL}: ${e.message}`);
+            }
+        });
+        tokensExp.add_row(linkRow);
+        clockGroup.add(tokensExp);
+
+        const refreshPreview = () => {
+            const pattern = this._settings.get_string('date-menu-format-pattern');
+
+            const index = presets.findIndex(([value]) => value === pattern);
+            const selected = index >= 0 ? index : presets.length;
+            if (presetRow.selected !== selected)
+                presetRow.selected = selected;
+
+            if (pattern.trim().length === 0) {
+                previewLabel.label = _('Shell clock (empty pattern)');
+                return;
+            }
+            try {
+                previewLabel.label = formatPattern(pattern, new Date(), {
+                    locale: this._settings.get_string('date-menu-format-locale'),
+                    timezone: this._settings.get_string('date-menu-format-timezone'),
+                    calendar: this._settings.get_string('date-menu-format-calendar'),
+                });
+            } catch (e) {
+                // The shell logs the same failure; the preference window has to
+                // show it while the pattern is being edited.
+                previewLabel.label = _('Pattern error: %s').format(e.message);
+            }
+        };
+        refreshPreview();
+
+        const previewIds = [
+            'date-menu-format-pattern',
+            'date-menu-format-locale',
+            'date-menu-format-timezone',
+            'date-menu-format-calendar',
+        ].map(key => this._settings.connect(`changed::${key}`, refreshPreview));
+        window.connect('unrealize', () => {
+            previewIds.forEach(id => {
+                try {
+                    this._settings.disconnect(id);
+                } catch (e) {}
+            });
+        });
+
+        const fontSizeRow = new Adw.SpinRow({
+            title: _('Font size'),
+            adjustment: new Gtk.Adjustment({
+                lower: 5, upper: 40, step_increment: 1, page_increment: 5,
+                value: this._settings.get_int('date-menu-format-font-size'),
+            }),
+        });
+        // Adw.SpinRow.value is a double: binding an int key to it fails
+        // silently, so write the rounded value back by hand.
+        fontSizeRow.connect('notify::value', () => {
+            const value = Math.round(fontSizeRow.value);
+            if (this._settings.get_int('date-menu-format-font-size') !== value)
+                this._settings.set_int('date-menu-format-font-size', value);
+        });
+        clockGroup.add(fontSizeRow);
+
+        const weightRow = new Adw.ComboRow({ title: _('Font weight') });
+        const weightModel = new Gtk.StringList();
+        const weightLabels = [
+            _('Initial'), _('Lighter'), _('Normal'), _('Bold'), _('Bolder'),
+        ];
+        weightLabels.forEach(label => weightModel.append(label));
+        weightRow.model = weightModel;
+        const currentWeight = FONT_WEIGHT_OPTIONS.indexOf(
+            this._settings.get_string('date-menu-format-font-weight'));
+        weightRow.selected = currentWeight >= 0 ? currentWeight : 0;
+        weightRow.connect('notify::selected', () => {
+            const value = FONT_WEIGHT_OPTIONS[weightRow.selected] ?? 'initial';
+            if (this._settings.get_string('date-menu-format-font-weight') !== value)
+                this._settings.set_string('date-menu-format-font-weight', value);
+        });
+        clockGroup.add(weightRow);
+
+        const alignRow = new Adw.ComboRow({ title: _('Text alignment') });
+        const alignModel = new Gtk.StringList();
+        [_('Left'), _('Center'), _('Right')].forEach(label => alignModel.append(label));
+        alignRow.model = alignModel;
+        const currentAlign = TEXT_ALIGN_OPTIONS.indexOf(
+            this._settings.get_string('date-menu-format-align'));
+        alignRow.selected = currentAlign >= 0 ? currentAlign : 1;
+        alignRow.connect('notify::selected', () => {
+            const value = TEXT_ALIGN_OPTIONS[alignRow.selected] ?? 'center';
+            if (this._settings.get_string('date-menu-format-align') !== value)
+                this._settings.set_string('date-menu-format-align', value);
+        });
+        clockGroup.add(alignRow);
+
+        const updateRow = new Adw.SpinRow({
+            title: _('Refresh rate'),
+            subtitle: clockRateLabel(
+                this._settings.get_int('date-menu-format-update-level')),
+            adjustment: new Gtk.Adjustment({
+                lower: 0, upper: 15, step_increment: 1, page_increment: 1,
+                value: this._settings.get_int('date-menu-format-update-level'),
+            }),
+        });
+        updateRow.connect('notify::value', () => {
+            const value = Math.round(updateRow.value);
+            updateRow.subtitle = clockRateLabel(value);
+            if (this._settings.get_int('date-menu-format-update-level') !== value)
+                this._settings.set_int('date-menu-format-update-level', value);
+        });
+        clockGroup.add(updateRow);
+
+        const localeRow = new Adw.EntryRow({
+            title: _('Locale'),
+            // Translators: %s is the locale the system reports.
+            tooltip_text: _('Empty follows the system locale (%s).')
+                .format(systemLocale()),
+        });
+        this._settings.bind('date-menu-format-locale', localeRow, 'text',
+            Gio.SettingsBindFlags.DEFAULT);
+        clockGroup.add(localeRow);
+
+        const calendarRow = new Adw.ComboRow({
+            title: _('Calendar'),
+            // Translators: %s is the calendar the system reports.
+            subtitle: _('Empty follows the system calendar (%s).')
+                .format(systemCalendar()),
+        });
+        const calendars = calendarOptions();
+        const calendarModel = new Gtk.StringList();
+        calendarModel.append(_('System'));
+        calendars.forEach(([, label]) => calendarModel.append(label));
+        const currentCalendar = this._settings.get_string('date-menu-format-calendar');
+        const calendarIndex = calendars.findIndex(([value]) => value === currentCalendar);
+        if (currentCalendar.length > 0 && calendarIndex < 0)
+            calendarModel.append(currentCalendar);
+        calendarRow.model = calendarModel;
+        calendarRow.selected = currentCalendar.length === 0
+            ? 0
+            : calendarIndex >= 0 ? calendarIndex + 1 : calendars.length + 1;
+        calendarRow.connect('notify::selected', () => {
+            const selected = calendarRow.selected;
+            const value = selected === 0 ? ''
+                : selected <= calendars.length ? calendars[selected - 1][0]
+                : currentCalendar;
+            if (this._settings.get_string('date-menu-format-calendar') !== value)
+                this._settings.set_string('date-menu-format-calendar', value);
+        });
+        clockGroup.add(calendarRow);
+
+        const timezoneRow = new Adw.EntryRow({
+            title: _('Time zone'),
+            // Translators: %s is the time zone the system reports.
+            tooltip_text: _('Empty follows the system time zone (%s).')
+                .format(systemTimezone()),
+        });
+        this._settings.bind('date-menu-format-timezone', timezoneRow, 'text',
+            Gio.SettingsBindFlags.DEFAULT);
+        clockGroup.add(timezoneRow);
+
+        const allPanelsRow = new Adw.SwitchRow({
+            title: _('All Dash to Panel panels'),
+            subtitle: _('Only relevant when Dash to Panel is installed.'),
+        });
+        this._settings.bind('date-menu-format-all-panels', allPanelsRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        clockGroup.add(allPanelsRow);
+    }
+
+    _buildLampPanel(panel) {
+        panel.append(this._makeFeatureHeader(
+            _('Magic lamp minimize'),
+            _('Animate windows collapsing into their icon when minimized.'),
+            'magic-lamp-enabled',
+            'night-light-symbolic'));
+
+        const lampGroup = new Adw.PreferencesGroup({});
+        panel.append(lampGroup);
+
+        const effectRow = new Adw.ComboRow({ title: _('Deformation style') });
+        const effectModel = new Gtk.StringList();
+        effectModel.append(_('Default'));
+        effectModel.append(_('Sine'));
+        effectRow.model = effectModel;
+        const effectValues = ['default', 'sine'];
+        const currentEffect = effectValues.indexOf(
+            this._settings.get_string('magic-lamp-effect'));
+        effectRow.selected = currentEffect >= 0 ? currentEffect : 0;
+        effectRow.connect('notify::selected', () => {
+            const value = effectValues[effectRow.selected] ?? 'default';
+            if (this._settings.get_string('magic-lamp-effect') !== value)
+                this._settings.set_string('magic-lamp-effect', value);
+        });
+        lampGroup.add(effectRow);
+
+        // Duration and tile counts are double keys. The animation rounds them
+        // anyway, so writing back integers keeps the settings readable.
+        const addDoubleRow = (key, title, lower, upper, step) => {
+            const row = new Adw.SpinRow({
+                title,
+                adjustment: new Gtk.Adjustment({
+                    lower, upper, step_increment: step, page_increment: step * 5,
+                    value: this._settings.get_double(key),
+                }),
+            });
+            row.connect('notify::value', () => {
+                const value = Math.round(row.value);
+                if (this._settings.get_double(key) !== value)
+                    this._settings.set_double(key, value);
+            });
+            lampGroup.add(row);
+            return row;
+        };
+
+        addDoubleRow('magic-lamp-duration', _('Duration (ms)'), 100, 2000, 50);
+        addDoubleRow('magic-lamp-x-tiles', _('Horizontal tiles'), 2, 40, 1);
+        addDoubleRow('magic-lamp-y-tiles', _('Vertical tiles'), 2, 40, 1);
     }
 
     buildExtensionsPage(window) {
@@ -3610,6 +3955,7 @@ class OpenbarPrefs {
             icon_name: 'preferences-other-symbolic',
         });
         window.add(page);
+        this._widenPage(page);
 
         const group = new Adw.PreferencesGroup({
             title: _('Single Features'),
@@ -3617,116 +3963,274 @@ class OpenbarPrefs {
         });
         page.add(group);
 
+        const detailStack = new Gtk.Stack({
+            transition_type: Gtk.StackTransitionType.NONE,
+            hhomogeneous: false,
+            vhomogeneous: false,
+            hexpand: true,
+            vexpand: true,
+        });
+
+        const featureList = new Gtk.ListBox({
+            css_classes: ['navigation-sidebar', 'openbar-feature-list'],
+        });
+        featureList.connect('row-selected', (_list, row) => {
+            if (row?._featurePage)
+                detailStack.set_visible_child(row._featurePage);
+        });
+
+        const listScroll = new Gtk.ScrolledWindow({
+            hscrollbar_policy: Gtk.PolicyType.NEVER,
+            vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+            width_request: 260,
+            vexpand: true,
+            css_classes: ['openbar-feature-sidebar'],
+        });
+        listScroll.set_child(featureList);
+
+        const splitBox = new Gtk.Box({
+            orientation: Gtk.Orientation.HORIZONTAL,
+            height_request: 560,
+            vexpand: true,
+            css_classes: ['openbar-feature-box'],
+        });
+        splitBox.append(listScroll);
+        splitBox.append(detailStack);
+        group.add(splitBox);
+
+        // One detail page per feature: the left list selects which panel the
+        // stack shows, and each panel carries its own enable switch. The ids
+        // collected here belong to per-feature settings listeners that must be
+        // disconnected when the window closes.
+        const featureSettingsIds = [];
+        const addFeature = (id, title, iconName, enabledKey, buildPanel) => {
+            const row = new Gtk.ListBoxRow();
+            const rowBox = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 10,
+                margin_top: 6, margin_bottom: 6,
+                margin_start: 8, margin_end: 8,
+            });
+            rowBox.append(new Gtk.Image({ icon_name: iconName, pixel_size: 16 }));
+            rowBox.append(new Gtk.Label({
+                label: title,
+                xalign: 0,
+                ellipsize: 3,
+                hexpand: true,
+                css_classes: ['heading'],
+            }));
+
+            // Lightweight enabled marker: a dim check mark that is only
+            // visible while the feature is on. It is not a switch, it cannot
+            // be clicked and it never takes focus.
+            const statusIcon = new Gtk.Image({
+                icon_name: 'object-select-symbolic',
+                pixel_size: 16,
+                visible: this._settings.get_boolean(enabledKey),
+                css_classes: ['dim-label'],
+            });
+            rowBox.append(statusIcon);
+            featureSettingsIds.push(this._settings.connect(`changed::${enabledKey}`, () => {
+                statusIcon.visible = this._settings.get_boolean(enabledKey);
+            }));
+
+            row.set_child(rowBox);
+            featureList.append(row);
+
+            const panel = new Gtk.Box({
+                orientation: Gtk.Orientation.VERTICAL,
+                spacing: 12,
+                css_classes: ['openbar-feature-panel'],
+            });
+            buildPanel(panel);
+
+            const pageScroll = new Gtk.ScrolledWindow({
+                hscrollbar_policy: Gtk.PolicyType.NEVER,
+                vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+            });
+            pageScroll.set_child(panel);
+            detailStack.add_titled(pageScroll, id, title);
+            row._featurePage = pageScroll;
+            return row;
+        };
+
         // --- Battery indicator ---
-        const batteryExp = this._makeFeatureExpander(group, {
-            title: _('Battery Indicator'),
-            subtitle: _('Hide the battery/power indicator when it is charging or full.'),
-            enabledKey: 'battery-autohide',
-        });
+        addFeature('battery', _('Battery Indicator'), 'battery-symbolic',
+            'battery-autohide', panel => {
+                panel.append(this._makeFeatureHeader(
+                    _('Battery Indicator'),
+                    _('Hide the battery/power indicator when it is charging or full.'),
+                    'battery-autohide',
+                    'battery-symbolic'));
 
-        const batteryLevel = new Adw.SpinRow({
-            title: _('Hide at or above'),
-            adjustment: new Gtk.Adjustment({
-                lower: 1, upper: 100, step_increment: 1, page_increment: 10,
-                value: this._settings.get_int('battery-hide-on'),
-            }),
-        });
-        // Same int/double mismatch as status-spacing: bind would fail silently.
-        batteryLevel.connect('notify::value', () => {
-            const v = Math.round(batteryLevel.value);
-            if (this._settings.get_int('battery-hide-on') !== v)
-                this._settings.set_int('battery-hide-on', v);
-        });
-        batteryExp.add_row(batteryLevel);
+                const rows = new Adw.PreferencesGroup({});
+                panel.append(rows);
 
-        const batteryAlways = new Adw.SwitchRow({
-            title: _('Hide on any battery state'),
-            subtitle: _('Ignore whether it is discharging.'),
-        });
-        this._settings.bind('battery-hide-always', batteryAlways, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        batteryExp.add_row(batteryAlways);
+                const batteryLevel = new Adw.SpinRow({
+                    title: _('Hide at or above'),
+                    adjustment: new Gtk.Adjustment({
+                        lower: 1, upper: 100, step_increment: 1, page_increment: 10,
+                        value: this._settings.get_int('battery-hide-on'),
+                    }),
+                });
+                // Same int/double mismatch as status-spacing: bind would fail silently.
+                batteryLevel.connect('notify::value', () => {
+                    const v = Math.round(batteryLevel.value);
+                    if (this._settings.get_int('battery-hide-on') !== v)
+                        this._settings.set_int('battery-hide-on', v);
+                });
+                rows.add(batteryLevel);
+
+                const batteryAlways = new Adw.SwitchRow({
+                    title: _('Hide on any battery state'),
+                    subtitle: _('Ignore whether it is discharging.'),
+                });
+                this._settings.bind('battery-hide-always', batteryAlways, 'active',
+                    Gio.SettingsBindFlags.DEFAULT);
+                rows.add(batteryAlways);
+            });
 
         // --- Status area spacing ---
-        const spacingExp = this._makeFeatureExpander(group, {
-            title: _('Status Area Spacing'),
-            subtitle: _('Distance between the indicators on the right of the top bar.'),
-            enabledKey: 'status-spacing-enabled',
-        });
+        addFeature('spacing', _('Status Area Spacing'), 'view-more-symbolic',
+            'status-spacing-enabled', panel => {
+                panel.append(this._makeFeatureHeader(
+                    _('Status Area Spacing'),
+                    _('Distance between the indicators on the right of the top bar.'),
+                    'status-spacing-enabled',
+                    'view-more-symbolic'));
 
-        const spacingValue = new Adw.SpinRow({
-            title: _('Horizontal Padding (px)'),
-            adjustment: new Gtk.Adjustment({
-                lower: 0, upper: 40, step_increment: 1, page_increment: 5,
-                value: this._settings.get_int('status-spacing'),
-            }),
-        });
-        // Settings.bind cannot target SpinRow.value: the key is an int while the
-        // row property is a double, and the mismatch makes the binding fail
-        // silently. Write the int explicitly so changes apply immediately.
-        spacingValue.connect('notify::value', () => {
-            const v = Math.round(spacingValue.value);
-            if (this._settings.get_int('status-spacing') !== v)
-                this._settings.set_int('status-spacing', v);
-        });
-        spacingExp.add_row(spacingValue);
+                const rows = new Adw.PreferencesGroup({});
+                panel.append(rows);
+
+                const spacingValue = new Adw.SpinRow({
+                    title: _('Horizontal Padding (px)'),
+                    adjustment: new Gtk.Adjustment({
+                        lower: 0, upper: 40, step_increment: 1, page_increment: 5,
+                        value: this._settings.get_int('status-spacing'),
+                    }),
+                });
+                // Settings.bind cannot target SpinRow.value: the key is an int while the
+                // row property is a double, and the mismatch makes the binding fail
+                // silently. Write the int explicitly so changes apply immediately.
+                spacingValue.connect('notify::value', () => {
+                    const v = Math.round(spacingValue.value);
+                    if (this._settings.get_int('status-spacing') !== v)
+                        this._settings.set_int('status-spacing', v);
+                });
+                rows.add(spacingValue);
+            });
 
         // --- Finger gestures ---
-        const gestureExp = this._makeFeatureExpander(group, {
-            title: _('Finger Gestures'),
-            subtitle: _('Use a four-finger touchpad swipe to change workspace.'),
-            enabledKey: 'swap-finger-gestures',
-        });
-        const gestureInfo = new Adw.ActionRow({
-            title: _('Four-finger Workspace Swipe'),
-            subtitle: _('Swaps the three-finger and four-finger gestures.'),
-        });
-        gestureInfo.activatable = false;
-        gestureExp.add_row(gestureInfo);
+        addFeature('gestures', _('Finger Gestures'), 'input-touchpad-symbolic',
+            'swap-finger-gestures', panel => {
+                panel.append(this._makeFeatureHeader(
+                    _('Finger Gestures'),
+                    _('Use a four-finger touchpad swipe to change workspace.'),
+                    'swap-finger-gestures',
+                    'input-touchpad-symbolic'));
+
+                const rows = new Adw.PreferencesGroup({});
+                panel.append(rows);
+
+                const gestureInfo = new Adw.ActionRow({
+                    title: _('Four-finger Workspace Swipe'),
+                    subtitle: _('Swaps the three-finger and four-finger gestures.'),
+                });
+                gestureInfo.activatable = false;
+                rows.add(gestureInfo);
+            });
 
         // --- Drive menu ---
-        const driveExp = this._makeFeatureExpander(group, {
-            title: _('Removable Drives'),
-            subtitle: _('Show a top bar menu for removable drives and unmounting.'),
-            enabledKey: 'drive-menu-enabled',
-        });
-        const driveInfo = new Adw.ActionRow({
-            title: _('Show Drive Menu'),
-            subtitle: _('Adds an icon to the status area when a drive is connected.'),
-        });
-        driveInfo.activatable = false;
-        driveExp.add_row(driveInfo);
+        addFeature('drives', _('Removable Drives'), 'drive-removable-media-symbolic',
+            'drive-menu-enabled', panel => {
+                panel.append(this._makeFeatureHeader(
+                    _('Removable Drives'),
+                    _('Show a top bar menu for removable drives and unmounting.'),
+                    'drive-menu-enabled',
+                    'drive-removable-media-symbolic'));
+
+                const rows = new Adw.PreferencesGroup({});
+                panel.append(rows);
+
+                const driveInfo = new Adw.ActionRow({
+                    title: _('Show Drive Menu'),
+                    subtitle: _('Adds an icon to the status area when a drive is connected.'),
+                });
+                driveInfo.activatable = false;
+                rows.add(driveInfo);
+            });
 
         // --- Fullscreen to empty workspace ---
-        const fsExp = this._makeFeatureExpander(group, {
-            title: _('Fullscreen to Empty Workspace'),
-            subtitle: _('Move a maximized or fullscreen window to a workspace that is ' +
-                'empty on its monitor, and back when it is restored.'),
-            enabledKey: 'fullscreen-new-workspace',
-        });
-        const fsMaxSwitch = new Adw.SwitchRow({
-            title: _('Also for maximized windows'),
-            subtitle: _('When off, only fullscreen windows are moved.'),
-        });
-        this._settings.bind('fullscreen-maximized-too', fsMaxSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        fsExp.add_row(fsMaxSwitch);
+        addFeature('fullscreen-ws', _('Fullscreen to Empty Workspace'),
+            'view-fullscreen-symbolic', 'fullscreen-new-workspace', panel => {
+                panel.append(this._makeFeatureHeader(
+                    _('Fullscreen to Empty Workspace'),
+                    _('Move a maximized or fullscreen window to a workspace that is ' +
+                        'empty on its monitor, and back when it is restored.'),
+                    'fullscreen-new-workspace',
+                    'view-fullscreen-symbolic'));
 
-        const fsGuardSwitch = new Adw.SwitchRow({
-            title: _('Protect the dedicated workspace'),
-            subtitle: _('Moving a window with the keyboard skips it, dragging onto it in ' +
-                'the overview is refused, and it is dimmed there.'),
-        });
-        this._settings.bind('fullscreen-guard-workspaces', fsGuardSwitch, 'active',
-            Gio.SettingsBindFlags.DEFAULT);
-        fsExp.add_row(fsGuardSwitch);
+                const rows = new Adw.PreferencesGroup({});
+                panel.append(rows);
 
-        // --- Auto move windows (same framed expander style as the others) ---
-        const autoMoveExp = this._makeFeatureExpander(group, {
-            title: _('Auto Move Windows'),
-            subtitle: _('Send an application to a workspace whenever it opens a window.'),
-            enabledKey: 'auto-move-windows',
+                const fsMaxSwitch = new Adw.SwitchRow({
+                    title: _('Also for maximized windows'),
+                    subtitle: _('When off, only fullscreen windows are moved.'),
+                });
+                this._settings.bind('fullscreen-maximized-too', fsMaxSwitch, 'active',
+                    Gio.SettingsBindFlags.DEFAULT);
+                rows.add(fsMaxSwitch);
+
+                const fsGuardSwitch = new Adw.SwitchRow({
+                    title: _('Protect the dedicated workspace'),
+                    subtitle: _('Moving a window with the keyboard skips it, dragging onto it in ' +
+                        'the overview is refused, and it is dimmed there.'),
+                });
+                this._settings.bind('fullscreen-guard-workspaces', fsGuardSwitch, 'active',
+                    Gio.SettingsBindFlags.DEFAULT);
+                rows.add(fsGuardSwitch);
+            });
+
+        // --- Auto move windows ---
+        addFeature('automove', _('Auto Move Windows'), 'window-new-symbolic',
+            'auto-move-windows', panel => this._buildAutoMovePanel(panel));
+
+        addFeature('clipboard', _('Clipboard'), 'edit-paste-symbolic',
+            'clipboard-enabled', panel => this._buildClipboardPanel(panel));
+        addFeature('lilypad', _('Indicator Group'), 'view-grid-symbolic',
+            'lilypad-enabled', panel => this._buildLilypadPanel(panel));
+
+        addFeature('clock', _('Format the clock'), 'preferences-system-time-symbolic',
+            'date-menu-format-enabled', panel => this._buildClockPanel(panel, window));
+        addFeature('lamp', _('Magic lamp minimize'), 'night-light-symbolic',
+            'magic-lamp-enabled', panel => this._buildLampPanel(panel));
+
+        window.connect('unrealize', () => {
+            featureSettingsIds.forEach(id => {
+                try {
+                    this._settings.disconnect(id);
+                } catch (e) {}
+            });
+            if (this._lilySignalPrefsId) {
+                try {
+                    this._settings.disconnect(this._lilySignalPrefsId);
+                    this._lilySignalPrefsId = null;
+                } catch (e) {}
+            }
         });
+
+        featureList.select_row(featureList.get_row_at_index(0));
+    }
+
+    _buildAutoMovePanel(panel) {
+        panel.append(this._makeFeatureHeader(
+            _('Auto Move Windows'),
+            _('Send an application to a workspace whenever it opens a window.'),
+            'auto-move-windows',
+            'window-new-symbolic'));
+
+        const rows = new Adw.PreferencesGroup({});
+        panel.append(rows);
 
         this._autoMoveRows = [];
 
@@ -3810,13 +4314,13 @@ class OpenbarPrefs {
 
         const refreshRules = () => {
             try {
-                this._autoMoveRows.forEach(r => autoMoveExp.remove(r));
+                this._autoMoveRows.forEach(r => rows.remove(r));
                 this._autoMoveRows = [];
                 const rules = this._settings.get_strv('auto-move-list');
                 for (let i = 0; i < rules.length; i++) {
                     const [appId, ws] = rules[i].split(':');
                     const row = makeRuleRow(appId, ws, i);
-                    autoMoveExp.add_row(row);
+                    rows.add(row);
                     this._autoMoveRows.push(row);
                 }
                 if (rules.length === 0) {
@@ -3825,7 +4329,7 @@ class OpenbarPrefs {
                         subtitle: _('Add one below.'),
                     });
                     empty.set_sensitive(false);
-                    autoMoveExp.add_row(empty);
+                    rows.add(empty);
                     this._autoMoveRows.push(empty);
                 }
             } catch (e) {
@@ -3947,7 +4451,7 @@ class OpenbarPrefs {
         });
         appRow.add_suffix(pickerButton);
         appRow.activatable = false;
-        autoMoveExp.add_row(appRow);
+        rows.add(appRow);
 
         const wsAdjustment = new Gtk.Adjustment({
             lower: 1, upper: 36, step_increment: 1, page_increment: 1, value: 1,
@@ -3960,7 +4464,7 @@ class OpenbarPrefs {
         const wsRow = new Adw.ActionRow({ title: _('Workspace') });
         wsRow.add_suffix(wsSpin);
         wsRow.activatable = false;
-        autoMoveExp.add_row(wsRow);
+        rows.add(wsRow);
 
         const addRuleBtn = new Gtk.Button({
             label: _('Add Rule'),
@@ -3971,7 +4475,7 @@ class OpenbarPrefs {
         const btnRow = new Adw.ActionRow({ title: _('Add a Rule') });
         btnRow.activatable = false;
         btnRow.add_suffix(addRuleBtn);
-        autoMoveExp.add_row(btnRow);
+        rows.add(btnRow);
 
         addRuleBtn.connect('clicked', () => {
             const appId = selectedApp.app ? selectedApp.app.id : null;

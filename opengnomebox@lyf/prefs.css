@@ -114,3 +114,28 @@ switch.openbar-switch > slider {
 switch.openbar-switch:checked > slider {
     margin: -2px -2px -2px 0px;
 }
+
+/* Single Features master-detail layout */
+.openbar-feature-box {
+    border-radius: 14px;
+    background-color: rgba(128, 128, 128, 0.07);
+}
+.openbar-feature-sidebar {
+    padding: 6px;
+    min-width: 260px;
+    border-right: 1px solid rgba(125, 125, 125, 0.18);
+}
+.openbar-feature-list {
+    background: transparent;
+}
+.openbar-feature-list row {
+    padding: 6px 4px;
+    border-radius: 10px;
+    margin: 2px 0px;
+}
+.openbar-feature-panel {
+    padding: 18px;
+}
+.openbar-feature-header {
+    margin-bottom: 4px;
+}
