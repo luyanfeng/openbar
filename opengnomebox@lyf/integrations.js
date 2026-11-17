@@ -2014,6 +2014,329 @@ export class FullscreenEmptyWorkspace {
 }
 
 
+// FullscreenChromeFade:
+// GNOME Shell hides the actors registered with trackFullscreen by flipping
+// actor.visible directly in LayoutManager._updateActorVisibility(); there is no
+// transition, so the top bar and the dock vanish instantly when a fullscreen
+// window appears. This hooks that single method and slides the actor towards
+// the screen edge it sits on while fading it out, then reverses the animation
+// when the fullscreen window goes away.
+//
+// Both the top bar (LayoutManager.panelBox) and the dock (registered by
+// ubuntu-dock / dash-to-dock with trackFullscreen: true) go through the same
+// method, so one hook covers both without touching any other extension's files
+// or settings. The shell's own visibility rule is kept verbatim, only the
+// abrupt assignment is replaced by an animation.
+export class FullscreenChromeFade {
+    constructor(ext) {
+        this.ext = ext;
+        this._settings = ext._settings;
+        this._enabled = false;
+        this._signalIds = [];
+        this._previous = null;
+        this._patched = null;
+        this._hadOwnProperty = false;
+        // Tracked chrome actor -> {target, token, transition, reactive, destroyId}
+        this._states = new Map();
+    }
+
+    enable() {
+        if (this._enabled)
+            return;
+        this._enabled = true;
+
+        const lm = Main.layoutManager;
+        this._hadOwnProperty =
+            Object.prototype.hasOwnProperty.call(lm, '_updateActorVisibility');
+        this._previous = lm._updateActorVisibility;
+
+        this._patched = actorData => {
+            try {
+                this._updateActorVisibility(actorData);
+            } catch (e) {
+                console.warn('###FADE hook failed, falling back to Shell: ' + e.message);
+                this._previous.call(Main.layoutManager, actorData);
+            }
+        };
+        lm._updateActorVisibility = this._patched;
+
+        this._signalIds.push(this._settings.connect('changed::chrome-fade-dock',
+            () => this._resync()));
+
+        // Chrome that is already tracked must follow the current state, so a
+        // fullscreen window that is on screen when the setting is turned on
+        // animates too.
+        this._updateTracked();
+
+        console.log(`###FADE enable duration=${this._duration()}ms ` +
+            `dock=${this._settings.get_boolean('chrome-fade-dock')}`);
+    }
+
+    disable() {
+        if (!this._enabled)
+            return;
+        this._enabled = false;
+
+        this._signalIds.forEach(id => {
+            try {
+                this._settings.disconnect(id);
+            } catch (e) {}
+        });
+        this._signalIds = [];
+
+        const lm = Main.layoutManager;
+        if (lm._updateActorVisibility === this._patched) {
+            if (this._hadOwnProperty)
+                lm._updateActorVisibility = this._previous;
+            else
+                delete lm._updateActorVisibility;
+        }
+        this._patched = null;
+
+        for (const actor of [...this._states.keys()])
+            this._release(actor);
+
+        // Let the unpatched method put every tracked actor back to whatever
+        // the fullscreen state demands.
+        this._updateTracked();
+        console.log('###FADE disable');
+    }
+
+    _updateTracked() {
+        const lm = Main.layoutManager;
+        for (const actorData of [...(lm._trackedActors ?? [])])
+            lm._updateActorVisibility(actorData);
+    }
+
+    // Same rule as LayoutManager._updateActorVisibility(), kept identical so
+    // the animation only changes how the state is reached, never the state.
+    _updateActorVisibility(actorData) {
+        const lm = Main.layoutManager;
+        if (!actorData.trackFullscreen)
+            return;
+        if (!this._enabled) {
+            // A wrapper we handed out could outlive disable(); behave like the
+            // original method then.
+            if (this._previous)
+                this._previous.call(lm, actorData);
+            return;
+        }
+
+        const actor = actorData.actor;
+        const show = this._shouldShow(actor);
+
+        if (!this._controls(actor)) {
+            this._release(actor);
+            actor.visible = show;
+            return;
+        }
+
+        const state = this._state(actor);
+        if (state.target === show)
+            return;                              // already there or on its way
+        if (show === state.visible) {
+            state.target = show;                 // settled, nothing to animate
+            return;
+        }
+
+        this._cancel(actor, state);
+        state.target = show;
+        state.visible = show;
+
+        if (show)
+            this._animateIn(actor, state);
+        else
+            this._animateOut(actor, state);
+    }
+
+    _shouldShow(actor) {
+        const monitor = Main.layoutManager.findMonitorForActor(actor);
+        return !(global.window_group.visible && monitor && monitor.inFullscreen);
+    }
+
+    // The top bar is always ours; the dock only when the user opted in.
+    _controls(actor) {
+        if (!this._enabled)
+            return false;
+        if (actor === Main.layoutManager.panelBox)
+            return true;
+        return this._settings.get_boolean('chrome-fade-dock');
+    }
+
+    _state(actor) {
+        let state = this._states.get(actor);
+        if (state)
+            return state;
+
+        state = {
+            visible: actor.visible,
+            target: null,
+            token: 0,
+            transition: null,
+            reactive: actor.reactive,
+        };
+        state.destroyId = actor.connect('destroy', () => {
+            state.token += 1;
+            if (this._states.get(actor) === state)
+                this._states.delete(actor);
+        });
+        this._states.set(actor, state);
+        return state;
+    }
+
+    _animateOut(actor, state) {
+        const offset = this._slideOffset(actor);
+        const token = state.token;
+        const label = this._label(actor);
+
+        // The actor is still mapped while it fades out and must not take input
+        // meant for the fullscreen window underneath.
+        actor.reactive = false;
+        console.log(`###FADE out ${label} ${this._duration()}ms ` +
+            `offset=${offset.x},${offset.y}`);
+
+        state.transition = actor.ease({
+            opacity: 0,
+            'translation-x': offset.x,
+            'translation-y': offset.y,
+            duration: this._duration(),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                if (state.token !== token)
+                    return;
+                state.transition = null;
+                actor.opacity = 255;
+                actor.translation_x = 0;
+                actor.translation_y = 0;
+                actor.visible = false;
+                actor.reactive = state.reactive;
+                console.log(`###FADE out ${label} done`);
+            },
+        });
+    }
+
+    _animateIn(actor, state) {
+        const offset = this._slideOffset(actor);
+        const token = state.token;
+        const label = this._label(actor);
+
+        actor.opacity = 0;
+        actor.translation_x = offset.x;
+        actor.translation_y = offset.y;
+        actor.visible = true;
+        actor.reactive = false;
+        console.log(`###FADE in ${label} ${this._duration()}ms ` +
+            `offset=${offset.x},${offset.y}`);
+
+        state.transition = actor.ease({
+            opacity: 255,
+            'translation-x': 0,
+            'translation-y': 0,
+            duration: this._duration(),
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                if (state.token !== token)
+                    return;
+                state.transition = null;
+                actor.reactive = state.reactive;
+                console.log(`###FADE in ${label} done`);
+            },
+        });
+    }
+
+    // Direction of travel: along the edge the actor is anchored to. A full
+    // width actor (the top bar) moves vertically, a full height one (a side
+    // dock) horizontally.
+    _slideOffset(actor) {
+        const lm = Main.layoutManager;
+        const monitor = lm.monitors[lm.findIndexForActor(actor)];
+        const [x, y] = actor.get_transformed_position();
+        const [width, height] = actor.get_transformed_size();
+
+        // An actor that has never been allocated reports NaN here; a zero
+        // offset degrades to a pure fade, which is still correct.
+        if (!monitor ||
+            !Number.isFinite(x) || !Number.isFinite(y) ||
+            !Number.isFinite(width) || !Number.isFinite(height) ||
+            width <= 0 || height <= 0)
+            return { x: 0, y: 0 };
+
+        const spansWidth = width >= monitor.width * 0.75;
+        const spansHeight = height >= monitor.height * 0.75;
+        const middleX = x + (width / 2);
+        const middleY = y + (height / 2);
+
+        if (spansWidth && !spansHeight)
+            return { x: 0, y: middleY < monitor.y + (monitor.height / 2) ? -height : height };
+        if (spansHeight && !spansWidth)
+            return { x: middleX < monitor.x + (monitor.width / 2) ? -width : width, y: 0 };
+
+        // Anything else: move it off the edge it is closest to.
+        const distances = [
+            ['left', x - monitor.x, { x: -width, y: 0 }],
+            ['right', monitor.x + monitor.width - (x + width), { x: width, y: 0 }],
+            ['top', y - monitor.y, { x: 0, y: -height }],
+            ['bottom', monitor.y + monitor.height - (y + height), { x: 0, y: height }],
+        ];
+        let best = distances[0];
+        for (const entry of distances) {
+            if (entry[1] < best[1])
+                best = entry;
+        }
+        return best[2];
+    }
+
+    _label(actor) {
+        return actor === Main.layoutManager.panelBox ? 'panel' : 'dock';
+    }
+
+    _duration() {
+        return this._settings.get_int('chrome-fade-duration');
+    }
+
+    _cancel(actor, state) {
+        state.token += 1;
+        state.transition = null;
+        try {
+            actor.remove_all_transitions();
+        } catch (e) {
+            console.warn('###FADE could not stop transition: ' + e.message);
+        }
+    }
+
+    // Drop an actor we no longer animate and put it back to a neutral state.
+    _release(actor) {
+        const state = this._states.get(actor);
+        if (!state)
+            return;
+        this._cancel(actor, state);
+        if (state.destroyId) {
+            try {
+                actor.disconnect(state.destroyId);
+            } catch (e) {}
+        }
+        this._states.delete(actor);
+        try {
+            actor.opacity = 255;
+            actor.translation_x = 0;
+            actor.translation_y = 0;
+            actor.reactive = state.reactive;
+        } catch (e) {
+            // The actor is gone; nothing left to restore.
+        }
+    }
+
+    _resync() {
+        for (const actor of [...this._states.keys()]) {
+            if (this._controls(actor))
+                continue;
+            this._release(actor);
+            actor.visible = this._shouldShow(actor);
+        }
+    }
+}
+
+
 export class IntegrationsManager {
     constructor(ext) {
         this.ext = ext;
@@ -2029,6 +2352,7 @@ export class IntegrationsManager {
             fullscreen: new FullscreenEmptyWorkspace(ext),
             datemenu: new DateMenuFormatter(ext),
             magiclamp: new MagicLampEffects(ext),
+            chromefade: new FullscreenChromeFade(ext),
         };
     }
 
@@ -2046,6 +2370,7 @@ export class IntegrationsManager {
             'fullscreen-new-workspace': ['fullscreen', 'fullscreen-new-workspace'],
             'date-menu-format-enabled': ['datemenu', 'date-menu-format-enabled'],
             'magic-lamp-enabled': ['magiclamp', 'magic-lamp-enabled'],
+            'chrome-fade-enabled': ['chromefade', 'chrome-fade-enabled'],
         };
 
         for (const [key, [name, settingKey]] of Object.entries(map)) {

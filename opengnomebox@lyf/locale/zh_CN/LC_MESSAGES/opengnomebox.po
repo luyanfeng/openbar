@@ -250,6 +250,9 @@ msgstr "最大化的窗口也移动"
 msgid "Alternate Secondary Menu BG Color (auto)"
 msgstr "自动选择次级菜单背景色"
 
+msgid "Animate the dock too"
+msgstr "同时为 dock 添加动画"
+
 msgid "Animate windows collapsing into their icon when minimized."
 msgstr "最小化时让窗口收拢到图标位置。"
 
@@ -921,6 +924,9 @@ msgstr "完整日期和时间"
 
 msgid "Full token reference"
 msgstr "完整 token 参考"
+
+msgid "Fullscreen Animation"
+msgstr "全屏动画"
 
 msgid "Fullscreen to Empty Workspace"
 msgstr "全屏时移到空工作区"
@@ -1648,6 +1654,9 @@ msgstr "正弦"
 msgid "Single Features"
 msgstr "单项功能"
 
+msgid "Slide and fade the top bar and the dock out instead of hiding them instantly when a fullscreen window is shown."
+msgstr "全屏窗口出现时，顶栏与 dock 改为滑出并淡出隐藏，而不是瞬间消失。"
+
 msgid "Slider Handle Border"
 msgstr "滑块手柄边框"
 
@@ -1692,6 +1701,9 @@ msgstr "文本对齐"
 
 msgid "The currently active clipboard entry will not be removed when clearing history"
 msgstr "清空历史时不会删除当前活动的剪贴板条目"
+
+msgid "The dock slides off its screen edge together with the top bar."
+msgstr "dock 与顶栏一起滑出其所在的屏幕边缘。"
 
 msgid "The extension “%s” already provides this feature and is currently enabled. Enabling the built-in copy will turn that extension off."
 msgstr "扩展“%s”已提供此功能且当前已启用。启用内置副本会停用该扩展。"

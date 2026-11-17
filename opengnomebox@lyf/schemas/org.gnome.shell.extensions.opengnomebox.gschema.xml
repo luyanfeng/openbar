@@ -1643,6 +1643,25 @@
       <description>Mesh subdivisions along the y axis.</description>
     </key>
 
+    <!-- Fullscreen chrome animation: slide + fade the top bar (and the dock)
+         out instead of hiding it abruptly when a fullscreen window is shown -->
+    <key type="b" name="chrome-fade-enabled">
+      <default>false</default>
+      <summary>Animate the top bar and dock in fullscreen</summary>
+      <description>GNOME Shell hides the top bar and the dock immediately when a fullscreen window is shown. This slides and fades them out instead, and back in when the fullscreen window goes away.</description>
+    </key>
+    <key type="i" name="chrome-fade-duration">
+      <default>200</default>
+      <range min="60" max="600"/>
+      <summary>Chrome animation duration</summary>
+      <description>Duration of the slide and fade in milliseconds.</description>
+    </key>
+    <key type="b" name="chrome-fade-dock">
+      <default>true</default>
+      <summary>Animate the dock as well</summary>
+      <description>Also animate the dock when it is hidden for a fullscreen window.</description>
+    </key>
+
     <!-- ------------------------------------------------------------------
          Topbar indicator grouping (folded tray)
          ------------------------------------------------------------------ -->

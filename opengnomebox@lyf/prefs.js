@@ -3948,6 +3948,41 @@ class OpenbarPrefs {
         addDoubleRow('magic-lamp-y-tiles', _('Vertical tiles'), 2, 40, 1);
     }
 
+    _buildChromeFadePanel(panel) {
+        panel.append(this._makeFeatureHeader(
+            _('Fullscreen Animation'),
+            _('Slide and fade the top bar and the dock out instead of hiding them ' +
+                'instantly when a fullscreen window is shown.'),
+            'chrome-fade-enabled',
+            'video-display-symbolic'));
+
+        const fadeGroup = new Adw.PreferencesGroup({});
+        panel.append(fadeGroup);
+
+        const durationRow = new Adw.SpinRow({
+            title: _('Duration (ms)'),
+            adjustment: new Gtk.Adjustment({
+                lower: 60, upper: 600, step_increment: 20, page_increment: 100,
+                value: this._settings.get_int('chrome-fade-duration'),
+            }),
+        });
+        // Int key against a double SpinRow value: bind would fail silently.
+        durationRow.connect('notify::value', () => {
+            const value = Math.round(durationRow.value);
+            if (this._settings.get_int('chrome-fade-duration') !== value)
+                this._settings.set_int('chrome-fade-duration', value);
+        });
+        fadeGroup.add(durationRow);
+
+        const dockRow = new Adw.SwitchRow({
+            title: _('Animate the dock too'),
+            subtitle: _('The dock slides off its screen edge together with the top bar.'),
+        });
+        this._settings.bind('chrome-fade-dock', dockRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        fadeGroup.add(dockRow);
+    }
+
     buildExtensionsPage(window) {
         const page = new Adw.PreferencesPage({
             name: 'extensions',
@@ -4204,6 +4239,8 @@ class OpenbarPrefs {
             'date-menu-format-enabled', panel => this._buildClockPanel(panel, window));
         addFeature('lamp', _('Magic lamp minimize'), 'night-light-symbolic',
             'magic-lamp-enabled', panel => this._buildLampPanel(panel));
+        addFeature('chromefade', _('Fullscreen Animation'), 'video-display-symbolic',
+            'chrome-fade-enabled', panel => this._buildChromeFadePanel(panel));
 
         window.connect('unrealize', () => {
             featureSettingsIds.forEach(id => {
