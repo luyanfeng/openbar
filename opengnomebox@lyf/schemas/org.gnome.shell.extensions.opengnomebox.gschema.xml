@@ -1559,6 +1559,90 @@
       <summary>Clipboard history</summary>
       <description>Keep a history of copied text and images in a menu on the top bar. If the standalone "Clipboard Indicator" extension is enabled, this stays off and the preferences offer to disable that extension instead, so the clipboard is only recorded once.</description>
     </key>
+    <!-- Date menu clock formatting (ported from Date Menu Formatter) -->
+    <key type="b" name="date-menu-format-enabled">
+      <default>false</default>
+      <summary>Format the top bar clock</summary>
+      <description>Replace the date menu clock with a label rendered from a Luxon date pattern. If the standalone "Date Menu Formatter" extension is enabled, this stays off and the preferences offer to disable that extension instead, so the clock is only replaced once.</description>
+    </key>
+    <key type="s" name="date-menu-format-pattern">
+      <default>"EEE, MMM d  H:mm"</default>
+      <summary>Date format pattern</summary>
+      <description>Luxon format tokens, for example "MM月dd日 H:mm EEE". An empty pattern keeps the shell clock.</description>
+    </key>
+    <key type="i" name="date-menu-format-font-size">
+      <default>10</default>
+      <range min="5" max="40"/>
+      <summary>Clock font size</summary>
+      <description>Font size of the formatted clock in points.</description>
+    </key>
+    <key type="s" name="date-menu-format-font-weight">
+      <default>"initial"</default>
+      <summary>Clock font weight</summary>
+      <description>One of initial, lighter, normal, bold or bolder.</description>
+    </key>
+    <key type="s" name="date-menu-format-align">
+      <default>"center"</default>
+      <summary>Clock text alignment</summary>
+      <description>One of left, center or right.</description>
+    </key>
+    <key type="i" name="date-menu-format-update-level">
+      <default>1</default>
+      <range min="0" max="15"/>
+      <summary>Clock refresh rate</summary>
+      <description>0 refreshes once a minute; 1 to 15 refreshes that many times per second.</description>
+    </key>
+    <key type="s" name="date-menu-format-locale">
+      <default>""</default>
+      <summary>Clock locale</summary>
+      <description>Locale passed to the formatter. Empty follows the system locale.</description>
+    </key>
+    <key type="s" name="date-menu-format-calendar">
+      <default>""</default>
+      <summary>Clock calendar</summary>
+      <description>Calendar passed to the formatter, for example gregory or persian. Empty follows the system calendar.</description>
+    </key>
+    <key type="s" name="date-menu-format-timezone">
+      <default>""</default>
+      <summary>Clock time zone</summary>
+      <description>IANA time zone passed to the formatter. Empty follows the system time zone.</description>
+    </key>
+    <key type="b" name="date-menu-format-all-panels">
+      <default>false</default>
+      <summary>Format the clock on all Dash to Panel panels</summary>
+      <description>Only relevant when Dash to Panel is in use.</description>
+    </key>
+
+    <!-- Magic lamp minimize effect (ported from Compiz alike magic lamp effect) -->
+    <key type="b" name="magic-lamp-enabled">
+      <default>false</default>
+      <summary>Magic lamp minimize effect</summary>
+      <description>Animate windows collapsing into their icon when minimized. If the standalone "Compiz alike magic lamp effect" extension is enabled, this stays off and the preferences offer to disable that extension instead, because both patch the same window manager hooks.</description>
+    </key>
+    <key type="s" name="magic-lamp-effect">
+      <default>"default"</default>
+      <summary>Deformation style</summary>
+      <description>One of default or sine.</description>
+    </key>
+    <key type="d" name="magic-lamp-duration">
+      <default>400</default>
+      <range min="100" max="2000"/>
+      <summary>Animation duration</summary>
+      <description>Base duration in milliseconds.</description>
+    </key>
+    <key type="d" name="magic-lamp-x-tiles">
+      <default>10</default>
+      <range min="2" max="40"/>
+      <summary>Horizontal deformation tiles</summary>
+      <description>Mesh subdivisions along the x axis.</description>
+    </key>
+    <key type="d" name="magic-lamp-y-tiles">
+      <default>10</default>
+      <range min="2" max="40"/>
+      <summary>Vertical deformation tiles</summary>
+      <description>Mesh subdivisions along the y axis.</description>
+    </key>
+
     <!-- ------------------------------------------------------------------
          Topbar indicator grouping (folded tray)
          ------------------------------------------------------------------ -->

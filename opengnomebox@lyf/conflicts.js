@@ -50,6 +50,14 @@ export const CONFLICTING_EXTENSIONS = {
         uuid: 'lilypad@shendrew.github.io',
         label: 'Lilypad',
     },
+    'date-menu-format-enabled': {
+        uuid: 'date-menu-formatter@marcinjakubowski.github.com',
+        label: 'Date Menu Formatter',
+    },
+    'magic-lamp-enabled': {
+        uuid: 'compiz-alike-magic-lamp-effect@hermes83.github.com',
+        label: 'Compiz alike magic lamp effect',
+    },
 };
 
 // Extensions that conflict with Open Gnome Box as a whole rather than with one

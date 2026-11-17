@@ -37,6 +37,8 @@ import {
     CONFLICTING_EXTENSIONS,
     conflictingExtensionEnabled,
 } from './conflicts.js';
+import { DateMenuFormatter } from './datemenu.js';
+import { MagicLampEffects } from './magiclamp.js';
 
 // A window configured to show on all workspaces (Meta's "on all workspaces"
 // state - the same switch the UI calls sticky) follows the active workspace:
@@ -2025,6 +2027,8 @@ export class IntegrationsManager {
             gestures: new SwapFingerGestures(ext),
             drives: new DriveMenu(ext),
             fullscreen: new FullscreenEmptyWorkspace(ext),
+            datemenu: new DateMenuFormatter(ext),
+            magiclamp: new MagicLampEffects(ext),
         };
     }
 
@@ -2040,6 +2044,8 @@ export class IntegrationsManager {
             'swap-finger-gestures': ['gestures', 'swap-finger-gestures'],
             'drive-menu-enabled': ['drives', 'drive-menu-enabled'],
             'fullscreen-new-workspace': ['fullscreen', 'fullscreen-new-workspace'],
+            'date-menu-format-enabled': ['datemenu', 'date-menu-format-enabled'],
+            'magic-lamp-enabled': ['magiclamp', 'magic-lamp-enabled'],
         };
 
         for (const [key, [name, settingKey]] of Object.entries(map)) {
