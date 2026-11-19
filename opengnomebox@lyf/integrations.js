@@ -39,6 +39,7 @@ import {
 } from './conflicts.js';
 import { DateMenuFormatter } from './datemenu.js';
 import { MagicLampEffects } from './magiclamp.js';
+import { UniteEnhancements } from './unite.js';
 
 // A window configured to show on all workspaces (Meta's "on all workspaces"
 // state - the same switch the UI calls sticky) follows the active workspace:
@@ -2353,6 +2354,7 @@ export class IntegrationsManager {
             datemenu: new DateMenuFormatter(ext),
             magiclamp: new MagicLampEffects(ext),
             chromefade: new FullscreenChromeFade(ext),
+            unite: new UniteEnhancements(ext),
         };
     }
 
@@ -2371,6 +2373,7 @@ export class IntegrationsManager {
             'date-menu-format-enabled': ['datemenu', 'date-menu-format-enabled'],
             'magic-lamp-enabled': ['magiclamp', 'magic-lamp-enabled'],
             'chrome-fade-enabled': ['chromefade', 'chrome-fade-enabled'],
+            'unite-enabled': ['unite', 'unite-enabled'],
         };
 
         for (const [key, [name, settingKey]] of Object.entries(map)) {

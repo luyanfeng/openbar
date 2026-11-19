@@ -58,6 +58,10 @@ export const CONFLICTING_EXTENSIONS = {
         uuid: 'compiz-alike-magic-lamp-effect@hermes83.github.com',
         label: 'Compiz alike magic lamp effect',
     },
+    'unite-enabled': {
+        uuid: 'unite@hardpixel.eu',
+        label: 'Unite',
+    },
 };
 
 // Extensions that conflict with Open Gnome Box as a whole rather than with one

@@ -1662,6 +1662,40 @@
       <description>Also animate the dock when it is hidden for a fullscreen window.</description>
     </key>
 
+    <!-- Unite core: maximized-window buttons and window title in the top bar.
+         Panel spacing and legacy tray are intentionally not ported: this
+         extension already provides status-spacing and the lilypad group. -->
+    <key type="b" name="unite-enabled">
+      <default>false</default>
+      <summary>Unite enhancements</summary>
+      <description>Show window controls and the current window title in the top bar. If the standalone "Unite" extension is enabled, this stays off and the preferences offer to disable that extension instead.</description>
+    </key>
+    <key type="b" name="unite-buttons-enabled">
+      <default>true</default>
+      <summary>Top bar window buttons</summary>
+      <description>Show minimize, maximize and close buttons for the focused window in the top bar.</description>
+    </key>
+    <key type="b" name="unite-title-enabled">
+      <default>true</default>
+      <summary>Show the window title</summary>
+      <description>Replace the application menu label with the focused window's title.</description>
+    </key>
+    <key type="s" name="unite-buttons-position">
+      <default>'right'</default>
+      <summary>Window buttons side</summary>
+      <description>Which side of the top bar hosts the window buttons: left or right.</description>
+    </key>
+    <key type="s" name="unite-buttons-order">
+      <default>'minimize,maximize,close'</default>
+      <summary>Window buttons order</summary>
+      <description>Comma-separated order of the window buttons; allowed values are minimize, maximize and close.</description>
+    </key>
+    <key type="s" name="unite-show-mode">
+      <default>'maximized'</default>
+      <summary>When to show the window buttons and title</summary>
+      <description>always, maximized (fully maximized), tiled, or both (maximized or tiled).</description>
+    </key>
+
     <!-- ------------------------------------------------------------------
          Topbar indicator grouping (folded tray)
          ------------------------------------------------------------------ -->

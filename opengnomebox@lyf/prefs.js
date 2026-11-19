@@ -3983,6 +3983,66 @@ class OpenbarPrefs {
         fadeGroup.add(dockRow);
     }
 
+    _buildUnitePanel(panel) {
+        panel.append(this._makeFeatureHeader(
+            _('Unite Enhancements'),
+            _('Show minimize, maximize and close buttons and the window title in the top bar for maximized windows.'),
+            'unite-enabled',
+            'window-new-symbolic'));
+
+        const group = new Adw.PreferencesGroup({});
+        panel.append(group);
+
+        const buttonsRow = new Adw.SwitchRow({
+            title: _('Window buttons'),
+            subtitle: _('Show controls for the focused window in the top bar.'),
+        });
+        this._settings.bind('unite-buttons-enabled', buttonsRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        group.add(buttonsRow);
+
+        const titleRow = new Adw.SwitchRow({
+            title: _('Window title'),
+            subtitle: _('Show the focused window title instead of the application name.'),
+        });
+        this._settings.bind('unite-title-enabled', titleRow, 'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        group.add(titleRow);
+
+        const combo = (title, key, values, labels) => {
+            const row = new Adw.ComboRow({ title });
+            const model = new Gtk.StringList();
+            labels.forEach(label => model.append(label));
+            row.model = model;
+            const current = values.indexOf(this._settings.get_string(key));
+            row.selected = current >= 0 ? current : 0;
+            row.connect('notify::selected', () => {
+                const value = values[row.selected] ?? values[0];
+                if (this._settings.get_string(key) !== value)
+                    this._settings.set_string(key, value);
+            });
+            group.add(row);
+        };
+
+        combo(_('Show when'), 'unite-show-mode',
+            ['always', 'maximized', 'tiled', 'both'],
+            [_('Always'), _('Maximized'), _('Tiled'), _('Maximized or tiled')]);
+
+        combo(_('Button side'), 'unite-buttons-position',
+            ['right', 'left'], [_('Right'), _('Left')]);
+
+        const orderRow = new Adw.EntryRow({
+            title: _('Button order'),
+            text: this._settings.get_string('unite-buttons-order'),
+        });
+        orderRow.connect('notify::text', () => {
+            const value = orderRow.text.trim();
+            if (value && this._settings.get_string('unite-buttons-order') !== value)
+                this._settings.set_string('unite-buttons-order', value);
+        });
+        group.add(orderRow);
+    }
+
     buildExtensionsPage(window) {
         const page = new Adw.PreferencesPage({
             name: 'extensions',
@@ -4241,6 +4301,8 @@ class OpenbarPrefs {
             'magic-lamp-enabled', panel => this._buildLampPanel(panel));
         addFeature('chromefade', _('Fullscreen Animation'), 'video-display-symbolic',
             'chrome-fade-enabled', panel => this._buildChromeFadePanel(panel));
+        addFeature('unite', _('Unite Enhancements'), 'window-new-symbolic',
+            'unite-enabled', panel => this._buildUnitePanel(panel));
 
         window.connect('unrealize', () => {
             featureSettingsIds.forEach(id => {
