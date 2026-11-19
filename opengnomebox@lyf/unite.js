@@ -195,10 +195,6 @@ class UniteAppMenuLabel extends PanelMenu.Button {
         }
     }
 
-    setMaxWidth(width) {
-        this._label.set_style(width > 0 ? `max-width: ${width}px;` : '');
-    }
-
     _onDestroy() {
         if (this.menu) {
             this._menuManager.removeMenu(this.menu);
@@ -212,7 +208,6 @@ class UniteAppMenuLabel extends PanelMenu.Button {
 
 export class UniteEnhancements {
     constructor(ext) {
-        this.ext = ext;
         this._settings = ext._settings;
         this._enabled = false;
         this._signalIds = [];
